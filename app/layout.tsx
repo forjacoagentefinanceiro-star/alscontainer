@@ -21,7 +21,7 @@ export const metadata: Metadata = {
       { url: '/logo.png', type: 'image/png' },
     ],
     apple: [
-      { url: '/logo.png', sizes: '180x180' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
     ],
     shortcut: '/favicon.svg',
   },
