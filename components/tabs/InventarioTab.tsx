@@ -73,7 +73,8 @@ const Label = ({ children }: { children: React.ReactNode }) => (
   <label className="block text-xs font-medium text-gray-500 mb-1">{children}</label>
 )
 
-export function InventarioTab({ initialContainers }: { initialContainers: Container[] }) {
+export function InventarioTab({ initialContainers, role = 'viewer' }: { initialContainers: Container[], role?: 'admin' | 'editor' | 'viewer' }) {
+  const canEdit = role === 'admin' || role === 'editor'
   const [containers, setContainers] = useState<Container[]>(initialContainers)
   const [form, setForm] = useState<Form>(emptyForm())
   const [editId, setEditId] = useState<string | null>(null)
@@ -253,11 +254,13 @@ export function InventarioTab({ initialContainers }: { initialContainers: Contai
             style={{ background: '#7DC242' }}>
             ≡ Exportar XLS
           </button>
-          <button onClick={openAdd}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: '#1B4F8A' }}>
-            + Novo container
-          </button>
+          {canEdit && (
+            <button onClick={openAdd}
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: '#1B4F8A' }}>
+              + Novo container
+            </button>
+          )}
         </div>
       </div>
 
@@ -483,18 +486,20 @@ export function InventarioTab({ initialContainers }: { initialContainers: Contai
               )}
 
               {/* Ações */}
-              <div className="flex gap-2">
-                <button onClick={() => openEdit(c)}
-                  className="flex-1 py-2 rounded text-xs font-semibold border transition-colors"
-                  style={{ borderColor: '#1B4F8A', color: '#1B4F8A' }}>
-                  Editar
-                </button>
-                <button onClick={() => handleDelete(c.id)}
-                  className="flex-1 py-2 rounded text-xs font-semibold border transition-colors"
-                  style={{ borderColor: '#fecaca', color: '#ef4444', background: '#fef2f2' }}>
-                  Excluir
-                </button>
-              </div>
+              {canEdit && (
+                <div className="flex gap-2">
+                  <button onClick={() => openEdit(c)}
+                    className="flex-1 py-2 rounded text-xs font-semibold border transition-colors"
+                    style={{ borderColor: '#1B4F8A', color: '#1B4F8A' }}>
+                    Editar
+                  </button>
+                  <button onClick={() => handleDelete(c.id)}
+                    className="flex-1 py-2 rounded text-xs font-semibold border transition-colors"
+                    style={{ borderColor: '#fecaca', color: '#ef4444', background: '#fef2f2' }}>
+                    Excluir
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -547,18 +552,20 @@ export function InventarioTab({ initialContainers }: { initialContainers: Contai
                     {c.obs ? (c.obs.length > 14 ? c.obs.slice(0, 14) + '…' : c.obs) : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => openEdit(c)}
-                        className="px-2.5 py-1 rounded text-xs font-medium border transition-colors hover:bg-blue-50"
-                        style={{ borderColor: '#d1d5db', color: '#374151' }}>
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(c.id)}
-                        className="px-2 py-1 rounded text-xs text-red-500 hover:bg-red-50 transition-colors"
-                        title="Excluir">
-                        ···
-                      </button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openEdit(c)}
+                          className="px-2.5 py-1 rounded text-xs font-medium border transition-colors hover:bg-blue-50"
+                          style={{ borderColor: '#d1d5db', color: '#374151' }}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDelete(c.id)}
+                          className="px-2 py-1 rounded text-xs text-red-500 hover:bg-red-50 transition-colors"
+                          title="Excluir">
+                          ···
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

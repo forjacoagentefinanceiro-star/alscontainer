@@ -2,17 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Package2, Hash, Upload, FileCode2 } from 'lucide-react'
+import { Package2, Hash, Upload, FileCode2, Users } from 'lucide-react'
 
-const items = [
+const baseItems = [
   { href: '/inventario', label: 'Inventário', icon: Package2 },
   { href: '/gerador',    label: 'Gerador',    icon: Hash },
   { href: '/importar',   label: 'Importar',   icon: Upload },
   { href: '/exportar',   label: 'Exportar',   icon: FileCode2 },
 ]
 
-export function BottomNav() {
+export function BottomNav({ role }: { role?: string }) {
   const pathname = usePathname()
+  const items = role === 'admin'
+    ? [...baseItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
+    : baseItems
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"

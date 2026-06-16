@@ -28,7 +28,25 @@ export type Container = {
   created_at: string
 }
 
-// ---- CRUD containers ----
+export type UserProfile = {
+  id: string
+  email: string
+  name: string
+  role: 'admin' | 'editor' | 'viewer'
+  approved: boolean
+  created_at: string
+}
+
+// ---- Perfil do usuário atual ----
+export async function getMyProfile(): Promise<UserProfile | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await supabase.from('user_profiles').select('*').eq('id', user.id).single()
+  return data as UserProfile | null
+}
+
+// ---- CRUD containers (sem filtro user_id — todos aprovados veem tudo) ----
 export async function addContainer(payload: Omit<Container, 'id' | 'user_id' | 'created_at'>) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -43,7 +61,7 @@ export async function updateContainer(id: string, payload: Partial<Omit<Containe
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { error } = await supabase.from('containers').update(payload).eq('id', id).eq('user_id', user.id)
+  const { error } = await supabase.from('containers').update(payload).eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/')
   return { error: null }
@@ -53,7 +71,7 @@ export async function deleteContainer(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { error } = await supabase.from('containers').delete().eq('id', id).eq('user_id', user.id)
+  const { error } = await supabase.from('containers').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/')
   return { error: null }
@@ -68,6 +86,49 @@ export async function importContainers(items: Omit<Container, 'id' | 'user_id' |
   if (error) return { error: error.message, count: 0 }
   revalidatePath('/')
   return { error: null, count: count ?? items.length }
+}
+
+// ---- Gestão de usuários (admin) ----
+export async function getUsers(): Promise<UserProfile[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return (data ?? []) as UserProfile[]
+}
+
+export async function approveUser(userId: string, role: 'admin' | 'editor' | 'viewer') {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ approved: true, role })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
+export async function updateUserRole(userId: string, role: 'admin' | 'editor' | 'viewer') {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ role })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
+export async function revokeUser(userId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ approved: false })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
 }
 
 // ---- Gerador de Numeração ----
@@ -87,41 +148,23 @@ export async function saveSession(data: {
     .from('container_sessions')
     .insert({
       user_id: user.id,
-      owner: data.owner,
-      cat: data.cat,
-      qty: data.qty,
-      new_count: data.new_count,
-      dup_count: data.dup_count,
-      nums: data.nums,
+      owner: data.owner, cat: data.cat, qty: data.qty,
+      new_count: data.new_count, dup_count: data.dup_count, nums: data.nums,
     })
-    .select()
-    .single()
+    .select().single()
 
   if (error) throw error
 
-  const rows = data.nums
-    .filter(n => !n.dup)
-    .map(n => ({
-      user_id: user.id,
-      container_key: `${data.owner}${data.cat} ${n.ser}`,
-      full_number: n.full,
-      check_digit: n.cd,
-    }))
-
-  if (rows.length > 0) {
-    await supabase.from('used_numbers').insert(rows)
-  }
+  const rows = data.nums.filter(n => !n.dup).map(n => ({
+    user_id: user.id,
+    container_key: `${data.owner}${data.cat} ${n.ser}`,
+    full_number: n.full,
+    check_digit: n.cd,
+  }))
+  if (rows.length > 0) await supabase.from('used_numbers').insert(rows)
 
   revalidatePath('/')
   return session
-}
-
-export async function deleteSession(sessionId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
-  await supabase.from('container_sessions').delete().eq('id', sessionId).eq('user_id', user.id)
-  revalidatePath('/')
 }
 
 export async function clearAllHistory() {

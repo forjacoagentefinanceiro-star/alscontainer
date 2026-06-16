@@ -4,23 +4,26 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
-  LayoutDashboard,
   Package2,
   Hash,
   Upload,
   FileCode2,
+  Users,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
 
-const navItems = [
+const baseItems = [
   { href: '/inventario', label: 'Inventário',  icon: Package2  },
   { href: '/gerador',    label: 'Gerador ISO', icon: Hash      },
   { href: '/importar',   label: 'Importar',    icon: Upload    },
   { href: '/exportar',   label: 'Exportar',    icon: FileCode2 },
 ]
 
-export function Sidebar() {
+export function Sidebar({ role }: { role?: string }) {
+  const navItems = role === 'admin'
+    ? [...baseItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
+    : baseItems
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
 

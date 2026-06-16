@@ -22,12 +22,34 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  if (!user && pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Rotas públicas — sem verificação
+  const publicPaths = ['/login', '/aguardando', '/reset-senha']
+  const isPublic = publicPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+
+  if (isPublic) {
+    if (user && pathname === '/login') {
+      return NextResponse.redirect(new URL('/inventario', request.url))
+    }
+    return supabaseResponse
   }
 
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
+  // Não autenticado → login
+  if (!user) return NextResponse.redirect(new URL('/login', request.url))
+
+  // Verifica perfil e aprovação
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('approved, role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || !profile.approved) {
+    return NextResponse.redirect(new URL('/aguardando', request.url))
+  }
+
+  // /usuarios → apenas admin
+  if (pathname.startsWith('/usuarios') && profile.role !== 'admin') {
+    return NextResponse.redirect(new URL('/inventario', request.url))
   }
 
   return supabaseResponse

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+type Mode = 'login' | 'signup' | 'forgot'
+
 export default function LoginPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -11,29 +13,51 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<Mode>('login')
   const [success, setSuccess] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(''); setSuccess(''); setLoading(true)
+
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
       else router.push('/')
-    } else {
+    } else if (mode === 'signup') {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) setError(error.message)
-      else setSuccess('Conta criada! Verifique seu e-mail para confirmar o cadastro.')
+      else setSuccess('Conta criada! Aguarde a aprovação do administrador para acessar o sistema.')
+    } else {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-senha`,
+      })
+      if (error) setError(error.message)
+      else setSuccess('E-mail de redefinição enviado! Verifique sua caixa de entrada.')
     }
     setLoading(false)
+  }
+
+  function switchMode(m: Mode) {
+    setMode(m); setError(''); setSuccess(''); setPassword('')
+  }
+
+  const titles: Record<Mode, string> = {
+    login:  'Entrar na plataforma',
+    signup: 'Criar conta',
+    forgot: 'Redefinir senha',
+  }
+
+  const btnLabels: Record<Mode, string> = {
+    login:  'Entrar',
+    signup: 'Criar conta',
+    forgot: 'Enviar e-mail',
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f0f2f5' }}>
       <div className="w-full max-w-sm">
 
-        {/* Logo card — fundo do PNG é #1B4F8A, sem padding extra */}
         <div className="text-center mb-6">
           <div className="inline-block rounded-xl overflow-hidden mb-4"
             style={{ background: '#1B4F8A', boxShadow: '0 4px 24px rgba(27,79,138,0.35)' }}>
@@ -44,10 +68,9 @@ export default function LoginPage() {
           <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Sistema interno · Itajaí, SC</p>
         </div>
 
-        {/* Form card */}
         <div className="bg-white rounded-xl p-6" style={{ border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
           <h2 className="text-xs font-semibold uppercase tracking-wider mb-5" style={{ color: '#6b7280' }}>
-            {mode === 'login' ? 'Entrar na plataforma' : 'Criar conta'}
+            {titles[mode]}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,15 +83,18 @@ export default function LoginPage() {
                 onBlur={e => e.currentTarget.style.borderColor = '#d1d5db'}
                 placeholder="seu@email.com" />
             </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Senha</label>
-              <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                className="w-full rounded border px-3 py-2.5 text-sm outline-none transition-colors"
-                style={{ borderColor: '#d1d5db', color: '#374151' }}
-                onFocus={e => e.currentTarget.style.borderColor = '#1B4F8A'}
-                onBlur={e => e.currentTarget.style.borderColor = '#d1d5db'}
-                placeholder="••••••••" />
-            </div>
+
+            {mode !== 'forgot' && (
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Senha</label>
+                <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                  className="w-full rounded border px-3 py-2.5 text-sm outline-none transition-colors"
+                  style={{ borderColor: '#d1d5db', color: '#374151' }}
+                  onFocus={e => e.currentTarget.style.borderColor = '#1B4F8A'}
+                  onBlur={e => e.currentTarget.style.borderColor = '#d1d5db'}
+                  placeholder="••••••••" />
+              </div>
+            )}
 
             {error && (
               <div className="rounded px-3 py-2 text-xs" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
@@ -84,17 +110,36 @@ export default function LoginPage() {
             <button type="submit" disabled={loading}
               className="w-full font-bold rounded py-2.5 text-sm text-white transition-opacity disabled:opacity-50 hover:opacity-90"
               style={{ background: '#1B4F8A' }}>
-              {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+              {loading ? 'Aguarde...' : btnLabels[mode]}
             </button>
           </form>
 
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setSuccess('') }}
-              className="text-xs transition-colors hover:underline"
-              style={{ color: '#6b7280' }}>
-              {mode === 'login' ? 'Não tem conta? Criar agora' : 'Já tenho conta → Entrar'}
-            </button>
+          <div className="mt-4 space-y-2 text-center">
+            {mode === 'login' && (
+              <>
+                <div>
+                  <button onClick={() => switchMode('forgot')}
+                    className="text-xs transition-colors hover:underline"
+                    style={{ color: '#1B4F8A' }}>
+                    Esqueci minha senha
+                  </button>
+                </div>
+                <div>
+                  <button onClick={() => switchMode('signup')}
+                    className="text-xs transition-colors hover:underline"
+                    style={{ color: '#6b7280' }}>
+                    Não tem conta? Criar agora
+                  </button>
+                </div>
+              </>
+            )}
+            {mode !== 'login' && (
+              <button onClick={() => switchMode('login')}
+                className="text-xs transition-colors hover:underline"
+                style={{ color: '#6b7280' }}>
+                ← Voltar para o login
+              </button>
+            )}
           </div>
         </div>
 
