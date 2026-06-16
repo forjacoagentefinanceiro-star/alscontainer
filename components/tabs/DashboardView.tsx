@@ -55,7 +55,7 @@ export function DashboardView({
 
   const hoje = new Date()
   const mesesRestantes = prazo
-    ? Math.max(1, (prazo.getFullYear() - hoje.getFullYear()) * 12 + (prazo.getMonth() - hoje.getMonth()))
+    ? Math.max(1, (prazo.getUTCFullYear() - hoje.getFullYear()) * 12 + (prazo.getUTCMonth() - hoje.getMonth()))
     : 0
   const ritmoNecessario = mesesRestantes > 0 ? Math.ceil(faltamUnidades / mesesRestantes) : faltamUnidades
 
