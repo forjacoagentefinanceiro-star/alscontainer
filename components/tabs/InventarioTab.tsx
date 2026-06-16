@@ -204,59 +204,69 @@ export function InventarioTab({ initialContainers }: { initialContainers: Contai
 
   return (
     <div>
-      {/* Métricas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      {/* Métricas — 2 cols mobile, 4 cols desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'TOTAL DE CONTAINERS', value: containers.length, accent: '#1B4F8A' },
-          { label: 'NACIONAIS', value: nacionais, accent: '#7DC242' },
-          { label: 'IMPORTADOS', value: importados, accent: '#1B4F8A' },
-          { label: 'VALOR TOTAL (R$)', value: fmtBRL(totalBRL), accent: '#7DC242', small: true },
+          { label: 'Total', value: String(containers.length), accent: '#1B4F8A' },
+          { label: 'Nacionais', value: String(nacionais), accent: '#7DC242' },
+          { label: 'Importados', value: String(importados), accent: '#1B4F8A' },
+          { label: 'Valor Total', value: fmtBRL(totalBRL), accent: '#7DC242', small: true },
         ].map(m => (
-          <div key={m.label} className="bg-white rounded-lg p-4 border-l-4"
+          <div key={m.label} className="bg-white rounded-xl p-3 md:p-4"
             style={{ border: '1px solid #e5e7eb', borderLeft: `4px solid ${m.accent}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <p className="text-xs font-semibold tracking-wide mb-1" style={{ color: '#6b7280' }}>{m.label}</p>
-            <p className={`font-bold ${m.small ? 'text-lg' : 'text-3xl'}`} style={{ color: '#1a2a3a' }}>{m.value}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>{m.label}</p>
+            <p className={`font-bold leading-tight ${m.small ? 'text-base md:text-lg' : 'text-2xl md:text-3xl'}`}
+              style={{ color: '#1a2a3a' }}>{m.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Barra de filtros + ações */}
-      <div className="flex flex-wrap gap-2 items-center mb-4">
+      {/* Barra de filtros — empilhada no mobile */}
+      <div className="space-y-2 md:space-y-0 md:flex md:flex-wrap md:gap-2 md:items-center mb-4">
+        {/* Linha 1 mobile: busca */}
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar número ou fornecedor..."
-          className="rounded border px-3 py-2 text-sm flex-1 min-w-40 outline-none focus:border-blue-500"
+          className="w-full md:flex-1 md:min-w-40 rounded border px-3 py-2 text-sm outline-none focus:border-blue-500"
           style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}
         />
-        <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as typeof filterTipo)}
-          className="rounded border px-3 py-2 text-sm outline-none"
-          style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}>
-          <option value="todos">Todos os tipos</option>
-          <option value="nacional">Nacional</option>
-          <option value="importado">Importado</option>
-        </select>
-        <select value={filterSize} onChange={e => setFilterSize(e.target.value)}
-          className="rounded border px-3 py-2 text-sm outline-none"
-          style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}>
-          {sizes.map(s => <option key={s} value={s}>{s === 'todos' ? 'Todos tamanhos' : s}</option>)}
-        </select>
-        <button onClick={handleExportXLS}
-          className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: '#7DC242' }}>
-          ≡ Exportar XLS
-        </button>
-        <button onClick={openAdd}
-          className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: '#1B4F8A' }}>
-          + Novo container
-        </button>
+        {/* Linha 2 mobile: filtros lado a lado */}
+        <div className="flex gap-2">
+          <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as typeof filterTipo)}
+            className="flex-1 rounded border px-2 py-2 text-sm outline-none"
+            style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}>
+            <option value="todos">Todos os tipos</option>
+            <option value="nacional">Nacional</option>
+            <option value="importado">Importado</option>
+          </select>
+          <select value={filterSize} onChange={e => setFilterSize(e.target.value)}
+            className="flex-1 rounded border px-2 py-2 text-sm outline-none"
+            style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}>
+            {sizes.map(s => <option key={s} value={s}>{s === 'todos' ? 'Todos tam.' : s}</option>)}
+          </select>
+        </div>
+        {/* Linha 3 mobile: botões lado a lado */}
+        <div className="flex gap-2">
+          <button onClick={handleExportXLS}
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: '#7DC242' }}>
+            ≡ Exportar XLS
+          </button>
+          <button onClick={openAdd}
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: '#1B4F8A' }}>
+            + Novo container
+          </button>
+        </div>
       </div>
 
-      {/* Modal de formulário */}
+      {/* Modal de formulário — tela cheia no mobile, centrado no desktop */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white w-full md:rounded-xl shadow-2xl md:max-w-lg overflow-y-auto"
+            style={{ maxHeight: '92dvh', borderRadius: '16px 16px 0 0' }}>
+
             <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#e5e7eb' }}>
               <h3 className="font-bold text-base" style={{ color: '#1a2a3a' }}>
                 {editId ? 'Editar Container' : 'Novo Container'}
