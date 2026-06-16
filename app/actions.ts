@@ -167,6 +167,14 @@ export async function saveSession(data: {
   return session
 }
 
+export async function deleteSession(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+  await supabase.from('container_sessions').delete().eq('id', id).eq('user_id', user.id)
+  revalidatePath('/')
+}
+
 export async function clearAllHistory() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
