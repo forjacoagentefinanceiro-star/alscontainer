@@ -55,7 +55,7 @@ function parseXML(xml: string): { items: ParsedContainer[], errors: string[] } {
         }
       }
 
-      items.push({ numero, tipo, tamanho, fornecedor, data_compra, valor_usd, cotacao, extras_brl, valor_brl, obs, iso_valido: isoValido })
+      items.push({ numero, tipo, nacionalizado: false, tamanho, fornecedor, data_compra, valor_usd, cotacao, extras_brl, valor_brl, obs, iso_valido: isoValido })
     } catch (e) {
       errors.push(`Container #${idx + 1}: ${String(e)}`)
     }
