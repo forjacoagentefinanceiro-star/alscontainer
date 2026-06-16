@@ -18,12 +18,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/logo.png', type: 'image/png' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
     ],
     apple: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
-    shortcut: '/favicon.svg',
+    shortcut: '/apple-touch-icon.png',
   },
   keywords: ['containers', 'depot', 'ALS', 'logística', 'ISO 6346'],
 }
