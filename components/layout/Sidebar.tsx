@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
+  LayoutDashboard,
   Package2,
   Hash,
   Upload,
@@ -14,10 +15,11 @@ import {
 } from 'lucide-react'
 
 const baseItems = [
-  { href: '/inventario', label: 'Inventário',  icon: Package2  },
-  { href: '/gerador',    label: 'Gerador ISO', icon: Hash      },
-  { href: '/importar',   label: 'Importar',    icon: Upload    },
-  { href: '/exportar',   label: 'Exportar',    icon: FileCode2 },
+  { href: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/inventario', label: 'Inventário',  icon: Package2        },
+  { href: '/gerador',    label: 'Gerador ISO', icon: Hash            },
+  { href: '/importar',   label: 'Importar',    icon: Upload          },
+  { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
 ]
 
 export function Sidebar({ role }: { role?: string }) {

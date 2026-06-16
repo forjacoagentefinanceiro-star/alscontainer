@@ -131,6 +131,44 @@ export async function revokeUser(userId: string) {
   return { error: null }
 }
 
+// ---- Metas de compra ----
+export type PurchaseGoal = {
+  id: string
+  quantidade: number
+  orcamento: number
+  prazo: string
+  created_at: string
+  updated_at: string
+}
+
+export async function getGoal(): Promise<PurchaseGoal | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('purchase_goals')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+  return data as PurchaseGoal | null
+}
+
+export async function upsertGoal(payload: { quantidade: number; orcamento: number; prazo: string }) {
+  const supabase = await createClient()
+  const { data: existing } = await supabase.from('purchase_goals').select('id').limit(1).single()
+  if (existing) {
+    const { error } = await supabase
+      .from('purchase_goals')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await supabase.from('purchase_goals').insert(payload)
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/dashboard')
+  return { error: null }
+}
+
 // ---- Gerador de Numeração ----
 export async function saveSession(data: {
   owner: string

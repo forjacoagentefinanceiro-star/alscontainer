@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Package2, Hash, Upload, FileCode2, Users } from 'lucide-react'
+import { LayoutDashboard, Package2, Hash, Upload, FileCode2, Users } from 'lucide-react'
 
 const baseItems = [
+  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/inventario', label: 'Inventário', icon: Package2 },
   { href: '/gerador',    label: 'Gerador',    icon: Hash },
   { href: '/importar',   label: 'Importar',   icon: Upload },
