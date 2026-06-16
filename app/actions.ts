@@ -16,6 +16,7 @@ export type Container = {
   user_id: string
   numero: string
   tipo: 'nacional' | 'importado'
+  nacionalizado: boolean
   tamanho: string
   fornecedor: string
   data_compra: string | null

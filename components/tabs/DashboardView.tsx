@@ -73,6 +73,7 @@ export function DashboardView({
   const monthKeys = Object.keys(byMonth).sort().slice(-6)
   const maxQty = Math.max(...monthKeys.map(k => byMonth[k].qty), 1)
   const maxGasto = Math.max(...monthKeys.map(k => byMonth[k].gasto), 1)
+  const [hoveredBar, setHoveredBar] = useState<{ key: string; type: 'qty' | 'gasto' } | null>(null)
 
   function handleSave() {
     const qty = parseInt(form.quantidade)
@@ -177,16 +178,41 @@ export function DashboardView({
             <p className="text-sm text-center py-8" style={{ color: '#9ca3af' }}>Nenhum container cadastrado ainda</p>
           ) : (
             <>
-              <div className="flex items-end gap-3" style={{ height: 120 }}>
+              <div className="flex items-end gap-3" style={{ height: 140 }}>
                 {monthKeys.map(k => {
                   const d = byMonth[k]
                   const hQty = Math.round((d.qty / maxQty) * 90)
                   const hGasto = Math.round((d.gasto / maxGasto) * 90)
                   return (
-                    <div key={k} className="flex-1 flex flex-col items-center gap-1">
+                    <div key={k} className="flex-1 flex flex-col items-center gap-1" style={{ position: 'relative' }}>
+                      {/* Tooltip */}
+                      {hoveredBar?.key === k && (
+                        <div style={{
+                          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                          background: '#1a2a3a', color: '#fff', borderRadius: 6, padding: '4px 8px',
+                          fontSize: 11, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10, marginBottom: 4,
+                        }}>
+                          {hoveredBar.type === 'qty'
+                            ? `${d.qty} container${d.qty !== 1 ? 's' : ''}`
+                            : fmtBRL(d.gasto)}
+                          <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '4px solid #1a2a3a' }} />
+                        </div>
+                      )}
                       <div className="flex items-end gap-1 w-full justify-center" style={{ height: 96 }}>
-                        <div title={`${d.qty} un.`} style={{ width: 14, height: hQty, background: '#1B4F8A', borderRadius: '3px 3px 0 0', minHeight: 4 }} />
-                        <div title={fmtBRL(d.gasto)} style={{ width: 14, height: hGasto, background: '#7DC242', borderRadius: '3px 3px 0 0', minHeight: 4 }} />
+                        <div
+                          onMouseEnter={() => setHoveredBar({ key: k, type: 'qty' })}
+                          onMouseLeave={() => setHoveredBar(null)}
+                          style={{ width: 14, height: hQty, background: '#1B4F8A', borderRadius: '3px 3px 0 0', minHeight: 4, cursor: 'pointer', transition: 'opacity 0.15s' }}
+                          onMouseOver={e => (e.currentTarget.style.opacity = '0.8')}
+                          onMouseOut={e => (e.currentTarget.style.opacity = '1')}
+                        />
+                        <div
+                          onMouseEnter={() => setHoveredBar({ key: k, type: 'gasto' })}
+                          onMouseLeave={() => setHoveredBar(null)}
+                          style={{ width: 14, height: hGasto, background: '#7DC242', borderRadius: '3px 3px 0 0', minHeight: 4, cursor: 'pointer', transition: 'opacity 0.15s' }}
+                          onMouseOver={e => (e.currentTarget.style.opacity = '0.8')}
+                          onMouseOut={e => (e.currentTarget.style.opacity = '1')}
+                        />
                       </div>
                       <span className="text-xs" style={{ color: '#9ca3af', fontSize: 10 }}>{ptMonth(k)}</span>
                     </div>

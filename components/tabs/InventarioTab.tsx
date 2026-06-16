@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import * as XLSX from 'xlsx'
 import type { Container } from '@/app/actions'
 import { addContainer, updateContainer, deleteContainer } from '@/app/actions'
 
@@ -9,6 +10,7 @@ const TAMANHOS = ['20GP', '40GP', '40HC', '20OT', '40OT', '20TK', '20RF', '40RF'
 type Form = {
   numero: string
   tipo: 'nacional' | 'importado'
+  nacionalizado: boolean
   tamanho: string
   fornecedor: string
   data_compra: string
@@ -21,7 +23,7 @@ type Form = {
 }
 
 const emptyForm = (): Form => ({
-  numero: '', tipo: 'nacional', tamanho: '40GP', fornecedor: '',
+  numero: '', tipo: 'nacional', nacionalizado: false, tamanho: '40GP', fornecedor: '',
   data_compra: '', valor_usd: '', cotacao: '', extras_brl: '0', valor_brl: '', obs: '', iso_valido: true
 })
 
@@ -60,7 +62,9 @@ const fmtBRL = (v: number | null | undefined) =>
 const fmtUSD = (v: number | null | undefined) =>
   (v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-// ─── Input helper ───────────────────────────────────────────────────────────
+const fmtDate = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—'
+
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
@@ -75,6 +79,7 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 
 export function InventarioTab({ initialContainers, role = 'viewer' }: { initialContainers: Container[], role?: 'admin' | 'editor' | 'viewer' }) {
   const canEdit = role === 'admin' || role === 'editor'
+
   const [containers, setContainers] = useState<Container[]>(initialContainers)
   const [form, setForm] = useState<Form>(emptyForm())
   const [editId, setEditId] = useState<string | null>(null)
@@ -111,6 +116,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
     setForm({
       numero: c.numero,
       tipo: c.tipo,
+      nacionalizado: c.nacionalizado ?? false,
       tamanho: c.tamanho,
       fornecedor: c.fornecedor ?? '',
       data_compra: c.data_compra ?? '',
@@ -131,6 +137,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
     return {
       numero: num,
       tipo: form.tipo,
+      nacionalizado: form.nacionalizado,
       tamanho: form.tamanho,
       fornecedor: form.fornecedor,
       data_compra: form.data_compra || null,
@@ -172,20 +179,90 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
   }
 
   function handleExportXLS() {
-    const rows = [
-      ['Número', 'Tipo', 'Tamanho', 'Fornecedor', 'Data Compra', 'Valor USD', 'Cotação', 'Extras BRL', 'Valor BRL', 'Obs'],
-      ...containers.map(c => [
-        c.numero, c.tipo, c.tamanho, c.fornecedor ?? '',
-        c.data_compra ?? '', c.valor_usd ?? '', c.cotacao ?? '',
-        c.extras_brl ?? '', c.valor_brl ?? '', c.obs ?? ''
-      ])
+    const hoje = new Date().toLocaleDateString('pt-BR')
+    const total = containers.length
+    const nac = containers.filter(c => c.tipo === 'nacional').length
+    const imp = containers.filter(c => c.tipo === 'importado').length
+    const totalBRL = containers.reduce((s, c) => s + (c.valor_brl ?? 0), 0)
+    const totalUSD = containers.filter(c => c.tipo === 'importado').reduce((s, c) => s + (c.valor_usd ?? 0), 0)
+
+    const wb = XLSX.utils.book_new()
+
+    // ── ABA 1: Inventário ──
+    const invRows: (string | number | null)[][] = [
+      ['ALS DEPOT — INVENTÁRIO DE CONTAINERS PRÓPRIOS', null, null, null, null, null, null, null, null, null, null, null],
+      [`ALS Depot · Itajaí, SC   —   Gerado em: ${hoje}`, null, null, null, null, null, null, null, null, null, null, null],
+      [`Total: ${total}`, null, `Nacionais: ${nac}`, null, `Importados: ${imp}`, null, null, null, null, 'Valor Total (R$)', totalBRL, null],
+      ['#', 'Número', 'ISO 6346', 'Tipo', 'Tamanho', 'Fornecedor', 'Data Compra', 'Valor USD', 'Cotação R$', 'Custos Extras R$', 'Valor Total R$', 'Observações'],
+      ...containers.map((c, i) => [
+        i + 1,
+        c.numero,
+        c.iso_valido ? '✓ Válido' : '✗ Inválido',
+        c.tipo === 'nacional' ? 'Nacional' : 'Importado',
+        c.tamanho,
+        c.fornecedor ?? '',
+        fmtDate(c.data_compra),
+        c.valor_usd != null ? c.valor_usd : '—',
+        c.cotacao != null ? c.cotacao : '—',
+        c.extras_brl != null ? c.extras_brl : '—',
+        c.valor_brl ?? 0,
+        c.obs ?? '',
+      ]),
+      ['TOTAL GERAL', null, null, null, null, null, null, totalUSD, null, 0, totalBRL, null],
     ]
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url
-    a.download = `als_depot_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click(); URL.revokeObjectURL(url)
+    const wsInv = XLSX.utils.aoa_to_sheet(invRows)
+    wsInv['!cols'] = [6,14,10,10,8,20,11,10,10,14,13,22].map(w => ({ wch: w }))
+    XLSX.utils.book_append_sheet(wb, wsInv, 'Inventário')
+
+    // ── ABA 2: Importados — Câmbio ──
+    const importados = containers.filter(c => c.tipo === 'importado')
+    const totalImpUSD = importados.reduce((s, c) => s + (c.valor_usd ?? 0), 0)
+    const totalImpExtras = importados.reduce((s, c) => s + (c.extras_brl ?? 0), 0)
+    const totalImpBRL = importados.reduce((s, c) => s + (c.valor_brl ?? 0), 0)
+    const impRows: (string | number | null)[][] = [
+      ['CONTAINERS IMPORTADOS — DETALHAMENTO DE CÂMBIO', null, null, null, null, null, null, null, null],
+      [`ALS Depot · Itajaí, SC   —   ${hoje}`, null, null, null, null, null, null, null, null],
+      ['#', 'Número', 'Tamanho', 'Fornecedor', 'Data Compra', 'Valor (USD)', 'Cotação R$/USD', 'Custos Extras (R$)', 'Total (R$)'],
+      ...importados.map((c, i) => [
+        i + 1,
+        c.numero,
+        c.tamanho,
+        c.fornecedor ?? '',
+        fmtDate(c.data_compra),
+        c.valor_usd ?? 0,
+        c.cotacao ?? 0,
+        c.extras_brl ?? 0,
+        c.valor_brl ?? 0,
+      ]),
+      ['TOTAL', null, null, null, null, totalImpUSD, null, totalImpExtras, totalImpBRL],
+    ]
+    const wsImp = XLSX.utils.aoa_to_sheet(impRows)
+    wsImp['!cols'] = [6,14,8,20,11,11,13,16,11].map(w => ({ wch: w }))
+    XLSX.utils.book_append_sheet(wb, wsImp, 'Importados — Câmbio')
+
+    // ── ABA 3: Nacionais ──
+    const nacionais = containers.filter(c => c.tipo === 'nacional')
+    const totalNacBRL = nacionais.reduce((s, c) => s + (c.valor_brl ?? 0), 0)
+    const nacRows: (string | number | null)[][] = [
+      ['CONTAINERS NACIONAIS', null, null, null, null, null, null],
+      [`ALS Depot · Itajaí, SC   —   ${hoje}`, null, null, null, null, null, null],
+      ['#', 'Número', 'Tamanho', 'Fornecedor', 'Data Compra', 'Valor R$', 'Observações'],
+      ...nacionais.map((c, i) => [
+        i + 1,
+        c.numero,
+        c.tamanho,
+        c.fornecedor ?? '',
+        fmtDate(c.data_compra),
+        c.valor_brl ?? 0,
+        c.obs ?? '',
+      ]),
+      ['TOTAL', null, null, null, null, totalNacBRL, null],
+    ]
+    const wsNac = XLSX.utils.aoa_to_sheet(nacRows)
+    wsNac['!cols'] = [6,14,8,20,11,12,22].map(w => ({ wch: w }))
+    XLSX.utils.book_append_sheet(wb, wsNac, 'Nacionais')
+
+    XLSX.writeFile(wb, `als_depot_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   const sizes = ['todos', ...Array.from(new Set(containers.map(c => c.tamanho)))]
@@ -202,16 +279,18 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
   const totalBRL = containers.reduce((s, c) => s + (c.valor_brl ?? 0), 0)
   const nacionais = containers.filter(c => c.tipo === 'nacional').length
   const importados = containers.filter(c => c.tipo === 'importado').length
+  const nacionalizados = containers.filter(c => c.nacionalizado).length
 
   return (
     <div>
-      {/* Métricas — 2 cols mobile, 4 cols desktop */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      {/* Métricas — 2 cols mobile, 5 cols desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         {[
           { label: 'Total', value: String(containers.length), accent: '#1B4F8A' },
           { label: 'Nacionais', value: String(nacionais), accent: '#7DC242' },
           { label: 'Importados', value: String(importados), accent: '#1B4F8A' },
-          { label: 'Valor Total', value: fmtBRL(totalBRL), accent: '#7DC242', small: true },
+          { label: 'Nacionalizados', value: String(nacionalizados), accent: '#7DC242' },
+          { label: 'Valor Total', value: fmtBRL(totalBRL), accent: '#1B4F8A', small: true },
         ].map(m => (
           <div key={m.label} className="bg-white rounded-xl p-3 md:p-4"
             style={{ border: '1px solid #e5e7eb', borderLeft: `4px solid ${m.accent}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -222,9 +301,8 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
         ))}
       </div>
 
-      {/* Barra de filtros — empilhada no mobile */}
+      {/* Filtros */}
       <div className="space-y-2 md:space-y-0 md:flex md:flex-wrap md:gap-2 md:items-center mb-4">
-        {/* Linha 1 mobile: busca */}
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -232,7 +310,6 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
           className="w-full md:flex-1 md:min-w-40 rounded border px-3 py-2 text-sm outline-none focus:border-blue-500"
           style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}
         />
-        {/* Linha 2 mobile: filtros lado a lado */}
         <div className="flex gap-2">
           <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as typeof filterTipo)}
             className="flex-1 rounded border px-2 py-2 text-sm outline-none"
@@ -247,7 +324,6 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
             {sizes.map(s => <option key={s} value={s}>{s === 'todos' ? 'Todos tam.' : s}</option>)}
           </select>
         </div>
-        {/* Linha 3 mobile: botões lado a lado */}
         <div className="flex gap-2">
           <button onClick={handleExportXLS}
             className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
@@ -264,7 +340,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
         </div>
       </div>
 
-      {/* Modal de formulário — tela cheia no mobile, centrado no desktop */}
+      {/* Modal de formulário */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white w-full md:rounded-xl shadow-2xl md:max-w-lg overflow-y-auto"
@@ -290,6 +366,28 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                     {t === 'nacional' ? '🇧🇷 Nacional' : '🌍 Importado'}
                   </button>
                 ))}
+              </div>
+
+              {/* Nacionalizado toggle */}
+              <div
+                onClick={() => canEdit && setField('nacionalizado', !form.nacionalizado)}
+                className="flex items-center gap-3 rounded-lg px-4 py-3 cursor-pointer select-none transition-colors"
+                style={{
+                  background: form.nacionalizado ? '#f0fff4' : '#f9fafb',
+                  border: `1px solid ${form.nacionalizado ? '#bbf7d0' : '#e5e7eb'}`,
+                }}>
+                <div className="w-5 h-5 rounded flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: form.nacionalizado ? '#7DC242' : '#d1d5db' }}>
+                  {form.nacionalizado ? '✓' : ''}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: form.nacionalizado ? '#166534' : '#374151' }}>
+                    Container Nacionalizado
+                  </p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>
+                    Marque se o processo de nacionalização já foi concluído
+                  </p>
+                </div>
               </div>
 
               {/* Número */}
@@ -333,37 +431,35 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
               </div>
 
               {form.tipo === 'importado' ? (
-                <div className="space-y-3">
-                  <div className="rounded p-3" style={{ background: '#f0f5ff', border: '1px solid #dbeafe' }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: '#1B4F8A' }}>Financeiro — Importado (USD)</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>Valor USD ($)</Label>
-                        <Input type="number" step="0.01" value={form.valor_usd}
-                          onChange={e => setField('valor_usd', e.target.value)}
-                          onBlur={() => setField('valor_brl', calcTotal({ ...form }).toFixed(2))}
-                          placeholder="0.00" />
-                      </div>
-                      <div>
-                        <Label>Cotação (R$/USD)</Label>
-                        <Input type="number" step="0.0001" value={form.cotacao}
-                          onChange={e => setField('cotacao', e.target.value)}
-                          onBlur={() => setField('valor_brl', calcTotal({ ...form }).toFixed(2))}
-                          placeholder="5.0000" />
-                      </div>
-                      <div>
-                        <Label>Custos Extras (R$)</Label>
-                        <Input type="number" step="0.01" value={form.extras_brl}
-                          onChange={e => setField('extras_brl', e.target.value)}
-                          onBlur={() => setField('valor_brl', calcTotal({ ...form }).toFixed(2))}
-                          placeholder="0.00" />
-                      </div>
-                      <div>
-                        <Label>Total BRL (calculado)</Label>
-                        <div className="rounded border px-3 py-2 text-sm font-bold"
-                          style={{ borderColor: '#7DC242', background: '#f0fff4', color: '#166534' }}>
-                          {fmtBRL(calcTotal({ ...form }))}
-                        </div>
+                <div className="rounded p-3" style={{ background: '#f0f5ff', border: '1px solid #dbeafe' }}>
+                  <p className="text-xs font-semibold mb-2" style={{ color: '#1B4F8A' }}>Financeiro — Importado (USD)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Valor USD ($)</Label>
+                      <Input type="number" step="0.01" value={form.valor_usd}
+                        onChange={e => setField('valor_usd', e.target.value)}
+                        onBlur={() => setField('valor_brl', calcTotal({ ...form }).toFixed(2))}
+                        placeholder="0.00" />
+                    </div>
+                    <div>
+                      <Label>Cotação (R$/USD)</Label>
+                      <Input type="number" step="0.0001" value={form.cotacao}
+                        onChange={e => setField('cotacao', e.target.value)}
+                        onBlur={() => setField('valor_brl', calcTotal({ ...form }).toFixed(2))}
+                        placeholder="5.0000" />
+                    </div>
+                    <div>
+                      <Label>Custos Extras (R$)</Label>
+                      <Input type="number" step="0.01" value={form.extras_brl}
+                        onChange={e => setField('extras_brl', e.target.value)}
+                        onBlur={() => setField('valor_brl', calcTotal({ ...form }).toFixed(2))}
+                        placeholder="0.00" />
+                    </div>
+                    <div>
+                      <Label>Total BRL (calculado)</Label>
+                      <div className="rounded border px-3 py-2 text-sm font-bold"
+                        style={{ borderColor: '#7DC242', background: '#f0fff4', color: '#166534' }}>
+                        {fmtBRL(calcTotal({ ...form }))}
                       </div>
                     </div>
                   </div>
@@ -416,19 +512,18 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
           <p className="text-sm" style={{ color: '#9ca3af' }}>
             {containers.length === 0 ? 'Nenhum container cadastrado.' : 'Nenhum resultado para os filtros.'}
           </p>
-          {containers.length === 0 && (
+          {containers.length === 0 && canEdit && (
             <button onClick={openAdd} className="mt-3 px-4 py-2 rounded text-sm font-semibold text-white"
               style={{ background: '#1B4F8A' }}>+ Adicionar primeiro container</button>
           )}
         </div>
       )}
 
-      {/* MOBILE: cards (oculto em md+) */}
+      {/* MOBILE: cards */}
       {filtered.length > 0 && (
         <div className="md:hidden space-y-3">
           {filtered.map(c => (
             <div key={c.id} className="bg-white rounded-xl p-4" style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              {/* Linha 1: número + badge */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold text-sm" style={{ color: '#1a2a3a' }}>{c.numero}</span>
@@ -436,15 +531,22 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                     {c.iso_valido ? '✓' : '✗'}
                   </span>
                 </div>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold"
-                  style={c.tipo === 'nacional'
-                    ? { background: '#f0fff4', color: '#166534', border: '1px solid #bbf7d0' }
-                    : { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-                  {c.tipo === 'nacional' ? 'Nacional' : 'Importado'}
-                </span>
+                <div className="flex items-center gap-1">
+                  {c.nacionalizado && (
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold"
+                      style={{ background: '#f0fff4', color: '#166534', border: '1px solid #bbf7d0' }}>
+                      Nac.
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold"
+                    style={c.tipo === 'nacional'
+                      ? { background: '#f0fff4', color: '#166534', border: '1px solid #bbf7d0' }
+                      : { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                    {c.tipo === 'nacional' ? 'Nacional' : 'Importado'}
+                  </span>
+                </div>
               </div>
 
-              {/* Linha 2: tamanho + fornecedor + data */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
                 <span className="text-xs" style={{ color: '#6b7280' }}>
                   <span className="font-medium" style={{ color: '#374151' }}>Tam:</span> {c.tamanho}
@@ -462,7 +564,6 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                 )}
               </div>
 
-              {/* Linha 3: financeiro */}
               <div className="rounded-lg px-3 py-2 mb-3 flex flex-wrap gap-x-4 gap-y-1"
                 style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
                 {c.tipo === 'importado' && c.valor_usd != null && (
@@ -480,12 +581,10 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                 </span>
               </div>
 
-              {/* Obs */}
               {c.obs && (
                 <p className="text-xs italic mb-3" style={{ color: '#9ca3af' }}>{c.obs}</p>
               )}
 
-              {/* Ações */}
               {canEdit && (
                 <div className="flex gap-2">
                   <button onClick={() => openEdit(c)}
@@ -505,13 +604,13 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
         </div>
       )}
 
-      {/* DESKTOP: tabela completa (oculta no mobile) */}
+      {/* DESKTOP: tabela */}
       {filtered.length > 0 && (
         <div className="hidden md:block bg-white rounded-lg overflow-hidden" style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['NÚMERO', 'TIPO', 'TAMANHO', 'FORNECEDOR', 'DATA COMPRA', 'VALOR USD', 'COTAÇÃO', 'VALOR R$', 'OBSERVAÇÕES', 'AÇÕES'].map(h => (
+                {['NÚMERO', 'TIPO', 'NACION.', 'TAMANHO', 'FORNECEDOR', 'DATA COMPRA', 'VALOR USD', 'COTAÇÃO', 'VALOR R$', 'OBSERVAÇÕES', 'AÇÕES'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold tracking-wide"
                     style={{ color: '#6b7280' }}>{h}</th>
                 ))}
@@ -531,6 +630,11 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                         : { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
                       {c.tipo === 'nacional' ? 'Nacional' : 'Importado'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {c.nacionalizado
+                      ? <span className="text-xs font-bold" style={{ color: '#7DC242' }}>✓ Sim</span>
+                      : <span className="text-xs" style={{ color: '#d1d5db' }}>—</span>}
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: '#374151' }}>{c.tamanho}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: '#374151' }}>
