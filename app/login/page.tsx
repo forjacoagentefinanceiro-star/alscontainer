@@ -16,10 +16,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
-    setSuccess('')
-    setLoading(true)
-
+    setError(''); setSuccess(''); setLoading(true)
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
@@ -29,69 +26,64 @@ export default function LoginPage() {
       if (error) setError(error.message)
       else setSuccess('Conta criada! Verifique seu e-mail para confirmar o cadastro.')
     }
-
     setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f0f2f5' }}>
       <div className="w-full max-w-sm">
-        {/* Logo / título */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 mb-4">
-            <span className="text-2xl">📦</span>
+
+        {/* Logo card — fundo do PNG é #1B4F8A, sem padding extra */}
+        <div className="text-center mb-6">
+          <div className="inline-block rounded-xl overflow-hidden mb-4"
+            style={{ background: '#1B4F8A', boxShadow: '0 4px 24px rgba(27,79,138,0.35)' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="ALS Logística" style={{ width: 240, height: 'auto', display: 'block' }} />
           </div>
-          <h1 className="text-xl font-bold text-slate-100">Gerador de Container</h1>
-          <p className="text-sm text-slate-500 mt-1">Numeração ISO 6346</p>
+          <h1 className="text-base font-bold" style={{ color: '#1a2a3a' }}>Depot — Gestão de Containers</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Sistema interno · Itajaí, SC</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-5">
-            {mode === 'login' ? 'Entrar' : 'Criar conta'}
+        {/* Form card */}
+        <div className="bg-white rounded-xl p-6" style={{ border: '1px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-5" style={{ color: '#6b7280' }}>
+            {mode === 'login' ? 'Entrar na plataforma' : 'Criar conta'}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">E-mail</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 transition-colors"
-                placeholder="seu@email.com"
-              />
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>E-mail</label>
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full rounded border px-3 py-2.5 text-sm outline-none transition-colors"
+                style={{ borderColor: '#d1d5db', color: '#374151' }}
+                onFocus={e => e.currentTarget.style.borderColor = '#1B4F8A'}
+                onBlur={e => e.currentTarget.style.borderColor = '#d1d5db'}
+                placeholder="seu@email.com" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Senha</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 transition-colors"
-                placeholder="••••••••"
-              />
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Senha</label>
+              <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                className="w-full rounded border px-3 py-2.5 text-sm outline-none transition-colors"
+                style={{ borderColor: '#d1d5db', color: '#374151' }}
+                onFocus={e => e.currentTarget.style.borderColor = '#1B4F8A'}
+                onBlur={e => e.currentTarget.style.borderColor = '#d1d5db'}
+                placeholder="••••••••" />
             </div>
 
             {error && (
-              <div className="bg-red-950 border border-red-800 rounded-lg px-3 py-2 text-xs text-red-300">
+              <div className="rounded px-3 py-2 text-xs" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
                 {error}
               </div>
             )}
-
             {success && (
-              <div className="bg-emerald-950 border border-emerald-800 rounded-lg px-3 py-2 text-xs text-emerald-300">
+              <div className="rounded px-3 py-2 text-xs" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' }}>
                 {success}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors"
-            >
+            <button type="submit" disabled={loading}
+              className="w-full font-bold rounded py-2.5 text-sm text-white transition-opacity disabled:opacity-50 hover:opacity-90"
+              style={{ background: '#1B4F8A' }}>
               {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
             </button>
           </form>
@@ -99,12 +91,16 @@ export default function LoginPage() {
           <div className="mt-4 text-center">
             <button
               onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setSuccess('') }}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-            >
+              className="text-xs transition-colors hover:underline"
+              style={{ color: '#6b7280' }}>
               {mode === 'login' ? 'Não tem conta? Criar agora' : 'Já tenho conta → Entrar'}
             </button>
           </div>
         </div>
+
+        <p className="text-center text-xs mt-5" style={{ color: '#9ca3af' }}>
+          © ALS Logística — alslog.com.br
+        </p>
       </div>
     </div>
   )

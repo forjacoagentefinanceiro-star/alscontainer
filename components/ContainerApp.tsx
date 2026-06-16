@@ -160,83 +160,93 @@ export function ContainerApp({
     download('historico-containers.csv', rows.join('\n'), 'text/csv')
   }
 
+  // ALS colors
+  const C = {
+    card:        '#132140',
+    cardBorder:  '#1e3560',
+    bg:          '#0f1b2e',
+    label:       '#8ca5c8',
+    input:       '#0f1b2e',
+    inputBorder: '#1e3560',
+    green:       '#7AB800',
+    blue:        '#1B3A6B',
+    text:        '#d4e4f7',
+    muted:       '#4a6a9a',
+    numColor:    '#7dd3fc',
+    cdColor:     '#7AB800',
+  }
+
+  const inputStyle = { background: C.input, border: `1px solid ${C.inputBorder}`, color: C.text }
+  const cardStyle  = { background: C.card, border: `1px solid ${C.cardBorder}` }
+
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="space-y-5">
 
       {/* CONFIG */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Configuração</p>
+      <div className="rounded-2xl p-6" style={cardStyle}>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: C.green }}>Configuração</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Prefixo (3 letras)</label>
-            <input
-              value={owner}
-              maxLength={3}
-              onChange={e => setOwner(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 transition-colors font-mono"
-              placeholder="ALS"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Categoria</label>
-            <select
-              value={cat}
-              onChange={e => setCat(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 transition-colors font-mono"
-            >
-              {CATS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Número inicial</label>
-            <input
-              type="number" min={0} max={999999}
-              value={start}
-              onChange={e => setStart(parseInt(e.target.value) || 0)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 transition-colors font-mono"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Quantidade</label>
-            <input
-              type="number" min={1} max={5000}
-              value={qty}
-              onChange={e => setQty(Math.min(parseInt(e.target.value) || 1, 5000))}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 transition-colors font-mono"
-            />
-          </div>
+          {[
+            { label: 'Prefixo (3 letras)', id: 'owner' },
+            { label: 'Categoria', id: 'cat' },
+            { label: 'Número inicial', id: 'start' },
+            { label: 'Quantidade', id: 'qty' },
+          ].map(({ label, id }) => (
+            <div key={id}>
+              <label className="block text-xs mb-1.5" style={{ color: C.label }}>{label}</label>
+              {id === 'cat' ? (
+                <select value={cat} onChange={e => setCat(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2.5 text-sm outline-none font-mono"
+                  style={inputStyle}>
+                  {CATS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              ) : id === 'owner' ? (
+                <input value={owner} maxLength={3}
+                  onChange={e => setOwner(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+                  className="w-full rounded-lg px-3 py-2.5 text-sm outline-none font-mono"
+                  style={inputStyle} placeholder="ALS" />
+              ) : (
+                <input type="number" min={id === 'qty' ? 1 : 0} max={id === 'qty' ? 5000 : 999999}
+                  value={id === 'qty' ? qty : start}
+                  onChange={e => id === 'qty'
+                    ? setQty(Math.min(parseInt(e.target.value) || 1, 5000))
+                    : setStart(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-lg px-3 py-2.5 text-sm outline-none font-mono"
+                  style={inputStyle} />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Preview */}
-        <div className={`mt-4 rounded-xl border px-4 py-3 text-center font-mono text-xl tracking-widest transition-colors ${conflictCount > 0 ? 'border-red-700 text-red-300 bg-red-950/30' : 'border-slate-700 text-sky-400 bg-slate-950'}`}>
+        <div className="mt-4 rounded-xl px-4 py-3 text-center font-mono text-xl tracking-widest"
+          style={conflictCount > 0
+            ? { background: '#2d0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+            : { background: C.bg, border: `1px solid ${C.cardBorder}`, color: C.numColor }}>
           {validOwner
-            ? <>{owner}{cat} {ser0} <span className="text-amber-400">{cd0}</span></>
-            : <span className="text-slate-600">—</span>
-          }
+            ? <>{owner}{cat} {ser0} <span style={{ color: C.cdColor, fontWeight: 700 }}>{cd0}</span></>
+            : <span style={{ color: C.muted }}>—</span>}
         </div>
 
         {conflictCount > 0 && (
-          <div className="mt-2 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2 text-xs text-red-300">
+          <div className="mt-2 rounded-lg px-3 py-2 text-xs" style={{ background: '#2d0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }}>
             ⚠️ <strong>{conflictCount} número(s) já usados</strong> neste range — serão marcados em vermelho.
           </div>
         )}
 
-        <p className="mt-3 text-xs text-slate-600">
-          Formato: <span className="text-slate-400">OOOO NNNNNN <span className="text-amber-400">C</span></span> — O = prefixo 3 letras + categoria · N = serial 6 dígitos · <span className="text-amber-400">C = dígito verificador ISO 6346</span>
+        <p className="mt-3 text-xs" style={{ color: C.muted }}>
+          Formato: <span style={{ color: C.label }}>OOOO NNNNNN <span style={{ color: C.green }}>C</span></span> — prefixo 3 letras + categoria · serial 6 dígitos · <span style={{ color: C.green }}>C = dígito verificador ISO 6346</span>
         </p>
 
         <div className="flex gap-3 mt-4 flex-wrap">
-          <button
-            onClick={generate}
-            disabled={isPending}
-            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
-          >
+          <button onClick={generate} disabled={isPending}
+            className="font-bold rounded-lg px-5 py-2.5 text-sm transition-opacity disabled:opacity-50"
+            style={{ background: C.green, color: '#0f1b2e' }}>
             {isPending ? 'Salvando...' : 'Gerar e registrar'}
           </button>
-          <button
-            onClick={() => { setShowResult(false); setGenerated([]) }}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg px-5 py-2.5 text-sm transition-colors"
-          >
+          <button onClick={() => { setShowResult(false); setGenerated([]) }}
+            className="font-semibold rounded-lg px-5 py-2.5 text-sm"
+            style={{ background: C.blue, color: '#d4e4f7' }}>
             Limpar resultado
           </button>
         </div>
@@ -244,30 +254,34 @@ export function ContainerApp({
 
       {/* RESULTADO */}
       {showResult && generated.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="rounded-2xl p-6" style={cardStyle}>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Números gerados agora</p>
-            <span className="text-xs bg-slate-800 text-blue-400 px-3 py-1 rounded-full font-semibold">
-              {generated.length} containers{generated.filter(n => n.dup).length > 0 ? ` · ${generated.filter(n => n.dup).length} duplicados` : ''}
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.green }}>Números gerados agora</p>
+            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: C.blue, color: '#d4e4f7' }}>
+              {generated.length} containers{generated.filter(n => n.dup).length > 0 ? ` · ${generated.filter(n => n.dup).length} dup.` : ''}
             </span>
           </div>
           <div className="flex gap-2 flex-wrap mb-4">
-            <button onClick={copyAll} className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg px-4 py-2 transition-colors">Copiar todos</button>
-            <button onClick={downloadTxt} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg px-4 py-2 transition-colors">Baixar .txt</button>
-            <button onClick={downloadCsv} className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg px-4 py-2 transition-colors">Baixar .csv</button>
+            <button onClick={copyAll} className="text-xs font-bold rounded-lg px-4 py-2"
+              style={{ background: C.green, color: '#0f1b2e' }}>Copiar todos</button>
+            <button onClick={downloadTxt} className="text-xs font-semibold rounded-lg px-4 py-2"
+              style={{ background: C.blue, color: '#d4e4f7' }}>Baixar .txt</button>
+            <button onClick={downloadCsv} className="text-xs font-semibold rounded-lg px-4 py-2"
+              style={{ background: C.blue, color: '#d4e4f7' }}>Baixar .csv</button>
           </div>
-          <div className="bg-slate-950 border border-slate-800 rounded-xl max-h-80 overflow-y-auto">
+          <div className="rounded-xl max-h-80 overflow-y-auto divide-y" style={{ background: C.bg, borderColor: C.cardBorder, border: `1px solid ${C.cardBorder}` }}>
             {generated.map((n, i) => (
-              <div key={i} className={`flex items-center gap-3 px-4 py-2.5 border-b border-slate-900 last:border-0 hover:bg-slate-900/50 ${n.dup ? 'bg-red-950/20' : ''}`}>
-                <span className="text-slate-600 text-xs w-9 shrink-0">{String(i + 1).padStart(4, '0')}</span>
-                <span className={`font-mono text-sm flex-1 ${n.dup ? 'text-red-400 line-through' : 'text-sky-300'}`}>
-                  {n.full.slice(0, -1)}<span className="text-amber-400">{n.cd}</span>
-                  {n.dup && <span className="ml-2 text-xs bg-red-900 text-red-300 px-1.5 py-0.5 rounded font-bold no-underline">JÁ USADO</span>}
+              <div key={i} className="flex items-center gap-3 px-4 py-2.5"
+                style={n.dup ? { background: '#2d0a0a' } : {}}>
+                <span className="text-xs w-9 shrink-0" style={{ color: C.muted }}>{String(i + 1).padStart(4, '0')}</span>
+                <span className="font-mono text-sm flex-1" style={{ color: n.dup ? '#f87171' : C.numColor, textDecoration: n.dup ? 'line-through' : 'none' }}>
+                  {n.full.slice(0, -1)}<span style={{ color: C.green, fontWeight: 700 }}>{n.cd}</span>
+                  {n.dup && <span className="ml-2 text-xs px-1.5 py-0.5 rounded font-bold" style={{ background: '#7f1d1d', color: '#fca5a5', textDecoration: 'none' }}>JÁ USADO</span>}
                 </span>
                 <button
                   onClick={e => { navigator.clipboard.writeText(n.full); const b = e.currentTarget; b.textContent = '✓'; setTimeout(() => { b.textContent = 'copiar' }, 1500) }}
-                  className="text-xs text-slate-500 hover:text-blue-400 border border-slate-700 hover:border-blue-600 rounded px-2 py-0.5 transition-colors shrink-0"
-                >copiar</button>
+                  className="text-xs rounded px-2 py-0.5 shrink-0"
+                  style={{ color: C.muted, border: `1px solid ${C.cardBorder}` }}>copiar</button>
               </div>
             ))}
           </div>
@@ -275,46 +289,53 @@ export function ContainerApp({
       )}
 
       {/* HISTÓRICO */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div className="rounded-2xl p-6" style={cardStyle}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Histórico de numerações</p>
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.green }}>Histórico de numerações</p>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs bg-amber-900/50 text-amber-400 px-3 py-1 rounded-full font-semibold">{usedKeys.size} números únicos</span>
-            <button onClick={exportHistory} className="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition-colors">Exportar</button>
-            <button onClick={handleClearAll} className="text-xs text-red-500 hover:text-red-300 border border-red-900 hover:border-red-700 rounded-lg px-3 py-1.5 transition-colors">Apagar tudo</button>
+            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: '#1a3a00', color: C.green }}>{usedKeys.size} únicos</span>
+            <button onClick={exportHistory} className="text-xs rounded-lg px-3 py-1.5"
+              style={{ color: C.label, border: `1px solid ${C.cardBorder}` }}>Exportar</button>
+            <button onClick={handleClearAll} className="text-xs rounded-lg px-3 py-1.5"
+              style={{ color: '#f87171', border: '1px solid #7f1d1d' }}>Apagar tudo</button>
           </div>
         </div>
 
         {sessions.length === 0 ? (
-          <div className="text-center text-slate-600 py-10 text-sm">Nenhuma numeração gerada ainda.</div>
+          <div className="text-center py-10 text-sm" style={{ color: C.muted }}>Nenhuma numeração gerada ainda.</div>
         ) : (
-          <div className="bg-slate-950 border border-slate-800 rounded-xl max-h-[480px] overflow-y-auto divide-y divide-slate-900">
+          <div className="rounded-xl max-h-[480px] overflow-y-auto" style={{ background: C.bg, border: `1px solid ${C.cardBorder}` }}>
             {sessions.map(s => {
               const MAX = 12
               const date = new Date(s.created_at).toLocaleString('pt-BR')
               return (
-                <div key={s.id} className="px-4 py-4">
+                <div key={s.id} className="px-4 py-4" style={{ borderBottom: `1px solid ${C.cardBorder}` }}>
                   <div className="flex items-start justify-between gap-2 flex-wrap mb-2">
                     <div>
-                      <span className="font-mono text-sm text-sky-400">{s.owner}{s.cat}</span>
-                      <span className="text-slate-400 text-sm"> — {s.qty} número{s.qty !== 1 ? 's' : ''}</span>
-                      <div className="text-xs text-slate-600 mt-0.5">{date}</div>
+                      <span className="font-mono text-sm" style={{ color: C.numColor }}>{s.owner}{s.cat}</span>
+                      <span className="text-sm" style={{ color: C.label }}> — {s.qty} número{s.qty !== 1 ? 's' : ''}</span>
+                      <div className="text-xs mt-0.5" style={{ color: C.muted }}>{date}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {s.dup_count > 0 && <span className="text-xs bg-red-900/50 text-red-400 px-2 py-0.5 rounded-full">{s.dup_count} dup.</span>}
-                      <span className="text-xs bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded-full">{s.new_count} novos</span>
-                      <button onClick={() => copySession(s)} className="text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded px-2 py-0.5 transition-colors">copiar</button>
-                      <button onClick={() => handleDeleteSession(s.id)} className="text-xs text-red-600 hover:text-red-400 border border-red-900 rounded px-2 py-0.5 transition-colors">×</button>
+                      {s.dup_count > 0 && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#2d0a0a', color: '#f87171' }}>{s.dup_count} dup.</span>}
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#1a3a00', color: C.green }}>{s.new_count} novos</span>
+                      <button onClick={() => copySession(s)} className="text-xs rounded px-2 py-0.5"
+                        style={{ color: C.label, border: `1px solid ${C.cardBorder}` }}>copiar</button>
+                      <button onClick={() => handleDeleteSession(s.id)} className="text-xs rounded px-2 py-0.5"
+                        style={{ color: '#f87171', border: '1px solid #7f1d1d' }}>×</button>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {s.nums.slice(0, MAX).map((n, i) => (
-                      <span key={i} className={`font-mono text-xs rounded px-2 py-1 border ${n.dup ? 'border-red-900/60 text-red-500 line-through bg-red-950/20' : 'border-slate-700 text-sky-300 bg-slate-900'}`}>
-                        {s.owner}{s.cat} {n.ser} <span className="text-amber-400 font-bold">{n.cd}</span>
+                      <span key={i} className="font-mono text-xs rounded px-2 py-1"
+                        style={n.dup
+                          ? { border: '1px solid #7f1d1d', color: '#f87171', textDecoration: 'line-through', background: '#2d0a0a' }
+                          : { border: `1px solid ${C.cardBorder}`, color: C.numColor, background: C.card }}>
+                        {s.owner}{s.cat} {n.ser} <span style={{ color: C.green, fontWeight: 700 }}>{n.cd}</span>
                       </span>
                     ))}
                     {s.nums.length > MAX && (
-                      <span className="text-xs text-slate-600 self-center px-1">+{s.nums.length - MAX} mais</span>
+                      <span className="text-xs self-center px-1" style={{ color: C.muted }}>+{s.nums.length - MAX} mais</span>
                     )}
                   </div>
                 </div>
@@ -326,7 +347,8 @@ export function ContainerApp({
 
       {/* TOAST */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-xl text-sm font-semibold shadow-lg transition-all ${toastError ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>
+        <div className="fixed bottom-6 right-6 px-4 py-3 rounded-xl text-sm font-semibold shadow-lg"
+          style={{ background: toastError ? '#dc2626' : C.green, color: toastError ? '#fff' : '#0f1b2e' }}>
           {toast}
         </div>
       )}
