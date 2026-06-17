@@ -49,7 +49,7 @@ const ENDPOINTS = [
   "GetPermanenciasVeiculoImpArmadorPeriodo",
 ];
 
-type Chart = { label?: string; code?: string; xAxisData?: number[]; data?: number[] };
+type Chart = { label?: string | number; code?: string | number; xAxisData?: number[]; data?: number[] };
 type Content = { code?: string; title?: string; xAxisColumns?: string[]; charts?: Chart[] };
 type ApiResp = { Success?: boolean; Error?: string | null; Content?: Content };
 type Row = { fonte: string; code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null };
@@ -66,7 +66,7 @@ function flatten(name: string, resp: ApiResp): Row[] {
   const eixos = c.xAxisColumns ?? [];
   const rows: Row[] = [];
   for (const chart of c.charts) {
-    const serie = (chart.label || chart.code || "série").trim();
+    const serie = String(chart.label ?? chart.code ?? "série").trim();
     const data = chart.xAxisData ?? chart.data ?? [];
     eixos.forEach((eixo, i) => {
       rows.push({
