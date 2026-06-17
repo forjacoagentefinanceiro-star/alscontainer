@@ -58,3 +58,35 @@ create policy "user sees own sessions"
 create policy "user sees own numbers"
   on used_numbers for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ============================================================
+--  BI — indicadores agregados vindos do Dashboard BI da
+--  eProfessional (websag.../bi), coletados pelo extrator
+--  agendado (scripts/extract-websag.ts).
+--
+--  Dado da EMPRESA (não por usuário): leitura liberada para
+--  qualquer usuário logado; escrita só pelo robô (service_role,
+--  que bypassa RLS — por isso não há policy de insert/update).
+--
+--  Formato "long": cada linha é um ponto (série × mês × ano).
+-- ============================================================
+create table if not exists bi_indicadores (
+  id           bigint generated always as identity primary key,
+  fonte        text not null default 'websag',
+  code         text not null,        -- código do indicador (endpoint)
+  titulo       text,
+  serie        text not null,        -- label da série (armador / tipo / faixa)
+  eixo         text not null,        -- coluna do eixo X (mês)
+  ano          integer not null,
+  valor        numeric(14,2),
+  captured_at  timestamptz not null default now(),
+  unique (code, serie, eixo, ano)    -- upsert idempotente
+);
+create index if not exists idx_bi_ind_code on bi_indicadores (code);
+create index if not exists idx_bi_ind_ano  on bi_indicadores (ano);
+
+alter table bi_indicadores enable row level security;
+
+create policy "indicadores: leitura por autenticados"
+  on bi_indicadores for select
+  using (auth.uid() is not null);
