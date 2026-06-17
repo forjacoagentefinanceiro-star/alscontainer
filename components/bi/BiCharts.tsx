@@ -12,10 +12,10 @@ const PALETTE = ['#7DC242', '#A8D96B', '#4FA3D1', '#2E7DB0', '#1B4F8A', '#5FBFA0
 
 // Cores fixas por armador (demais usam a paleta padrão)
 const ARMADOR_CORES: Record<string, string> = {
-  HPL: '#F57C20', HAPAG: '#F57C20',          // laranja
+  HPL: '#EC6608', HAPAG: '#EC6608',          // laranja
   EVER: '#1FA24A', EVERGREEN: '#1FA24A',     // verde
   LOGIN: '#1B6FB5',                          // azul
-  ONE: '#E5007D',                            // magenta
+  ONE: '#AD1457',                            // magenta
   VLC: '#F2C200',                            // amarelo
 }
 
