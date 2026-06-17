@@ -80,19 +80,31 @@ export default async function BiPage() {
     .sort((a, b) => a.ord - b.ord)
     .map(c => ({ key: c.key, label: c.label, grupos: c.grupos.sort((a, b) => a.code.localeCompare(b.code)) }))
 
-  // KPIs
+  // KPIs — foco no mês corrente (último mês com dados), com total do ano no subtítulo
   const gEntrada = grupos.find(g => /ENTRADA/.test(g.code) && /CNTR/.test(g.code)) ?? grupos.find(g => /ENTRADA/.test(g.code))
   const gSaida = grupos.find(g => /SAIDA/.test(g.code) && /CNTR/.test(g.code)) ?? grupos.find(g => /SAIDA/.test(g.code))
+  const gEntradaTeus = grupos.find(g => /ENTRADA/.test(g.code) && /TEUS/.test(g.code) && !/ARMADOR/.test(g.code))
+  const gSaidaTeus = grupos.find(g => /SAIDA/.test(g.code) && /TEUS/.test(g.code) && !/ARMADOR/.test(g.code))
+
   const entradasMes = somaPorMes(gEntrada)
   const saidasMes = somaPorMes(gSaida)
+  const teusEntMes = somaPorMes(gEntradaTeus)
+  const teusSaiMes = somaPorMes(gSaidaTeus)
   const entradasAno = [...entradasMes.values()].reduce((a, b) => a + b, 0)
   const saidasAno = [...saidasMes.values()].reduce((a, b) => a + b, 0)
 
+  // mês corrente = último mês que tem dados
+  const mes = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(b) - mesIdx(a))[0] ?? ''
+  const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
+  const entMes = entradasMes.get(mes) ?? 0
+  const saiMes = saidasMes.get(mes) ?? 0
+  const teusMes = (teusEntMes.get(mes) ?? 0) + (teusSaiMes.get(mes) ?? 0)
+
   const kpis: KpiT[] = [
-    { label: 'Entradas (ano)', value: nf.format(entradasAno), accent: true },
-    { label: 'Saídas (ano)', value: nf.format(saidasAno), accent: true },
-    { label: 'Saldo', value: nf.format(entradasAno - saidasAno), sub: 'entradas − saídas' },
-    { label: 'Indicadores', value: nf.format(grupos.length), sub: 'coletados do BI' },
+    { label: `Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
+    { label: `Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
+    { label: `Saldo · ${cap(mes)}`, value: nf.format(entMes - saiMes), sub: 'entradas − saídas' },
+    { label: `TEUs · ${cap(mes)}`, value: nf.format(teusMes), sub: 'movimentados (ent + saí)' },
   ]
 
   const eixosTrend = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
