@@ -10,6 +10,24 @@ import {
 // Paleta no padrão "sala de controle" (verde ALS + azuis)
 const PALETTE = ['#7DC242', '#A8D96B', '#4FA3D1', '#2E7DB0', '#1B4F8A', '#5FBFA0', '#C5E89A', '#3AA0C0', '#6FA8DC', '#B6D7A8']
 
+// Cores fixas por armador (demais usam a paleta padrão)
+const ARMADOR_CORES: Record<string, string> = {
+  HPL: '#F57C20', HAPAG: '#F57C20',          // laranja
+  EVER: '#1FA24A', EVERGREEN: '#1FA24A',     // verde
+  LOGIN: '#1B6FB5',                          // azul
+  ONE: '#E5007D',                            // magenta
+  VLC: '#F2C200',                            // amarelo
+}
+
+/** Cor de uma série: usa a cor do armador se reconhecida, senão a paleta. */
+function corSerie(nome: string, i: number): string {
+  const key = String(nome).toUpperCase().replace(/[^A-Z]/g, '')
+  for (const k of Object.keys(ARMADOR_CORES)) {
+    if (key === k || key.startsWith(k)) return ARMADOR_CORES[k]
+  }
+  return PALETTE[i % PALETTE.length]
+}
+
 const axisStyle = { fontSize: 11, fill: '#8ca5c8' }
 const tooltipStyle = {
   background: '#0d1b2e',
@@ -34,7 +52,7 @@ export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] 
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
         {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#8ca5c8' }} />}
         {series.map((s, i) => (
-          <Bar key={s} dataKey={s} stackId="a" fill={PALETTE[i % PALETTE.length]} radius={i === series.length - 1 ? [3, 3, 0, 0] : undefined} />
+          <Bar key={s} dataKey={s} stackId="a" fill={corSerie(s, i)} radius={i === series.length - 1 ? [3, 3, 0, 0] : undefined} />
         ))}
       </BarChart>
     </ResponsiveContainer>
