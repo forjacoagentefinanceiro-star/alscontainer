@@ -15,44 +15,82 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 
-const baseItems = [
+type Item = { href: string; label: string; icon: typeof LayoutDashboard }
+
+const operacaoItems: Item[] = [
   { href: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/bi',         label: 'BI',          icon: BarChart3       },
   { href: '/inventario', label: 'Inventário',  icon: Package2        },
   { href: '/gerador',    label: 'Gerador ISO', icon: Hash            },
   { href: '/importar',   label: 'Importar',    icon: Upload          },
   { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
 ]
 
+const biItems: Item[] = [
+  { href: '/bi', label: 'BI Depot', icon: BarChart3 },
+]
+
+function NavLink({ item, active, collapsed }: { item: Item; active: boolean; collapsed: boolean }) {
+  return (
+    <Link
+      href={item.href}
+      title={collapsed ? item.label : undefined}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 relative"
+      style={{
+        background: active ? 'rgba(125,194,66,0.1)' : 'transparent',
+        color: active ? '#7DC242' : '#4a6a8a',
+      }}
+      onMouseEnter={e => {
+        if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#8ca5c8' }
+      }}
+      onMouseLeave={e => {
+        if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#4a6a8a' }
+      }}
+    >
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full"
+          style={{ width: 3, height: 20, background: '#7DC242' }} />
+      )}
+      <item.icon size={17} className="shrink-0" style={{ color: active ? '#7DC242' : 'inherit' }} />
+      {!collapsed && <span className="truncate">{item.label}</span>}
+    </Link>
+  )
+}
+
+function SectionLabel({ children, collapsed }: { children: string; collapsed: boolean }) {
+  if (collapsed) {
+    return <div className="mx-3 my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
+  }
+  return (
+    <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#3a5578' }}>
+      {children}
+    </p>
+  )
+}
+
 export function Sidebar({ role }: { role?: string }) {
-  const navItems = role === 'admin'
-    ? [...baseItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
-    : baseItems
+  const operacao = role === 'admin'
+    ? [...operacaoItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
+    : operacaoItems
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
     <aside
       className="hidden md:flex relative flex-col h-full shrink-0 transition-all duration-300 ease-in-out"
-      style={{
-        width: collapsed ? 72 : 240,
-        background: '#0d1b2e',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
-      }}
+      style={{ width: collapsed ? 72 : 240, background: '#0d1b2e', borderRight: '1px solid rgba(255,255,255,0.06)' }}
     >
-      {/* Logo — fundo #1B4F8A igual ao do PNG para encaixe perfeito */}
+      {/* Logo */}
       <div style={{ background: '#1B4F8A', minHeight: 72, display: 'flex', alignItems: 'center', position: 'relative' }}>
         {collapsed ? (
           <div className="flex justify-center w-full py-3 px-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="ALS"
-              style={{ height: 38, width: 'auto', objectFit: 'cover', objectPosition: 'left center' }} />
+            <img src="/logo.png" alt="ALS" style={{ height: 38, width: 'auto', objectFit: 'cover', objectPosition: 'left center' }} />
           </div>
         ) : (
           <div className="flex items-center justify-between w-full pr-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="ALS Logística"
-              style={{ height: 72, width: 'auto', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="ALS Logística" style={{ height: 72, width: 'auto', objectFit: 'contain' }} />
             <button
               onClick={() => setCollapsed(true)}
               className="p-1.5 rounded-lg transition-colors flex-shrink-0"
@@ -80,45 +118,16 @@ export function Sidebar({ role }: { role?: string }) {
       )}
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        {navItems.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group relative"
-              style={{
-                background: active ? 'rgba(125,194,66,0.1)' : 'transparent',
-                color: active ? '#7DC242' : '#4a6a8a',
-              }}
-              onMouseEnter={e => {
-                if (!active) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                  e.currentTarget.style.color = '#8ca5c8'
-                }
-              }}
-              onMouseLeave={e => {
-                if (!active) {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = '#4a6a8a'
-                }
-              }}
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full"
-                  style={{ width: 3, height: 20, background: '#7DC242' }} />
-              )}
-              <item.icon
-                size={17}
-                className="shrink-0"
-                style={{ color: active ? '#7DC242' : 'inherit' }}
-              />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 px-3 py-3 overflow-y-auto">
+        {!collapsed && <SectionLabel collapsed={collapsed}>Operação</SectionLabel>}
+        <div className="space-y-0.5">
+          {operacao.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
+        </div>
+
+        <SectionLabel collapsed={collapsed}>Análise</SectionLabel>
+        <div className="space-y-0.5">
+          {biItems.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
+        </div>
       </nav>
 
       {/* Rodapé */}

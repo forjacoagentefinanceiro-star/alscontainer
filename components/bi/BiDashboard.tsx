@@ -40,7 +40,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias }: {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h1 style={{ color: '#e6eef7', fontSize: 22, fontWeight: 700 }}>BI — Depot de Containers</h1>
+          <h1 style={{ color: '#e6eef7', fontSize: 22, fontWeight: 700 }}>BI Depot</h1>
           <p style={{ color: '#5f7da0', fontSize: 13 }}>Dados do e-Professional (websag) · ano {ano}</p>
         </div>
         <div style={{ color: '#5f7da0', fontSize: 12, textAlign: 'right' }}>

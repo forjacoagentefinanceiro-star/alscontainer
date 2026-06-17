@@ -6,7 +6,7 @@ import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users } 
 
 const baseItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/bi',         label: 'BI',         icon: BarChart3 },
+  { href: '/bi',         label: 'BI Depot',   icon: BarChart3 },
   { href: '/inventario', label: 'Inventário', icon: Package2 },
   { href: '/gerador',    label: 'Gerador',    icon: Hash },
   { href: '/importar',   label: 'Importar',   icon: Upload },

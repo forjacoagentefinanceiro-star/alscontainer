@@ -58,7 +58,7 @@ export default async function BiPage() {
   if (!linhas.length) {
     return (
       <div style={{ background: '#0d1b2e', borderRadius: 18, padding: 24, minHeight: '100%' }}>
-        <h1 style={{ color: '#e6eef7', fontSize: 22, fontWeight: 700 }}>BI — Depot de Containers</h1>
+        <h1 style={{ color: '#e6eef7', fontSize: 22, fontWeight: 700 }}>BI Depot</h1>
         <p style={{ color: '#8ca5c8', marginTop: 8 }}>
           Ainda não há indicadores. O robô roda diariamente; rode o workflow no GitHub Actions para popular agora.
         </p>
