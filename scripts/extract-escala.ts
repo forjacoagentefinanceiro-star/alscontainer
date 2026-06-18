@@ -73,37 +73,43 @@ async function main() {
 
     // 2) Painel 236
     await page.goto(PAINEL_URL, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("table", { timeout: 25000 });
-    await page.waitForTimeout(2500); // dá tempo das tabelas carregarem via JS
+    await page.waitForSelector("table", { timeout: 25000 }).catch(() => {});
+    await page.waitForTimeout(3500); // deixa os iframes/widgets carregarem
 
-    // log dos endpoints de dados (ajuda a achar export/AJAX)
-    // (network já capturado abaixo via listener)
+    // 3) Dump das tabelas de TODOS os frames (cada bloco do painel pode ser um iframe)
+    const frames = page.frames();
+    console.log(`[debug] frames (${frames.length}):`, JSON.stringify(frames.map((f) => f.url()).slice(0, 20)));
 
-    // 3) Dump das tabelas (cabeçalho + linhas) — vai pro log do CI, sem filtro
-    const tabelas: Tabela[] = await page.evaluate(() => {
-      function heading(t: Element): string {
-        let el: Element | null = t;
-        let hops = 0;
-        while (el && hops < 6) {
-          let p = el.previousElementSibling;
-          while (p) {
-            const tx = (p.textContent || "").replace(/\s+/g, " ").trim();
-            if (tx && tx.length < 90) return tx.slice(0, 90);
-            p = p.previousElementSibling;
+    const tabelas: Tabela[] = [];
+    for (const f of frames) {
+      try {
+        const ts: Tabela[] = await f.evaluate(() => {
+          function heading(t: Element): string {
+            let el: Element | null = t;
+            let hops = 0;
+            while (el && hops < 6) {
+              let p = el.previousElementSibling;
+              while (p) {
+                const tx = (p.textContent || "").replace(/\s+/g, " ").trim();
+                if (tx && tx.length < 90) return tx.slice(0, 90);
+                p = p.previousElementSibling;
+              }
+              el = el.parentElement;
+              hops++;
+            }
+            return "";
           }
-          el = el.parentElement;
-          hops++;
-        }
-        return "";
-      }
-      return [...document.querySelectorAll("table")].map((t) => ({
-        h: heading(t),
-        rows: [...t.querySelectorAll("tr")].slice(0, 30).map((tr) =>
-          [...tr.querySelectorAll("th,td")].map((c) => (c.textContent || "").replace(/\s+/g, " ").trim())
-        ),
-      }));
-    });
-    console.log("[debug] tabelas do painel 236:\n" + JSON.stringify(tabelas).slice(0, 4000));
+          return [...document.querySelectorAll("table")].map((t) => ({
+            h: heading(t),
+            rows: [...t.querySelectorAll("tr")].slice(0, 30).map((tr) =>
+              [...tr.querySelectorAll("th,td")].map((c) => (c.textContent || "").replace(/\s+/g, " ").trim())
+            ),
+          }));
+        });
+        tabelas.push(...ts);
+      } catch { /* frame sem acesso */ }
+    }
+    console.log("[debug] resumo tabelas:", JSON.stringify(tabelas.map((t) => ({ h: t.h, n: t.rows.length, head: t.rows[0] }))).slice(0, 3500));
 
     // 4) Extração por heurística
     const acha = (re: RegExp) => tabelas.find((t) => re.test((t.h || "").toLowerCase()));
