@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { IndicadorBar, TendenciaLinha, type Ponto } from './BiCharts'
-
-export type Grupo = { code: string; titulo: string; data: Ponto[]; series: string[] }
-export type Categoria = { key: string; label: string; grupos: Grupo[] }
-export type KpiT = { label: string; value: string; sub?: string; accent?: boolean }
+import Link from 'next/link'
+import { IndicadorBar, TendenciaLinha } from './BiCharts'
+import type { Categoria, KpiT } from '@/lib/bi/load'
+import type { Ponto } from './BiCharts'
 
 const cardStyle: React.CSSProperties = { background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }
 
@@ -13,7 +12,7 @@ function Kpi({ k }: { k: KpiT }) {
   return (
     <div style={cardStyle}>
       <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>{k.label}</div>
-      <div style={{ fontSize: 30, fontWeight: 700, color: k.accent ? '#7DC242' : '#e6eef7', lineHeight: 1.25 }}>{k.value}</div>
+      <div style={{ fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 700, color: k.accent ? '#7DC242' : '#e6eef7', lineHeight: 1.25 }}>{k.value}</div>
       {k.sub && <div style={{ fontSize: 11, color: '#5f7da0', marginTop: 2 }}>{k.sub}</div>}
     </div>
   )
@@ -36,20 +35,25 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias }: {
   const cat = categorias.find(c => c.label === tab)
 
   return (
-    <div style={{ background: '#0d1b2e', borderRadius: 18, padding: 24, minHeight: '100%' }}>
+    <div style={{ background: '#0d1b2e', borderRadius: 18, padding: 'clamp(14px, 3vw, 24px)', minHeight: '100%' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ color: '#e6eef7', fontSize: 22, fontWeight: 700 }}>BI Depot</h1>
+          <h1 style={{ color: '#e6eef7', fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 700 }}>BI Depot</h1>
           <p style={{ color: '#5f7da0', fontSize: 13 }}>Dados do e-Professional (websag) · ano {ano}</p>
         </div>
-        <div style={{ color: '#5f7da0', fontSize: 12, textAlign: 'right' }}>
-          atualizado em<br /><span style={{ color: '#8ca5c8' }}>{atualizado}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Link href="/tv" target="_blank" style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '7px 14px', borderRadius: 999, textDecoration: 'none' }}>
+            Televisão ↗
+          </Link>
+          <div style={{ color: '#5f7da0', fontSize: 12, textAlign: 'right' }}>
+            atualizado em<br /><span style={{ color: '#8ca5c8' }}>{atualizado}</span>
+          </div>
         </div>
       </div>
 
-      {/* KPIs (sempre visíveis) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 18 }}>
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
         {kpis.map(k => <Kpi key={k.label} k={k} />)}
       </div>
 
@@ -82,7 +86,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias }: {
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 14 }}>
           {cat?.grupos.map(g => (
             <Card key={g.code} titulo={g.titulo}>
               <IndicadorBar data={g.data} series={g.series} />
