@@ -179,6 +179,8 @@ async function main() {
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
+  // shim p/ o helper __name que o tsx/esbuild injeta em funções nomeadas dentro de page.evaluate
+  await page.addInitScript({ content: 'globalThis.__name = globalThis.__name || (function (f) { return f; });' });
   try {
     // 1) Login
     await page.goto(`${BASE}/Authentication/Login`, { waitUntil: "domcontentloaded" });

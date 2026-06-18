@@ -50,6 +50,8 @@ async function main() {
   const browser = await chromium.launch({ args: ["--ignore-certificate-errors"] });
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
+  // shim p/ o helper __name que o tsx/esbuild injeta em funções nomeadas dentro de page.evaluate
+  await page.addInitScript({ content: 'globalThis.__name = globalThis.__name || (function (f) { return f; });' });
   try {
     // 1) Login (genérico: primeiro input de texto + input de senha + enter)
     await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
