@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Ponto } from '@/components/bi/BiCharts'
 
-export type Grupo = { code: string; titulo: string; data: Ponto[]; series: string[] }
+export type Grupo = { code: string; titulo: string; data: Ponto[]; series: string[]; medida: string }
 export type Categoria = { key: string; label: string; grupos: Grupo[] }
 export type KpiT = { label: string; value: string; sub?: string; accent?: boolean }
 export type ConfItem = { eixo: string; total: number; soma: number; dif: number }
@@ -47,7 +47,8 @@ function agrupar(linhas: Linha[]): Grupo[] {
       for (const s of series) ponto[s] = rows.find(x => x.eixo === eixo && x.serie === s)?.valor ?? 0
       return ponto
     })
-    grupos.push({ code, titulo: rows[0].titulo || code, data, series })
+    const medida = `${/TEUS/.test(code) ? 'TEUs' : 'QTD containers'} · por mês`
+    grupos.push({ code, titulo: rows[0].titulo || code, data, series, medida })
   }
   return grupos
 }

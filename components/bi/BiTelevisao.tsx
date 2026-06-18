@@ -15,10 +15,11 @@ function Tile({ k }: { k: KpiT }) {
   )
 }
 
-function Card({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Card({ titulo, sub, children }: { titulo: string; sub?: string; children: React.ReactNode }) {
   return (
     <div style={{ background: '#0f2138', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 16 }}>
-      <h3 style={{ fontSize: 'clamp(13px, 1.1vw, 17px)', fontWeight: 600, color: '#cfe0f2', marginBottom: 10 }}>{titulo}</h3>
+      <h3 style={{ fontSize: 'clamp(13px, 1.1vw, 17px)', fontWeight: 600, color: '#cfe0f2', marginBottom: sub ? 2 : 10 }}>{titulo}</h3>
+      {sub && <div style={{ fontSize: 'clamp(11px, 0.9vw, 13px)', color: '#5f7da0', marginBottom: 10 }}>{sub}</div>}
       {children}
     </div>
   )
@@ -69,7 +70,7 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias }: {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: 'clamp(12px, 1.4vw, 20px)' }}>
         {destaques.map(g => (
-          <Card key={g.code} titulo={g.titulo}>
+          <Card key={g.code} titulo={g.titulo} sub={g.medida}>
             <IndicadorBar data={g.data} series={g.series} />
           </Card>
         ))}

@@ -19,10 +19,11 @@ function Kpi({ k }: { k: KpiT }) {
   )
 }
 
-function Card({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Card({ titulo, sub, children }: { titulo: string; sub?: string; children: React.ReactNode }) {
   return (
     <div style={cardStyle}>
-      <h3 style={{ fontSize: 13, fontWeight: 600, color: '#cfe0f2', marginBottom: 10 }}>{titulo}</h3>
+      <h3 style={{ fontSize: 13, fontWeight: 600, color: '#cfe0f2', marginBottom: sub ? 2 : 10 }}>{titulo}</h3>
+      {sub && <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 10 }}>{sub}</div>}
       {children}
     </div>
   )
@@ -125,7 +126,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 14 }}>
           {cat?.grupos.map(g => (
-            <Card key={g.code} titulo={g.titulo}>
+            <Card key={g.code} titulo={g.titulo} sub={g.medida}>
               <IndicadorBar data={g.data} series={g.series} />
             </Card>
           ))}
