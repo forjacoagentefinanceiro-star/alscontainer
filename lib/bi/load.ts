@@ -3,7 +3,7 @@ import type { Ponto } from '@/components/bi/BiCharts'
 
 export type Grupo = { code: string; titulo: string; data: Ponto[]; series: string[]; medida: string }
 export type Categoria = { key: string; label: string; grupos: Grupo[] }
-export type KpiT = { label: string; value: string; sub?: string; accent?: boolean }
+export type KpiT = { label: string; value: string; sub?: string; accent?: boolean; cor?: string; destaque?: boolean; compact?: boolean }
 export type ConfItem = { eixo: string; total: number; soma: number; dif: number }
 export type Conferencia = { metrica: string; itens: ConfItem[]; ok: boolean }
 export type BiData = {
@@ -159,13 +159,13 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
 
   const faturamento: KpiT[] = faturamentoRows.length
     ? [
-        { label: 'Anual · Terminal', value: fmtBrl(fatAnualTerminal), accent: true },
-        { label: 'Anual · Depot', value: fmtBrl(fatAnualDepot), accent: true },
-        { label: 'Anual · Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot' },
-        { label: `Mês · Terminal`, value: fmtBrl(fatMesTerminal) },
-        { label: `Mês · Depot`, value: fmtBrl(fatMesDepot) },
-        { label: `Mês · Total`, value: fmtBrl(somaBrl(fatMesTerminal, fatMesDepot)), sub: 'terminal + depot' },
-        { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes' },
+        { label: 'Anual · Terminal', value: fmtBrl(fatAnualTerminal), cor: '#7DC242', compact: true },
+        { label: 'Anual · Depot', value: fmtBrl(fatAnualDepot), cor: '#7DC242', compact: true },
+        { label: 'Anual · Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
+        { label: `Mês · Terminal`, value: fmtBrl(fatMesTerminal), cor: '#7DC242', compact: true },
+        { label: `Mês · Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true },
+        { label: `Mês · Total`, value: fmtBrl(somaBrl(fatMesTerminal, fatMesDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
+        { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true },
       ]
     : []
 

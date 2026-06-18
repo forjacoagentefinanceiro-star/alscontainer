@@ -10,10 +10,19 @@ const nf = new Intl.NumberFormat('pt-BR')
 const cardStyle: React.CSSProperties = { background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }
 
 function Kpi({ k }: { k: KpiT }) {
+  const cor = k.cor ?? (k.accent ? '#7DC242' : '#e6eef7')
   return (
-    <div style={cardStyle}>
+    <div style={{
+      background: '#0f2138',
+      border: `1px solid ${k.destaque ? cor : 'rgba(255,255,255,0.06)'}`,
+      borderRadius: 14, padding: 16, minWidth: 0,
+    }}>
       <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>{k.label}</div>
-      <div style={{ fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 700, color: k.accent ? '#7DC242' : '#e6eef7', lineHeight: 1.25 }}>{k.value}</div>
+      <div style={{
+        fontSize: k.compact ? 'clamp(14px, 3vw, 20px)' : 'clamp(22px, 5vw, 30px)',
+        fontWeight: 700, color: cor, lineHeight: 1.25,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{k.value}</div>
       {k.sub && <div style={{ fontSize: 11, color: '#5f7da0', marginTop: 2 }}>{k.sub}</div>}
     </div>
   )
@@ -116,7 +125,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
         </Card>
       ) : tab === 'Faturamento' ? (
         <div style={{ display: 'grid', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
             {faturamento.map(k => <Kpi key={k.label} k={k} />)}
           </div>
           {(faturamentoMensal || faturamentoAnual) && (
