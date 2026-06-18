@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { BiDashboard } from '@/components/bi/BiDashboard'
 import { loadBiData } from '@/lib/bi/load'
+import { getMyProfile } from '@/app/actions'
 
 export const dynamic = 'force-dynamic'
 
 export default async function BiPage() {
   const supabase = await createClient()
-  const d = await loadBiData(supabase)
+  const [d, profile] = await Promise.all([loadBiData(supabase), getMyProfile()])
+  // admin vê todas; demais veem só as abas liberadas (null = todas)
+  const abasPermitidas = profile?.role === 'admin' ? null : (profile?.bi_abas ?? null)
 
   if (d.empty) {
     return (
@@ -19,5 +22,5 @@ export default async function BiPage() {
     )
   }
 
-  return <BiDashboard ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias} conferencia={d.conferencia} faturamento={d.faturamento} faturamentoMensal={d.faturamentoMensal} faturamentoAnual={d.faturamentoAnual} />
+  return <BiDashboard ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias} conferencia={d.conferencia} faturamento={d.faturamento} faturamentoMensal={d.faturamentoMensal} faturamentoAnual={d.faturamentoAnual} abasPermitidas={abasPermitidas} />
 }

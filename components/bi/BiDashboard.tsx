@@ -65,12 +65,20 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual }: {
-  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual, abasPermitidas }: {
+  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
 }) {
-  const tabs = ['Visão Geral', ...categorias.map(c => c.label), ...(faturamento.length ? ['Faturamento'] : []), 'Conferência']
-  const [tab, setTab] = useState('Visão Geral')
-  const cat = categorias.find(c => c.label === tab)
+  const todasTabs = [
+    { key: 'visao-geral', label: 'Visão Geral' },
+    ...categorias.map(c => ({ key: c.key, label: c.label })),
+    ...(faturamento.length ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
+    { key: 'conferencia', label: 'Conferência' },
+  ]
+  // null = vê todas; senão filtra pelas abas liberadas ao usuário
+  const tabs = abasPermitidas ? todasTabs.filter(t => abasPermitidas.includes(t.key)) : todasTabs
+  const [tabKey, setTabKey] = useState(tabs[0]?.key ?? 'visao-geral')
+  const current = tabs.some(t => t.key === tabKey) ? tabKey : (tabs[0]?.key ?? 'visao-geral')
+  const cat = categorias.find(c => c.key === current)
 
   return (
     <div style={{ background: '#0d1b2e', borderRadius: 18, padding: 'clamp(14px, 3vw, 24px)', minHeight: '100%' }}>
@@ -98,11 +106,11 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
       {/* Abas */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 18, overflowX: 'auto', paddingBottom: 4 }}>
         {tabs.map(t => {
-          const active = t === tab
+          const active = t.key === current
           return (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={t.key}
+              onClick={() => setTabKey(t.key)}
               style={{
                 whiteSpace: 'nowrap', padding: '8px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600,
                 cursor: 'pointer', transition: 'all .15s',
@@ -111,19 +119,21 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
                 border: active ? '1px solid #7DC242' : '1px solid rgba(255,255,255,0.08)',
               }}
             >
-              {t}
+              {t.label}
             </button>
           )
         })}
       </div>
 
       {/* Conteúdo da aba */}
-      {tab === 'Visão Geral' ? (
+      {tabs.length === 0 ? (
+        <p style={{ color: '#8ca5c8', fontSize: 13 }}>Você não tem abas liberadas no BI. Fale com o administrador.</p>
+      ) : current === 'visao-geral' ? (
         <Card titulo="Entradas × Saídas por mês">
           {trend.length ? <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
-      ) : tab === 'Faturamento' ? (
+      ) : current === 'faturamento' ? (
         <div style={{ display: 'grid', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
             {faturamento.map(k => <Kpi key={k.label} k={k} />)}
@@ -143,7 +153,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
             </div>
           )}
         </div>
-      ) : tab === 'Conferência' ? (
+      ) : current === 'conferencia' ? (
         <div style={{ display: 'grid', gap: 14 }}>
           <p style={{ color: '#8ca5c8', fontSize: 13, margin: 0 }}>
             Cruza o total de cada métrica com a soma das suas quebras por armador. Diferença ≠ 0 indica que a extração divergiu do e-Professional.

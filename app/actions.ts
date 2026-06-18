@@ -35,6 +35,7 @@ export type UserProfile = {
   name: string
   role: 'admin' | 'editor' | 'viewer'
   approved: boolean
+  bi_abas: string[] | null // null = vê todas as abas do BI
   created_at: string
 }
 
@@ -115,6 +116,17 @@ export async function updateUserRole(userId: string, role: 'admin' | 'editor' | 
   const { error } = await supabase
     .from('user_profiles')
     .update({ role })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
+export async function updateUserBiAbas(userId: string, abas: string[] | null) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ bi_abas: abas })
     .eq('id', userId)
   if (error) return { error: error.message }
   revalidatePath('/usuarios')

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import type { UserProfile } from '@/app/actions'
-import { approveUser, updateUserRole, revokeUser } from '@/app/actions'
+import { approveUser, updateUserRole, revokeUser, updateUserBiAbas } from '@/app/actions'
+import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 
 const roleLabel = { admin: 'Admin', editor: 'Editor', viewer: 'Visualizador' }
 const roleColor = {
@@ -14,6 +15,15 @@ const roleColor = {
 export function UsuariosTab({ users }: { users: UserProfile[] }) {
   const [list, setList] = useState(users)
   const [isPending, startTransition] = useTransition()
+  const [openAbas, setOpenAbas] = useState<string | null>(null)
+
+  function toggleAba(u: UserProfile, key: string, checked: boolean) {
+    const atual = u.bi_abas ?? [...BI_ABAS_KEYS] // null = todas
+    const next = checked ? [...new Set([...atual, key])] : atual.filter(k => k !== key)
+    const toSave = next.length === BI_ABAS.length ? null : next // todas marcadas → null (= todas)
+    setList(prev => prev.map(x => x.id === u.id ? { ...x, bi_abas: toSave } : x))
+    startTransition(async () => { await updateUserBiAbas(u.id, toSave) })
+  }
 
   const pending  = list.filter(u => !u.approved)
   const approved = list.filter(u => u.approved)
@@ -105,45 +115,77 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
           <p className="text-sm text-center py-8" style={{ color: '#9ca3af' }}>Nenhum usuário aprovado</p>
         ) : (
           <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
-            {approved.map(u => (
-              <div key={u.id} className="px-5 py-3 flex items-center gap-4">
-                {/* Avatar inicial */}
-                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm text-white"
-                  style={{ background: '#1B4F8A' }}>
-                  {u.email[0].toUpperCase()}
+            {approved.map(u => {
+              const todas = u.bi_abas == null
+              const qtd = todas ? BI_ABAS.length : u.bi_abas!.length
+              return (
+              <div key={u.id}>
+                <div className="px-5 py-3 flex items-center gap-4">
+                  {/* Avatar inicial */}
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm text-white"
+                    style={{ background: '#1B4F8A' }}>
+                    {u.email[0].toUpperCase()}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: '#1a2a3a' }}>{u.email}</p>
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>
+                      desde {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+
+                  {/* Abas do BI */}
+                  {u.role !== 'admin' && (
+                    <button onClick={() => setOpenAbas(openAbas === u.id ? null : u.id)}
+                      className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50"
+                      style={{ borderColor: '#cbd5e1', color: '#475569' }}>
+                      Abas BI: {todas ? 'todas' : qtd}
+                    </button>
+                  )}
+
+                  {/* Papel */}
+                  <select
+                    value={u.role}
+                    onChange={e => handleRole(u.id, e.target.value as UserProfile['role'])}
+                    disabled={isPending}
+                    className="rounded border text-xs px-2 py-1.5 outline-none font-semibold"
+                    style={{ ...roleColor[u.role], borderColor: roleColor[u.role].border }}
+                  >
+                    <option value="viewer">Visualizador</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+
+                  {/* Revogar */}
+                  <button onClick={() => handleRevoke(u.id)} disabled={isPending}
+                    className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-red-50 disabled:opacity-50"
+                    style={{ borderColor: '#fecaca', color: '#ef4444' }}>
+                    Revogar
+                  </button>
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: '#1a2a3a' }}>{u.email}</p>
-                  <p className="text-xs" style={{ color: '#9ca3af' }}>
-                    desde {new Date(u.created_at).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
-
-                {/* Papel */}
-                <select
-                  value={u.role}
-                  onChange={e => handleRole(u.id, e.target.value as UserProfile['role'])}
-                  disabled={isPending}
-                  className="rounded border text-xs px-2 py-1.5 outline-none font-semibold"
-                  style={{
-                    ...roleColor[u.role],
-                    borderColor: roleColor[u.role].border,
-                  }}
-                >
-                  <option value="viewer">Visualizador</option>
-                  <option value="editor">Editor</option>
-                  <option value="admin">Admin</option>
-                </select>
-
-                {/* Revogar */}
-                <button onClick={() => handleRevoke(u.id)} disabled={isPending}
-                  className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-red-50 disabled:opacity-50"
-                  style={{ borderColor: '#fecaca', color: '#ef4444' }}>
-                  Revogar
-                </button>
+                {/* Painel de abas do BI */}
+                {openAbas === u.id && u.role !== 'admin' && (
+                  <div className="px-5 pb-4 -mt-1">
+                    <div className="rounded-lg p-3" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                      <p className="text-xs mb-2" style={{ color: '#6b7280' }}>Abas do BI que este usuário pode ver:</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {BI_ABAS.map(aba => {
+                          const checked = u.bi_abas == null || u.bi_abas.includes(aba.key)
+                          return (
+                            <label key={aba.key} className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: '#374151' }}>
+                              <input type="checkbox" checked={checked} disabled={isPending}
+                                onChange={e => toggleAba(u, aba.key, e.target.checked)} />
+                              {aba.label}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
