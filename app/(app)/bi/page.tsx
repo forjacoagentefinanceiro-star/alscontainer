@@ -103,7 +103,6 @@ export default async function BiPage() {
   const kpis: KpiT[] = [
     { label: `Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
     { label: `Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
-    { label: `Saldo · ${cap(mes)}`, value: nf.format(entMes - saiMes), sub: 'entradas − saídas' },
     { label: `TEUs · ${cap(mes)}`, value: nf.format(teusMes), sub: 'movimentados (ent + saí)' },
   ]
 
