@@ -134,28 +134,39 @@ async function main() {
     });
     console.log("[debug] requests:", JSON.stringify([...pedidos].slice(0, 40)));
 
-    // 4) Extração por heurística
-    const acha = (re: RegExp) => tabelas.find((t) => re.test((t.h || "").toLowerCase()));
-    const totalUltimaCol = (t?: Tabela) => {
-      const r = t?.rows.find((row) => /total/i.test(row[0] || ""));
-      return r ? num(r[r.length - 1]) : null;
+    // 4) Extração: cada widget tem [cabeçalho | corpo | total] em tabelas separadas.
+    // Acha a tabela do título e pega a linha "Total" nas tabelas seguintes.
+    const idx = (re: RegExp) => tabelas.findIndex((t) => re.test((t.h || "").toLowerCase()));
+    const totalRowApos = (i: number, minCells: number): string[] | null => {
+      if (i < 0) return null;
+      for (let j = i; j < Math.min(tabelas.length, i + 3); j++) {
+        const r = tabelas[j].rows.find((row) => /^total$/i.test((row[0] || "").trim()) && row.length >= minCells);
+        if (r) return r;
+      }
+      return null;
     };
 
-    const anualTerminal = totalUltimaCol(acha(/anual.*terminal/));
-    const anualDepot = totalUltimaCol(acha(/anual.*depot/));
+    const rDepot = totalRowApos(idx(/faturamento anual depot/), 5);
+    const rTerminal = totalRowApos(idx(/faturamento anual terminal/), 5);
+    const anualDepot = rDepot ? num(rDepot[rDepot.length - 1]) : null; // última coluna = ano corrente
+    const anualTerminal = rTerminal ? num(rTerminal[rTerminal.length - 1]) : null;
 
-    const mesTab = acha(/terminal e depot/);
-    const mesTotalRow = mesTab?.rows.find((row) => /total/i.test(row[0] || ""));
-    const mesTerminal = mesTotalRow ? num(mesTotalRow[1]) : null;
-    const mesDepot = mesTotalRow ? num(mesTotalRow[2]) : null;
+    const rMes = totalRowApos(idx(/terminal e depot/), 3);
+    const mesTerminal = rMes ? num(rMes[1]) : null;
+    const mesDepot = rMes ? num(rMes[2]) : null;
 
-    const aFatTab = acha(/pendente de faturamento/);
+    // "Serviço de terminal pendente de faturamento": pega o total da coluna Valortotalcobrar
     let aFaturar: number | null = null;
-    if (aFatTab) {
-      const head = aFatTab.rows[0] || [];
-      const vtIdx = head.findIndex((c) => /valor.*total/i.test(c));
-      const totalsRow = aFatTab.rows[1] || [];
-      aFaturar = vtIdx >= 0 ? num(totalsRow[vtIdx]) : null;
+    const pi = idx(/pendente de faturamento/);
+    if (pi >= 0) {
+      const header = tabelas[pi].rows[0] || [];
+      const vtIdx = header.findIndex((c) => /valor.*total/i.test(c));
+      if (vtIdx >= 0) {
+        for (let j = pi; j < Math.min(tabelas.length, pi + 4); j++) {
+          const tr = tabelas[j].rows.find((row) => (row[0] || "").trim() === "" && num(row[vtIdx]) != null);
+          if (tr) { aFaturar = num(tr[vtIdx]); break; }
+        }
+      }
     }
 
     const mk = (code: string, titulo: string, valor: number | null): Row =>
