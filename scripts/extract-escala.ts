@@ -74,41 +74,51 @@ async function main() {
     // 2) Painel 236
     await page.goto(PAINEL_URL, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("table", { timeout: 25000 }).catch(() => {});
-    await page.waitForTimeout(3500); // deixa os iframes/widgets carregarem
 
-    // 3) Dump das tabelas de TODOS os frames (cada bloco do painel pode ser um iframe)
-    const frames = page.frames();
-    console.log(`[debug] frames (${frames.length}):`, JSON.stringify(frames.map((f) => f.url()).slice(0, 20)));
-
-    const tabelas: Tabela[] = [];
-    for (const f of frames) {
-      try {
-        const ts: Tabela[] = await f.evaluate(() => {
-          function heading(t: Element): string {
-            let el: Element | null = t;
-            let hops = 0;
-            while (el && hops < 6) {
-              let p = el.previousElementSibling;
-              while (p) {
-                const tx = (p.textContent || "").replace(/\s+/g, " ").trim();
-                if (tx && tx.length < 90) return tx.slice(0, 90);
-                p = p.previousElementSibling;
+    // coleta tabelas de TODOS os frames (cada bloco do painel pode ser um iframe)
+    const dumpFrames = async (): Promise<Tabela[]> => {
+      const acc: Tabela[] = [];
+      for (const f of page.frames()) {
+        try {
+          const ts: Tabela[] = await f.evaluate(() => {
+            function heading(t: Element): string {
+              let el: Element | null = t;
+              let hops = 0;
+              while (el && hops < 6) {
+                let p = el.previousElementSibling;
+                while (p) {
+                  const tx = (p.textContent || "").replace(/\s+/g, " ").trim();
+                  if (tx && tx.length < 90) return tx.slice(0, 90);
+                  p = p.previousElementSibling;
+                }
+                el = el.parentElement;
+                hops++;
               }
-              el = el.parentElement;
-              hops++;
+              return "";
             }
-            return "";
-          }
-          return [...document.querySelectorAll("table")].map((t) => ({
-            h: heading(t),
-            rows: [...t.querySelectorAll("tr")].slice(0, 30).map((tr) =>
-              [...tr.querySelectorAll("th,td")].map((c) => (c.textContent || "").replace(/\s+/g, " ").trim())
-            ),
-          }));
-        });
-        tabelas.push(...ts);
-      } catch { /* frame sem acesso */ }
+            return [...document.querySelectorAll("table")].map((t) => ({
+              h: heading(t),
+              rows: [...t.querySelectorAll("tr")].slice(0, 30).map((tr) =>
+                [...tr.querySelectorAll("th,td")].map((c) => (c.textContent || "").replace(/\s+/g, " ").trim())
+              ),
+            }));
+          });
+          acc.push(...ts);
+        } catch { /* frame sem acesso */ }
+      }
+      return acc;
+    };
+
+    // as tabelas preenchem via AJAX — faz polling até a de "anual depot" ter a linha Total
+    let tabelas: Tabela[] = [];
+    for (let i = 0; i < 14; i++) {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)).catch(() => {});
+      tabelas = await dumpFrames();
+      const ad = tabelas.find((t) => /anual.*depot/.test((t.h || "").toLowerCase()));
+      if (ad && ad.rows.some((r) => /total/i.test(r[0] || ""))) break;
+      await page.waitForTimeout(2500);
     }
+    console.log(`[debug] frames (${page.frames().length})`);
     console.log("[debug] resumo tabelas:", JSON.stringify(tabelas.map((t) => ({ h: t.h, n: t.rows.length, head: t.rows[0] }))).slice(0, 3500));
 
     // 4) Extração por heurística
