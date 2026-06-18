@@ -105,7 +105,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const kpis: KpiT[] = [
     { label: `Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
     { label: `Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
-    { label: 'Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—', sub: 'estimativa (Televisão)' },
+    { label: 'Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—' },
     { label: `TEUs · ${cap(mes)}`, value: nf.format(teusMes), sub: 'movimentados (ent + saí)' },
   ]
 

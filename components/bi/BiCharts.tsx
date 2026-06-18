@@ -42,16 +42,31 @@ export type Serie = string
 export type Ponto = { eixo: string } & Record<string, number | string>
 
 /** Barras empilhadas: uma barra por série, ao longo do eixo (meses). */
+/** Formata rótulos de classe de tempo: até 60 → minutos; acima → horas. */
+function fmtTempo(s: unknown): string {
+  const t = String(s)
+  const min = t.match(/(\d+)\s*MIN/i)
+  if (min) {
+    const n = parseInt(min[1], 10)
+    if (n > 60) { const h = n / 60; return Number.isInteger(h) ? `${h} h` : `${h.toFixed(1)} h` }
+    return `${n} min`
+  }
+  if (/maior que\s*\d+\s*hora/i.test(t)) { const m = t.match(/(\d+)/); return `> ${m ? m[1] : ''} h` }
+  const hr = t.match(/(\d+)\s*HORA/i)
+  if (hr) return `${hr[1]} h`
+  return t
+}
+
 export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] }) {
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+    <ResponsiveContainer width="100%" height={250}>
+      <BarChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -10 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis dataKey="eixo" tick={axisStyle} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
           tickFormatter={(s: string) => String(s).slice(0, 3)} />
-        <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={46} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#8ca5c8' }} />}
+        <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => new Intl.NumberFormat('pt-BR', { notation: 'compact' }).format(v)} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} formatter={(value, name) => [value as number, fmtTempo(name)]} />
+        {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#8ca5c8', paddingTop: 6 }} formatter={(value) => fmtTempo(value)} />}
         {series.map((s, i) => (
           <Bar key={s} dataKey={s} stackId="a" fill={corSerie(s, i)} radius={i === series.length - 1 ? [3, 3, 0, 0] : undefined} />
         ))}
@@ -67,7 +82,7 @@ export function TendenciaLinha({ data, series }: { data: Ponto[]; series: Serie[
       <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis dataKey="eixo" tick={axisStyle} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
-        <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={46} />
+        <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => new Intl.NumberFormat('pt-BR', { notation: 'compact' }).format(v)} />
         <Tooltip contentStyle={tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 12, color: '#8ca5c8' }} />
         {series.map((s, i) => (
