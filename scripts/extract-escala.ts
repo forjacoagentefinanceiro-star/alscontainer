@@ -52,6 +52,15 @@ async function main() {
   const page = await ctx.newPage();
   // shim p/ o helper __name que o tsx/esbuild injeta em funções nomeadas dentro de page.evaluate
   await page.addInitScript({ content: 'globalThis.__name = globalThis.__name || (function (f) { return f; });' });
+
+  // captura requisições (ajuda a achar o endpoint que traz os dados de faturamento)
+  const pedidos = new Set<string>();
+  page.on("response", (r) => {
+    const u = r.url();
+    if (/(\.php|ajax|json|dados|consult|fatur)/i.test(u) && !/\.(css|js|png|jpe?g|svg|woff2?|ico)/i.test(u)) {
+      pedidos.add(`${r.status()} ${r.request().method()} ${u}`.slice(0, 160));
+    }
+  });
   try {
     // 1) Login (genérico: primeiro input de texto + input de senha + enter)
     await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
@@ -118,8 +127,12 @@ async function main() {
       if (ad && ad.rows.some((r) => /total/i.test(r[0] || ""))) break;
       await page.waitForTimeout(2500);
     }
-    console.log(`[debug] frames (${page.frames().length})`);
-    console.log("[debug] resumo tabelas:", JSON.stringify(tabelas.map((t) => ({ h: t.h, n: t.rows.length, head: t.rows[0] }))).slice(0, 3500));
+    console.log(`[debug] frames (${page.frames().length}) | tabelas: ${tabelas.length}`);
+    tabelas.forEach((t, i) => {
+      const totalRow = t.rows.find((r) => /total/i.test(r[0] || ""));
+      console.log(`[tab ${i}] n=${t.rows.length} h=${JSON.stringify((t.h || "").slice(0, 60))} head=${JSON.stringify(t.rows[0])} total=${JSON.stringify(totalRow || null)}`);
+    });
+    console.log("[debug] requests:", JSON.stringify([...pedidos].slice(0, 40)));
 
     // 4) Extração por heurística
     const acha = (re: RegExp) => tabelas.find((t) => re.test((t.h || "").toLowerCase()));
