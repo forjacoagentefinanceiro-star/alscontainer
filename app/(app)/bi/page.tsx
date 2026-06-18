@@ -19,5 +19,5 @@ export default async function BiPage() {
     )
   }
 
-  return <BiDashboard ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias} />
+  return <BiDashboard ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias} conferencia={d.conferencia} />
 }

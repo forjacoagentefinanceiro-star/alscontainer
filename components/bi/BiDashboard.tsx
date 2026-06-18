@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
-import type { Categoria, KpiT } from '@/lib/bi/load'
+import type { Categoria, KpiT, Conferencia } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
 
+const nf = new Intl.NumberFormat('pt-BR')
 const cardStyle: React.CSSProperties = { background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }
 
 function Kpi({ k }: { k: KpiT }) {
@@ -27,10 +28,37 @@ function Card({ titulo, children }: { titulo: string; children: React.ReactNode 
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias }: {
-  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]
+function ConfCard({ c }: { c: Conferencia }) {
+  const th: React.CSSProperties = { padding: '6px 8px', textAlign: 'right', color: '#8ca5c8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }
+  const td: React.CSSProperties = { padding: '6px 8px', textAlign: 'right', color: '#cfe0f2', fontVariantNumeric: 'tabular-nums' }
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: '#cfe0f2' }}>{c.metrica}</h3>
+        <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, color: c.ok ? '#0d1b2e' : '#fff', background: c.ok ? '#7DC242' : '#dc2626' }}>
+          {c.ok ? '✓ bate' : '⚠ divergência'}
+        </span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+          <thead>
+            <tr><th style={{ ...th, textAlign: 'left' }}>Mês</th>{c.itens.map(i => <th key={i.eixo} style={th}>{i.eixo.slice(0, 3)}</th>)}</tr>
+          </thead>
+          <tbody>
+            <tr><td style={{ ...td, textAlign: 'left', color: '#8ca5c8' }}>Total</td>{c.itens.map(i => <td key={i.eixo} style={td}>{nf.format(i.total)}</td>)}</tr>
+            <tr><td style={{ ...td, textAlign: 'left', color: '#8ca5c8' }}>Soma armadores</td>{c.itens.map(i => <td key={i.eixo} style={td}>{nf.format(i.soma)}</td>)}</tr>
+            <tr><td style={{ ...td, textAlign: 'left', color: '#8ca5c8' }}>Diferença</td>{c.itens.map(i => <td key={i.eixo} style={{ ...td, color: i.dif === 0 ? '#3b6d11' : '#f87171', fontWeight: i.dif === 0 ? 400 : 700 }}>{nf.format(i.dif)}</td>)}</tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia }: {
+  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]
 }) {
-  const tabs = ['Visão Geral', ...categorias.map(c => c.label)]
+  const tabs = ['Visão Geral', ...categorias.map(c => c.label), 'Conferência']
   const [tab, setTab] = useState('Visão Geral')
   const cat = categorias.find(c => c.label === tab)
 
@@ -85,6 +113,15 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias }: {
           {trend.length ? <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
+      ) : tab === 'Conferência' ? (
+        <div style={{ display: 'grid', gap: 14 }}>
+          <p style={{ color: '#8ca5c8', fontSize: 13, margin: 0 }}>
+            Cruza o total de cada métrica com a soma das suas quebras por armador. Diferença ≠ 0 indica que a extração divergiu do e-Professional.
+          </p>
+          {conferencia.length === 0
+            ? <Card titulo="Conferência"><p style={{ color: '#5f7da0', fontSize: 13 }}>Sem métricas com quebra por armador para conferir ainda.</p></Card>
+            : conferencia.map(c => <ConfCard key={c.metrica} c={c} />)}
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 14 }}>
           {cat?.grupos.map(g => (

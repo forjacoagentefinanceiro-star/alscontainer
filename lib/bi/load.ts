@@ -4,6 +4,8 @@ import type { Ponto } from '@/components/bi/BiCharts'
 export type Grupo = { code: string; titulo: string; data: Ponto[]; series: string[] }
 export type Categoria = { key: string; label: string; grupos: Grupo[] }
 export type KpiT = { label: string; value: string; sub?: string; accent?: boolean }
+export type ConfItem = { eixo: string; total: number; soma: number; dif: number }
+export type Conferencia = { metrica: string; itens: ConfItem[]; ok: boolean }
 export type BiData = {
   empty: boolean
   ano: number
@@ -11,6 +13,7 @@ export type BiData = {
   kpis: KpiT[]
   trend: Ponto[]
   categorias: Categoria[]
+  conferencia: Conferencia[]
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -62,7 +65,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [] }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [] }
   }
 
   const ano = Math.max(...linhas.map(l => l.ano))
@@ -109,8 +112,34 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const eixosTrend = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
   const trend: Ponto[] = eixosTrend.map(eixo => ({ eixo, Entradas: entradasMes.get(eixo) ?? 0, 'Saídas': saidasMes.get(eixo) ?? 0 }))
 
+  // Conferência: cruza o total de uma métrica com a soma das suas quebras.
+  // Se a extração perdeu/duplicou algo, a diferença sai ≠ 0.
+  const gEntradaArmadorTeus = grupos.find(g => /ENTRADA/.test(g.code) && /TEUS/.test(g.code) && /ARMADOR/.test(g.code))
+  const gSaidaArmadorTeus = grupos.find(g => /SAIDA/.test(g.code) && /TEUS/.test(g.code) && /ARMADOR/.test(g.code))
+  const gOcup = grupos.find(g => /OCUPACAO/.test(g.code) && !/ARMADOR/.test(g.code))
+  const gOcupArm = grupos.find(g => /OCUPACAO/.test(g.code) && /ARMADOR/.test(g.code))
+
+  const checa = (metrica: string, gT?: Grupo, gD?: Grupo): Conferencia | null => {
+    if (!gT || !gD) return null
+    const tot = somaPorMes(gT)
+    const det = somaPorMes(gD)
+    const eixos = [...new Set([...tot.keys(), ...det.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
+    const itens: ConfItem[] = eixos.map(eixo => {
+      const t = Math.round(tot.get(eixo) ?? 0)
+      const s = Math.round(det.get(eixo) ?? 0)
+      return { eixo, total: t, soma: s, dif: t - s }
+    })
+    return { metrica, itens, ok: itens.every(i => i.dif === 0) }
+  }
+
+  const conferencia = [
+    checa('TEUs entrada · total × soma por armador', gEntradaTeus, gEntradaArmadorTeus),
+    checa('TEUs saída · total × soma por armador', gSaidaTeus, gSaidaArmadorTeus),
+    checa('Ocupação de pátio · total × soma por armador', gOcup, gOcupArm),
+  ].filter((c): c is Conferencia => c !== null)
+
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR') : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia }
 }
