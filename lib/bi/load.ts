@@ -16,6 +16,7 @@ export type BiData = {
   conferencia: Conferencia[]
   faturamento: KpiT[]
   faturamentoMensal: Grupo | null
+  faturamentoAnual: Grupo | null
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -69,7 +70,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [], faturamentoMensal: null }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [], faturamentoMensal: null, faturamentoAnual: null }
   }
 
   const ano = Math.max(...linhas.map(l => l.ano))
@@ -182,8 +183,22 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     faturamentoMensal = { code: 'FATURAMENTO_MENSAL', titulo: 'Faturamento por mês (Terminal + Depot)', data, series, medida: 'R$ · por mês' }
   }
 
+  // Faturamento por ano (evolução 2023 → ano corrente)
+  const fatAnoRows = faturamentoRows.filter(l => l.code === 'FATURAMENTO_ANO')
+  let faturamentoAnual: Grupo | null = null
+  if (fatAnoRows.length) {
+    const eixos = [...new Set(fatAnoRows.map(r => r.eixo))].sort()
+    const series = [...new Set(fatAnoRows.map(r => r.serie))]
+    const data: Ponto[] = eixos.map(eixo => {
+      const p: Ponto = { eixo }
+      for (const s of series) p[s] = fatAnoRows.find(x => x.eixo === eixo && x.serie === s)?.valor ?? 0
+      return p
+    })
+    faturamentoAnual = { code: 'FATURAMENTO_ANO', titulo: 'Faturamento por ano (Terminal + Depot)', data, series, medida: 'R$ · por ano' }
+  }
+
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR') : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual }
 }

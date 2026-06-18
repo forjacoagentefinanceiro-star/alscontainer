@@ -67,7 +67,7 @@ export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] 
       <BarChart data={dataT} margin={{ top: 22, right: 12, bottom: 0, left: -10 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis dataKey="eixo" tick={axisStyle} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-          tickFormatter={(s: string) => String(s).slice(0, 3)} />
+          tickFormatter={(s: string) => { const t = String(s); return t.length > 4 ? t.slice(0, 3) : t; }} />
         <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => compactNf.format(v)} />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} formatter={(value, name) => [value as number, fmtTempo(name)]} />
         {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#8ca5c8', paddingTop: 6 }} formatter={(value) => fmtTempo(value)} />}

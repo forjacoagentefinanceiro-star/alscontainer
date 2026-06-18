@@ -198,6 +198,13 @@ async function main() {
     for (const m of mensalDepot)
       rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Depot", eixo: m.mes, ano: ANO, valor: m.valor });
 
+    // faturamento por ANO (linha Total das tabelas anuais — todas as colunas de ano: 2023..ano corrente)
+    const anos = (() => { const i = idx(/faturamento anual depot/); return i >= 0 ? (tabelas[i].rows[0] || []).slice(1) : []; })();
+    anos.forEach((y, k) => {
+      if (rDepot) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Depot", eixo: String(y), ano: ANO, valor: num(rDepot[k + 1]) });
+      if (rTerminal) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Terminal", eixo: String(y), ano: ANO, valor: num(rTerminal[k + 1]) });
+    });
+
     console.log("[debug] valores extraídos:", JSON.stringify(rows).slice(0, 2000));
 
     const validas = rows.filter((r) => r.valor != null);

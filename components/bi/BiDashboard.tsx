@@ -56,8 +56,8 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal }: {
-  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual }: {
+  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null
 }) {
   const tabs = ['Visão Geral', ...categorias.map(c => c.label), ...(faturamento.length ? ['Faturamento'] : []), 'Conferência']
   const [tab, setTab] = useState('Visão Geral')
@@ -119,10 +119,19 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {faturamento.map(k => <Kpi key={k.label} k={k} />)}
           </div>
-          {faturamentoMensal && (
-            <Card titulo={faturamentoMensal.titulo} sub={faturamentoMensal.medida}>
-              <IndicadorBar data={faturamentoMensal.data} series={faturamentoMensal.series} />
-            </Card>
+          {(faturamentoMensal || faturamentoAnual) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 14 }}>
+              {faturamentoMensal && (
+                <Card titulo={faturamentoMensal.titulo} sub={faturamentoMensal.medida}>
+                  <IndicadorBar data={faturamentoMensal.data} series={faturamentoMensal.series} />
+                </Card>
+              )}
+              {faturamentoAnual && (
+                <Card titulo={faturamentoAnual.titulo} sub={faturamentoAnual.medida}>
+                  <IndicadorBar data={faturamentoAnual.data} series={faturamentoAnual.series} />
+                </Card>
+              )}
+            </div>
           )}
         </div>
       ) : tab === 'Conferência' ? (
