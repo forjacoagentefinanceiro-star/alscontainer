@@ -14,9 +14,10 @@ const PALETTE = ['#7DC242', '#A8D96B', '#4FA3D1', '#2E7DB0', '#1B4F8A', '#5FBFA0
 const ARMADOR_CORES: Record<string, string> = {
   HPL: '#EC6608', HAPAG: '#EC6608',          // laranja
   EVER: '#1FA24A', EVERGREEN: '#1FA24A',     // verde
-  LOGIN: '#1B6FB5',                          // azul
+  LOG: '#1B6FB5', LOGIN: '#1B6FB5',          // azul (Log-In aparece como "LOG")
   ONE: '#AD1457',                            // magenta
   VLC: '#F2C200',                            // amarelo
+  LIVRE: '#5f7da0',                          // cinza (espaço livre, não é armador)
 }
 
 /** Cor de uma série: usa a cor do armador se reconhecida, senão a paleta. */
