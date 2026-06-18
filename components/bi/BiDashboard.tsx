@@ -56,10 +56,10 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia }: {
-  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento }: {
+  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]
 }) {
-  const tabs = ['Visão Geral', ...categorias.map(c => c.label), 'Conferência']
+  const tabs = ['Visão Geral', ...categorias.map(c => c.label), ...(faturamento.length ? ['Faturamento'] : []), 'Conferência']
   const [tab, setTab] = useState('Visão Geral')
   const cat = categorias.find(c => c.label === tab)
 
@@ -114,6 +114,10 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
           {trend.length ? <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
+      ) : tab === 'Faturamento' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          {faturamento.map(k => <Kpi key={k.label} k={k} />)}
+        </div>
       ) : tab === 'Conferência' ? (
         <div style={{ display: 'grid', gap: 14 }}>
           <p style={{ color: '#8ca5c8', fontSize: 13, margin: 0 }}>

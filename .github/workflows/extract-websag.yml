@@ -24,12 +24,24 @@ jobs:
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Rodar extrator
+      - name: Rodar extrator (websag — indicadores)
         run: npx tsx scripts/extract-websag.ts
         env:
           WEBSAG_URL: ${{ secrets.WEBSAG_URL }}
           WEBSAG_LOGIN: ${{ secrets.WEBSAG_LOGIN }}
           WEBSAG_SENHA: ${{ secrets.WEBSAG_SENHA }}
           WEBSAG_CHAVE: ${{ secrets.WEBSAG_CHAVE }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Rodar extrator (escala — faturamento)
+        if: always()
+        continue-on-error: true
+        run: npx tsx scripts/extract-escala.ts
+        env:
+          ESCALA_LOGIN_URL: ${{ secrets.ESCALA_LOGIN_URL }}
+          ESCALA_PAINEL_URL: ${{ secrets.ESCALA_PAINEL_URL }}
+          ESCALA_LOGIN: ${{ secrets.ESCALA_LOGIN }}
+          ESCALA_SENHA: ${{ secrets.ESCALA_SENHA }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

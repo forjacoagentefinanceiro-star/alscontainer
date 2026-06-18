@@ -14,9 +14,11 @@ export type BiData = {
   trend: Ponto[]
   categorias: Categoria[]
   conferencia: Conferencia[]
+  faturamento: KpiT[]
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const MESES = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const mesIdx = (s: string) => { const i = MESES.indexOf(norm(s)); return i < 0 ? 99 : i }
@@ -66,12 +68,13 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [] }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [] }
   }
 
   const ano = Math.max(...linhas.map(l => l.ano))
   const estimativas = linhas.filter(l => /^ESTIMATIVA/.test(l.code) && l.ano === ano)
-  const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^ESTIMATIVA/.test(l.code)))
+  const faturamentoRows = linhas.filter(l => /^FATURAMENTO/.test(l.code) && l.ano === ano)
+  const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^(ESTIMATIVA|FATURAMENTO)/.test(l.code)))
 
   const catMap = new Map<string, Categoria & { ord: number }>()
   for (const g of grupos) {
@@ -139,8 +142,33 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     checa('Ocupação de pátio · total × soma por armador', gOcup, gOcupArm),
   ].filter((c): c is Conferencia => c !== null)
 
+  // Faturamento (escala / painel 236) — valores escalares
+  const fv = (code: string): number | null => {
+    const r = faturamentoRows.find(x => x.code === code)
+    return r && r.valor != null ? Number(r.valor) : null
+  }
+  const fmtBrl = (v: number | null) => (v == null ? '—' : brl.format(v))
+  const somaBrl = (a: number | null, b: number | null) => (a == null && b == null ? null : (a ?? 0) + (b ?? 0))
+  const fatAnualTerminal = fv('FATURAMENTO_ANUAL_TERMINAL')
+  const fatAnualDepot = fv('FATURAMENTO_ANUAL_DEPOT')
+  const fatMesTerminal = fv('FATURAMENTO_MES_TERMINAL')
+  const fatMesDepot = fv('FATURAMENTO_MES_DEPOT')
+  const fatAFaturar = fv('FATURAMENTO_TERMINAL_AFATURAR')
+
+  const faturamento: KpiT[] = faturamentoRows.length
+    ? [
+        { label: 'Anual · Terminal', value: fmtBrl(fatAnualTerminal), accent: true },
+        { label: 'Anual · Depot', value: fmtBrl(fatAnualDepot), accent: true },
+        { label: 'Anual · Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot' },
+        { label: `Mês · Terminal`, value: fmtBrl(fatMesTerminal) },
+        { label: `Mês · Depot`, value: fmtBrl(fatMesDepot) },
+        { label: `Mês · Total`, value: fmtBrl(somaBrl(fatMesTerminal, fatMesDepot)), sub: 'terminal + depot' },
+        { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes' },
+      ]
+    : []
+
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR') : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento }
 }
