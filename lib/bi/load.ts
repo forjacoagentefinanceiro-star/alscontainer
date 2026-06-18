@@ -107,7 +107,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     { label: `Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
     { label: `Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
     { label: 'Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—' },
-    { label: `TEUs · ${cap(mes)}`, value: nf.format(teusMes), sub: 'movimentados (ent + saí)' },
+    { label: `Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
   ]
 
   const eixosTrend = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
