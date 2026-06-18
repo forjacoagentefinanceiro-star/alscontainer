@@ -15,6 +15,7 @@ export type BiData = {
   categorias: Categoria[]
   conferencia: Conferencia[]
   faturamento: KpiT[]
+  faturamentoMensal: Grupo | null
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -68,7 +69,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [] }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [], faturamentoMensal: null }
   }
 
   const ano = Math.max(...linhas.map(l => l.ano))
@@ -167,8 +168,22 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
       ]
     : []
 
+  // Faturamento mês a mês (Terminal + Depot) — vira um gráfico empilhado
+  const fatMensalRows = faturamentoRows.filter(l => l.code === 'FATURAMENTO_MENSAL')
+  let faturamentoMensal: Grupo | null = null
+  if (fatMensalRows.length) {
+    const eixos = [...new Set(fatMensalRows.map(r => r.eixo))].sort((a, b) => mesIdx(a) - mesIdx(b))
+    const series = [...new Set(fatMensalRows.map(r => r.serie))]
+    const data: Ponto[] = eixos.map(eixo => {
+      const p: Ponto = { eixo }
+      for (const s of series) p[s] = fatMensalRows.find(x => x.eixo === eixo && x.serie === s)?.valor ?? 0
+      return p
+    })
+    faturamentoMensal = { code: 'FATURAMENTO_MENSAL', titulo: 'Faturamento por mês (Terminal + Depot)', data, series, medida: 'R$ · por mês' }
+  }
+
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR') : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal }
 }

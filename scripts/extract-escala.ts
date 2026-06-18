@@ -169,17 +169,36 @@ async function main() {
       }
     }
 
+    // Faturamento mês a mês (ano corrente = última coluna das tabelas anuais)
+    const MESES = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    const normMes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    const linhasMensais = (i: number): { mes: string; valor: number | null }[] => {
+      if (i < 0) return [];
+      for (let j = i; j < Math.min(tabelas.length, i + 3); j++) {
+        const ls = tabelas[j].rows.filter((r) => MESES.includes(normMes(r[0] || "")));
+        if (ls.length) return ls.map((r) => ({ mes: r[0], valor: num(r[r.length - 1]) }));
+      }
+      return [];
+    };
+    const mensalTerminal = linhasMensais(idx(/faturamento anual terminal/));
+    const mensalDepot = linhasMensais(idx(/faturamento anual depot/));
+
     const mk = (code: string, titulo: string, valor: number | null): Row =>
       ({ fonte: "escala", code, titulo, serie: "Total", eixo: "Atual", ano: ANO, valor });
 
-    const rows = [
+    const rows: Row[] = [
       mk("FATURAMENTO_ANUAL_TERMINAL", "Faturamento anual Terminal", anualTerminal),
       mk("FATURAMENTO_ANUAL_DEPOT", "Faturamento anual Depot", anualDepot),
       mk("FATURAMENTO_MES_TERMINAL", "Faturamento do mês Terminal", mesTerminal),
       mk("FATURAMENTO_MES_DEPOT", "Faturamento do mês Depot", mesDepot),
       mk("FATURAMENTO_TERMINAL_AFATURAR", "Terminal a faturar", aFaturar),
     ];
-    console.log("[debug] valores extraídos:", JSON.stringify(rows));
+    for (const m of mensalTerminal)
+      rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Terminal", eixo: m.mes, ano: ANO, valor: m.valor });
+    for (const m of mensalDepot)
+      rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Depot", eixo: m.mes, ano: ANO, valor: m.valor });
+
+    console.log("[debug] valores extraídos:", JSON.stringify(rows).slice(0, 2000));
 
     const validas = rows.filter((r) => r.valor != null);
     if (!validas.length) throw new Error("Nenhum valor de faturamento extraído — ver dump acima para ajustar seletores.");

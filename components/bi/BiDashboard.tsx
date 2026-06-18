@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
-import type { Categoria, KpiT, Conferencia } from '@/lib/bi/load'
+import type { Categoria, KpiT, Conferencia, Grupo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -56,8 +56,8 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento }: {
-  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal }: {
+  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null
 }) {
   const tabs = ['Visão Geral', ...categorias.map(c => c.label), ...(faturamento.length ? ['Faturamento'] : []), 'Conferência']
   const [tab, setTab] = useState('Visão Geral')
@@ -115,8 +115,15 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
       ) : tab === 'Faturamento' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          {faturamento.map(k => <Kpi key={k.label} k={k} />)}
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            {faturamento.map(k => <Kpi key={k.label} k={k} />)}
+          </div>
+          {faturamentoMensal && (
+            <Card titulo={faturamentoMensal.titulo} sub={faturamentoMensal.medida}>
+              <IndicadorBar data={faturamentoMensal.data} series={faturamentoMensal.series} />
+            </Card>
+          )}
         </div>
       ) : tab === 'Conferência' ? (
         <div style={{ display: 'grid', gap: 14 }}>
