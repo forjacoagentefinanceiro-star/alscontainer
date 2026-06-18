@@ -16,7 +16,7 @@
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY  (escrita na tabela; pegue em Supabase → Settings → API)
  */
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
 const BASE = (process.env.WEBSAG_URL || "http://websag.transportesals.com.br/bi").replace(/\/$/, "");
@@ -83,6 +83,90 @@ function flatten(name: string, resp: ApiResp): Row[] {
   return rows;
 }
 
+/**
+ * Captura os tiles "Estimativas" (Pendentes/Finalizadas) da Televisão.
+ * O número alterna entre contexto de vistoria e de reparo reusando o mesmo span;
+ * observamos a rotação e logamos a estrutura (o log do CI não tem filtro), para
+ * identificar/validar qual valor é de vistoria.
+ */
+async function coletaEstimativas(page: Page): Promise<Row[]> {
+  const rows: Row[] = [];
+  const mk = (code: string, titulo: string, serie: string, valor: number | null): Row => ({
+    fonte: "websag",
+    code,
+    titulo,
+    serie,
+    eixo: "Atual",
+    ano: ANO,
+    valor,
+  });
+  try {
+    await page.goto(`${BASE}/Dashboard/Television`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector('[name="estimativa-quantidade-pendente"]', { timeout: 20000 });
+
+    // debug: estrutura do bloco (vai pro log do Actions, sem filtro de privacidade)
+    const box = await page.evaluate(() => {
+      let b: Element | null = document.querySelector('[name="estimativa-quantidade-pendente"]');
+      for (let i = 0; i < 6 && b?.parentElement; i++) b = b.parentElement;
+      return b ? b.outerHTML.replace(/\s+/g, " ").slice(0, 1500) : null;
+    });
+    console.log("  [debug] bloco Estimativas:", box);
+
+    // observa a rotação por ~90s, registrando snapshots quando o valor muda
+    const snaps: { pend: number | null; fin: number | null; ctxHtml: string }[] = [];
+    let prev = "";
+    const deadline = Date.now() + 90000;
+    while (Date.now() < deadline) {
+      const s = await page.evaluate(() => {
+        const toNum = (el: Element | null) => {
+          const t = (el?.textContent || "").replace(/[^\d]/g, "");
+          return t ? parseInt(t, 10) : null;
+        };
+        const pendEl = document.querySelector('[name="estimativa-quantidade-pendente"]');
+        const carregando = (pendEl?.textContent || "").toLowerCase().includes("carreg");
+        let b: Element | null = pendEl;
+        for (let i = 0; i < 6 && b?.parentElement; i++) b = b.parentElement;
+        return {
+          pend: toNum(pendEl),
+          fin: toNum(document.querySelector('[name="estimativa-quantidade-finalizada"]')),
+          carregando,
+          ctxHtml: (b?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 120),
+        };
+      });
+      if (!s.carregando) {
+        const key = `${s.pend}|${s.fin}|${s.ctxHtml}`;
+        if (key !== prev) {
+          snaps.push({ pend: s.pend, fin: s.fin, ctxHtml: s.ctxHtml });
+          prev = key;
+        }
+      }
+      if (snaps.length >= 4) break;
+      await page.waitForTimeout(1500);
+    }
+    console.log("  [debug] snapshots Estimativas:", JSON.stringify(snaps));
+
+    // melhor esforço: tenta rotular pelo texto do contexto; senão guarda os valores vistos
+    const vist = snaps.find((s) => /vistoria/i.test(s.ctxHtml));
+    const rep = snaps.find((s) => /reparo/i.test(s.ctxHtml));
+    if (vist) {
+      rows.push(mk("ESTIMATIVA_PENDENTE_VISTORIA", "Aguardando vistoria", "Pendentes", vist.pend));
+      rows.push(mk("ESTIMATIVA_FINALIZADA_VISTORIA", "Vistorias finalizadas", "Finalizadas", vist.fin));
+    }
+    if (rep) {
+      rows.push(mk("ESTIMATIVA_PENDENTE_REPARO", "Aguardando reparo", "Pendentes", rep.pend));
+      rows.push(mk("ESTIMATIVA_FINALIZADA_REPARO", "Reparos finalizados", "Finalizadas", rep.fin));
+    }
+    if (!vist && snaps.length) {
+      // fallback enquanto o rótulo de contexto não é identificado
+      rows.push(mk("ESTIMATIVA_PENDENTE", "Aguardando vistoria (estimativa)", "Pendentes", snaps[0].pend));
+    }
+    console.log(`  ✓ Estimativas TV: ${rows.length} valores (snaps: ${snaps.length})`);
+  } catch (e) {
+    console.warn("  ! Estimativas TV não capturadas:", (e as Error).message);
+  }
+  return rows;
+}
+
 async function main() {
   const login = requireEnv("WEBSAG_LOGIN");
   const senha = requireEnv("WEBSAG_SENHA");
@@ -145,6 +229,9 @@ async function main() {
       all.push(...rows);
       console.log(`  ✓ ${name}: ${rows.length} pontos`);
     }
+
+    // tiles "Estimativas" da Televisão (aguardando vistoria / reparo)
+    all.push(...(await coletaEstimativas(page)));
 
     if (!all.length) throw new Error("Nenhum indicador coletado.");
 

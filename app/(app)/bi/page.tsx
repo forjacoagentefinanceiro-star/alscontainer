@@ -67,7 +67,9 @@ export default async function BiPage() {
   }
 
   const ano = Math.max(...linhas.map(l => l.ano))
-  const grupos = agrupar(linhas.filter(l => l.ano === ano))
+  // estimativas (Pendentes/Finalizadas da Televisão) são escalares — separadas dos gráficos mensais
+  const estimativas = linhas.filter(l => /^ESTIMATIVA/.test(l.code) && l.ano === ano)
+  const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^ESTIMATIVA/.test(l.code)))
 
   // categorias (ordenadas), cada uma com seus grupos ordenados por código
   const catMap = new Map<string, Categoria & { ord: number }>()
@@ -100,9 +102,13 @@ export default async function BiPage() {
   const saiMes = saidasMes.get(mes) ?? 0
   const teusMes = (teusEntMes.get(mes) ?? 0) + (teusSaiMes.get(mes) ?? 0)
 
+  // aguardando vistoria (estimativa ao vivo da Televisão)
+  const ev = estimativas.find(e => /PENDENTE_VISTORIA/.test(e.code)) ?? estimativas.find(e => e.code === 'ESTIMATIVA_PENDENTE')
+
   const kpis: KpiT[] = [
     { label: `Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
     { label: `Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
+    { label: 'Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—', sub: 'estimativa (Televisão)' },
     { label: `TEUs · ${cap(mes)}`, value: nf.format(teusMes), sub: 'movimentados (ent + saí)' },
   ]
 
