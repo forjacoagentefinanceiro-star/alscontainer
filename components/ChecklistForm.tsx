@@ -29,8 +29,8 @@ const OPCOES: { v: St; label: string; on: string }[] = [
   { v: 'na', label: 'N/A', on: '#6b7280' },
 ]
 
-export function ChecklistForm() {
-  const [operador, setOperador] = useState('')
+export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { operadorPadrao?: string; empilhadeiras?: string[] }) {
+  const [operador, setOperador] = useState(operadorPadrao)
   const [equipamento, setEquipamento] = useState('')
   const [turno, setTurno] = useState('Manhã')
   const [horimetro, setHorimetro] = useState('')
@@ -81,7 +81,14 @@ export function ChecklistForm() {
         </div>
         <div>
           <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Equipamento *</label>
-          <input className={inputCls} style={inputStyle} value={equipamento} onChange={e => setEquipamento(e.target.value)} placeholder="Nº / placa da empilhadeira" />
+          {empilhadeiras.length ? (
+            <select className={inputCls} style={inputStyle} value={equipamento} onChange={e => setEquipamento(e.target.value)}>
+              <option value="">Selecione o equipamento…</option>
+              {empilhadeiras.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+          ) : (
+            <input className={inputCls} style={inputStyle} value={equipamento} onChange={e => setEquipamento(e.target.value)} placeholder="Nº / placa da empilhadeira" />
+          )}
         </div>
         <div>
           <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Turno</label>

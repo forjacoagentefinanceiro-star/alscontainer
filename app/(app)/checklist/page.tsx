@@ -1,10 +1,13 @@
-import { getChecklists } from '@/app/actions'
+import { getChecklists, getMyProfile, getEmpilhadeiras } from '@/app/actions'
 import { ChecklistForm } from '@/components/ChecklistForm'
+import { EmpilhadeirasManager } from '@/components/EmpilhadeirasManager'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ChecklistPage() {
-  const checklists = await getChecklists(20)
+  const [checklists, profile, empilhadeiras] = await Promise.all([getChecklists(20), getMyProfile(), getEmpilhadeiras()])
+  const podeGerenciar = profile?.role === 'admin' || profile?.role === 'editor'
+  const operadorPadrao = profile?.name || profile?.email || ''
 
   return (
     <div>
@@ -13,7 +16,9 @@ export default async function ChecklistPage() {
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Inspeção pré-operação. Marque cada item e registre.</p>
       </div>
 
-      <ChecklistForm />
+      {podeGerenciar && <EmpilhadeirasManager empilhadeiras={empilhadeiras} />}
+
+      <ChecklistForm operadorPadrao={operadorPadrao} empilhadeiras={empilhadeiras.map(e => e.nome)} />
 
       <div className="max-w-3xl mt-8">
         <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Últimos registros</h2>

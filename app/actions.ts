@@ -190,6 +190,35 @@ export async function addChecklist(payload: {
   return { error: null }
 }
 
+// ---- Empilhadeiras (equipamentos do checklist) ----
+export type Empilhadeira = { id: string; nome: string; ativo: boolean; created_at: string }
+
+export async function getEmpilhadeiras(): Promise<Empilhadeira[]> {
+  const supabase = await createClient()
+  const { data } = await supabase.from('empilhadeiras').select('*').order('nome', { ascending: true })
+  return (data ?? []) as Empilhadeira[]
+}
+
+export async function addEmpilhadeira(nome: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const n = nome.trim()
+  if (!n) return { error: 'Informe a identificação do equipamento.' }
+  const { error } = await supabase.from('empilhadeiras').insert({ nome: n })
+  if (error) return { error: error.message }
+  revalidatePath('/checklist')
+  return { error: null }
+}
+
+export async function deleteEmpilhadeira(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('empilhadeiras').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/checklist')
+  return { error: null }
+}
+
 // ---- Metas de compra ----
 export type PurchaseGoal = {
   id: string
