@@ -237,11 +237,13 @@ async function main() {
 
     if (!all.length) throw new Error("Nenhum indicador coletado.");
 
-    // 3) Upsert (idempotente por code+serie+eixo+ano)
+    // 3) Upsert (idempotente por code+serie+eixo+ano) — captured_at = agora (senão não atualiza no update)
+    const agora = new Date().toISOString();
     for (let i = 0; i < all.length; i += 500) {
+      const lote = all.slice(i, i + 500).map((r) => ({ ...r, captured_at: agora }));
       const { error } = await supabase
         .from("bi_indicadores")
-        .upsert(all.slice(i, i + 500), { onConflict: "code,serie,eixo,ano" });
+        .upsert(lote, { onConflict: "code,serie,eixo,ano" });
       if (error) throw new Error(`Erro no upsert: ${error.message}`);
     }
     console.log(`\nConcluído: ${all.length} indicadores gravados (ano ${ANO}).`);

@@ -210,7 +210,9 @@ async function main() {
     const validas = rows.filter((r) => r.valor != null);
     if (!validas.length) throw new Error("Nenhum valor de faturamento extraído — ver dump acima para ajustar seletores.");
 
-    const { error } = await supabase.from("bi_indicadores").upsert(rows, { onConflict: "code,serie,eixo,ano" });
+    const agora = new Date().toISOString();
+    const lote = rows.map((r) => ({ ...r, captured_at: agora }));
+    const { error } = await supabase.from("bi_indicadores").upsert(lote, { onConflict: "code,serie,eixo,ano" });
     if (error) throw new Error(`Erro no upsert: ${error.message}`);
     console.log(`Concluído: ${validas.length}/${rows.length} valores de faturamento gravados (ano ${ANO}).`);
   } finally {
