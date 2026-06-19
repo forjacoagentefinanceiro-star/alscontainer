@@ -26,6 +26,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Rodar extrator (websag — indicadores)
+        id: websag
         run: npx tsx scripts/extract-websag.ts
         env:
           WEBSAG_URL: ${{ secrets.WEBSAG_URL }}
@@ -36,6 +37,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Rodar extrator (escala — faturamento)
+        id: escala
         if: always()
         continue-on-error: true
         run: npx tsx scripts/extract-escala.ts
@@ -46,3 +48,13 @@ jobs:
           ESCALA_SENHA: ${{ secrets.ESCALA_SENHA }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Avisar no Telegram se falhou
+        if: ${{ failure() || steps.websag.outcome == 'failure' || steps.escala.outcome == 'failure' }}
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then echo "Telegram não configurado — pulando"; exit 0; fi
+          MSG="⚠️ BI ALS — falha na atualização $(date -u +'%d/%m %H:%M')Z. websag=${{ steps.websag.outcome }} | escala=${{ steps.escala.outcome }}. Log: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" -d chat_id="${TG_CHAT}" --data-urlencode text="$MSG" > /dev/null
