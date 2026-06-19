@@ -47,6 +47,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/aguardando', request.url))
   }
 
+  // Operador → só enxerga o Checklist
+  if (profile.role === 'operador' && !pathname.startsWith('/checklist')) {
+    return NextResponse.redirect(new URL('/checklist', request.url))
+  }
+
   // /usuarios → apenas admin
   if (pathname.startsWith('/usuarios') && profile.role !== 'admin') {
     return NextResponse.redirect(new URL('/inventario', request.url))

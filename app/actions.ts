@@ -33,9 +33,26 @@ export type UserProfile = {
   id: string
   email: string
   name: string
-  role: 'admin' | 'editor' | 'viewer'
+  role: 'admin' | 'editor' | 'viewer' | 'operador'
   approved: boolean
   bi_abas: string[] | null // null = vê todas as abas do BI
+  created_at: string
+}
+
+export type Role = UserProfile['role']
+
+// ---- Checklist de empilhadeira ----
+export type ChecklistItem = { item: string; status: 'ok' | 'nok' | 'na'; obs?: string }
+export type Checklist = {
+  id: string
+  user_id: string | null
+  operador: string
+  equipamento: string
+  turno: string
+  horimetro: number | null
+  itens: ChecklistItem[]
+  observacoes: string
+  tem_pendencia: boolean
   created_at: string
 }
 
@@ -100,7 +117,7 @@ export async function getUsers(): Promise<UserProfile[]> {
   return (data ?? []) as UserProfile[]
 }
 
-export async function approveUser(userId: string, role: 'admin' | 'editor' | 'viewer') {
+export async function approveUser(userId: string, role: Role) {
   const supabase = await createClient()
   const { error } = await supabase
     .from('user_profiles')
@@ -111,7 +128,7 @@ export async function approveUser(userId: string, role: 'admin' | 'editor' | 'vi
   return { error: null }
 }
 
-export async function updateUserRole(userId: string, role: 'admin' | 'editor' | 'viewer') {
+export async function updateUserRole(userId: string, role: Role) {
   const supabase = await createClient()
   const { error } = await supabase
     .from('user_profiles')
@@ -141,6 +158,35 @@ export async function revokeUser(userId: string) {
     .eq('id', userId)
   if (error) return { error: error.message }
   revalidatePath('/usuarios')
+  return { error: null }
+}
+
+// ---- Checklist de empilhadeira ----
+export async function getChecklists(limit = 30): Promise<Checklist[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('checklists')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return (data ?? []) as Checklist[]
+}
+
+export async function addChecklist(payload: {
+  operador: string
+  equipamento: string
+  turno: string
+  horimetro: number | null
+  itens: ChecklistItem[]
+  observacoes: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const tem_pendencia = payload.itens.some(i => i.status === 'nok')
+  const { error } = await supabase.from('checklists').insert({ ...payload, user_id: user.id, tem_pendencia })
+  if (error) return { error: error.message }
+  revalidatePath('/checklist')
   return { error: null }
 }
 

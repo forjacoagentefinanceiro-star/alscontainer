@@ -5,11 +5,12 @@ import type { UserProfile } from '@/app/actions'
 import { approveUser, updateUserRole, revokeUser, updateUserBiAbas } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 
-const roleLabel = { admin: 'Admin', editor: 'Editor', viewer: 'Visualizador' }
+const roleLabel = { admin: 'Admin', editor: 'Editor', viewer: 'Visualizador', operador: 'Operador' }
 const roleColor = {
-  admin:  { bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
-  editor: { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-  viewer: { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+  admin:    { bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
+  editor:   { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  viewer:   { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+  operador: { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
 }
 
 export function UsuariosTab({ users }: { users: UserProfile[] }) {
@@ -86,14 +87,10 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                 {/* Aprovar com papel */}
                 <div className="flex flex-wrap gap-2">
                   <p className="text-xs w-full mb-1" style={{ color: '#6b7280' }}>Aprovar como:</p>
-                  {(['viewer', 'editor', 'admin'] as const).map(role => (
+                  {(['viewer', 'editor', 'admin', 'operador'] as const).map(role => (
                     <button key={role} onClick={() => handleApprove(u.id, role)} disabled={isPending}
-                      className="flex-1 py-2 rounded text-xs font-semibold border transition-colors disabled:opacity-50"
-                      style={{
-                        background: role === 'viewer' ? '#f9fafb' : role === 'editor' ? '#eff6ff' : '#fef3c7',
-                        color:      role === 'viewer' ? '#374151' : role === 'editor' ? '#1d4ed8' : '#92400e',
-                        border:     `1px solid ${role === 'viewer' ? '#e5e7eb' : role === 'editor' ? '#bfdbfe' : '#fde68a'}`,
-                      }}>
+                      className="py-2 px-3 rounded text-xs font-semibold border transition-colors disabled:opacity-50"
+                      style={{ ...roleColor[role], border: `1px solid ${roleColor[role].border}` }}>
                       {roleLabel[role]}
                     </button>
                   ))}
@@ -135,7 +132,7 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                   </div>
 
                   {/* Abas do BI */}
-                  {u.role !== 'admin' && (
+                  {u.role !== 'admin' && u.role !== 'operador' && (
                     <button onClick={() => setOpenAbas(openAbas === u.id ? null : u.id)}
                       className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50"
                       style={{ borderColor: '#cbd5e1', color: '#475569' }}>
@@ -154,6 +151,7 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     <option value="viewer">Visualizador</option>
                     <option value="editor">Editor</option>
                     <option value="admin">Admin</option>
+                    <option value="operador">Operador</option>
                   </select>
 
                   {/* Revogar */}
@@ -165,7 +163,7 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                 </div>
 
                 {/* Painel de abas do BI */}
-                {openAbas === u.id && u.role !== 'admin' && (
+                {openAbas === u.id && u.role !== 'admin' && u.role !== 'operador' && (
                   <div className="px-5 pb-4 -mt-1">
                     <div className="rounded-lg p-3" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
                       <p className="text-xs mb-2" style={{ color: '#6b7280' }}>Abas do BI que este usuário pode ver:</p>
@@ -197,6 +195,7 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
           <p><strong style={{ color: '#92400e' }}>Admin:</strong> aprovação de usuários + acesso total ao inventário</p>
           <p><strong style={{ color: '#1d4ed8' }}>Editor:</strong> adicionar, editar e excluir containers</p>
           <p><strong style={{ color: '#6b7280' }}>Visualizador:</strong> somente consulta — sem edição</p>
+          <p><strong style={{ color: '#047857' }}>Operador:</strong> vê apenas o Checklist de empilhadeira</p>
         </div>
       </div>
     </div>

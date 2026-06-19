@@ -2,20 +2,23 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck } from 'lucide-react'
 
 const baseItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/bi',         label: 'BI Depot',   icon: BarChart3 },
+  { href: '/bi',         label: 'BI',         icon: BarChart3 },
   { href: '/inventario', label: 'Inventário', icon: Package2 },
   { href: '/gerador',    label: 'Gerador',    icon: Hash },
+  { href: '/checklist',  label: 'Checklist',  icon: ClipboardCheck },
   { href: '/importar',   label: 'Importar',   icon: Upload },
   { href: '/exportar',   label: 'Exportar',   icon: FileCode2 },
 ]
 
 export function BottomNav({ role }: { role?: string }) {
   const pathname = usePathname()
-  const items = role === 'admin'
+  const items = role === 'operador'
+    ? [{ href: '/checklist', label: 'Checklist', icon: ClipboardCheck }]
+    : role === 'admin'
     ? [...baseItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
     : baseItems
   return (

@@ -11,6 +11,7 @@ import {
   Upload,
   FileCode2,
   Users,
+  ClipboardCheck,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -23,7 +24,10 @@ const operacaoItems: Item[] = [
   { href: '/gerador',    label: 'Gerador ISO', icon: Hash            },
   { href: '/importar',   label: 'Importar',    icon: Upload          },
   { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
+  { href: '/checklist',  label: 'Checklist',   icon: ClipboardCheck  },
 ]
+
+const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }
 
 const biItems: Item[] = [
   { href: '/bi', label: 'BI Depot', icon: BarChart3 },
@@ -68,7 +72,10 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
 }
 
 export function Sidebar({ role }: { role?: string }) {
-  const operacao = role === 'admin'
+  const isOperador = role === 'operador'
+  const operacao = isOperador
+    ? [checklistItem]
+    : role === 'admin'
     ? [...operacaoItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
     : operacaoItems
   const pathname = usePathname()
@@ -124,10 +131,14 @@ export function Sidebar({ role }: { role?: string }) {
           {operacao.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
         </div>
 
-        <SectionLabel collapsed={collapsed}>Análise</SectionLabel>
-        <div className="space-y-0.5">
-          {biItems.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
-        </div>
+        {!isOperador && (
+          <>
+            <SectionLabel collapsed={collapsed}>Análise</SectionLabel>
+            <div className="space-y-0.5">
+              {biItems.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
+            </div>
+          </>
+        )}
       </nav>
 
       {/* Rodapé */}
