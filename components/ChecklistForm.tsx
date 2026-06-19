@@ -98,30 +98,28 @@ export function ChecklistForm() {
       {/* Itens */}
       <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
         {ITENS.map(item => (
-          <div key={item} className="px-5 py-3">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-sm" style={{ color: '#1a2a3a' }}>{item}</span>
-              <div className="flex gap-1.5">
-                {OPCOES.map(op => {
-                  const active = status[item] === op.v
-                  return (
-                    <button key={op.v} type="button" onClick={() => setStatus(p => ({ ...p, [item]: op.v }))}
-                      className="px-3 py-1.5 rounded text-xs font-semibold border transition-colors"
-                      style={{
-                        background: active ? op.on : '#fff',
-                        color: active ? '#fff' : '#6b7280',
-                        borderColor: active ? op.on : '#d1d5db',
-                      }}>
-                      {op.label}
-                    </button>
-                  )
-                })}
-              </div>
+          <div key={item} className="px-4 py-3">
+            <span className="text-sm font-medium block mb-2" style={{ color: '#1a2a3a' }}>{item}</span>
+            <div className="grid grid-cols-3 gap-2">
+              {OPCOES.map(op => {
+                const active = status[item] === op.v
+                return (
+                  <button key={op.v} type="button" onClick={() => setStatus(p => ({ ...p, [item]: op.v }))}
+                    className="py-3 rounded-lg text-sm font-semibold border transition-colors active:scale-95"
+                    style={{
+                      background: active ? op.on : '#fff',
+                      color: active ? '#fff' : '#6b7280',
+                      borderColor: active ? op.on : '#d1d5db',
+                    }}>
+                    {op.label}
+                  </button>
+                )
+              })}
             </div>
             {status[item] === 'nok' && (
-              <input className="mt-2 w-full rounded border px-2 py-1.5 text-xs outline-none" style={{ borderColor: '#fecaca', color: '#1a2a3a' }}
+              <input className="mt-2 w-full rounded-lg border px-3 py-2.5 text-sm outline-none" style={{ borderColor: '#fecaca', color: '#1a2a3a' }}
                 value={obs[item] || ''} onChange={e => setObs(p => ({ ...p, [item]: e.target.value }))}
-                placeholder="Descreva o problema (obrigatório recomendável)" />
+                placeholder="Descreva o problema" />
             )}
           </div>
         ))}
@@ -139,12 +137,12 @@ export function ChecklistForm() {
           </p>
         )}
 
-        <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-3">
           <span className="text-xs" style={{ color: pendencias ? '#b91c1c' : '#047857' }}>
             {pendencias ? `${pendencias} item(ns) marcado(s) como "Não OK"` : 'Nenhuma pendência marcada'}
           </span>
           <button onClick={salvar} disabled={isPending}
-            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-50"
+            className="w-full sm:w-auto px-6 py-3 rounded-lg text-sm font-semibold text-white transition-colors active:scale-95 disabled:opacity-50"
             style={{ background: '#1B4F8A' }}>
             {isPending ? 'Salvando…' : 'Registrar checklist'}
           </button>
