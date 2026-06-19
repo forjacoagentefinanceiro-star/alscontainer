@@ -52,6 +52,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/checklist', request.url))
   }
 
+  // /cadastros → apenas admin e editor
+  if (pathname.startsWith('/cadastros') && profile.role !== 'admin' && profile.role !== 'editor') {
+    return NextResponse.redirect(new URL('/inventario', request.url))
+  }
+
   // /usuarios → apenas admin
   if (pathname.startsWith('/usuarios') && profile.role !== 'admin') {
     return NextResponse.redirect(new URL('/inventario', request.url))

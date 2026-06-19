@@ -4,10 +4,10 @@ import { useState, useTransition } from 'react'
 import type { Empilhadeira } from '@/app/actions'
 import { addEmpilhadeira, deleteEmpilhadeira } from '@/app/actions'
 
-export function EmpilhadeirasManager({ empilhadeiras }: { empilhadeiras: Empilhadeira[] }) {
+export function EmpilhadeirasManager({ empilhadeiras, defaultOpen = false }: { empilhadeiras: Empilhadeira[]; defaultOpen?: boolean }) {
   const [list, setList] = useState(empilhadeiras)
   const [nome, setNome] = useState('')
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [isPending, startTransition] = useTransition()
 
   function add() {

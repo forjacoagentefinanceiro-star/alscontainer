@@ -12,6 +12,7 @@ import {
   FileCode2,
   Users,
   ClipboardCheck,
+  FolderPlus,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -73,11 +74,14 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
 
 export function Sidebar({ role }: { role?: string }) {
   const isOperador = role === 'operador'
+  const podeCadastrar = role === 'admin' || role === 'editor'
   const operacao = isOperador
     ? [checklistItem]
-    : role === 'admin'
-    ? [...operacaoItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
-    : operacaoItems
+    : [
+        ...operacaoItems,
+        ...(podeCadastrar ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
+        ...(role === 'admin' ? [{ href: '/usuarios', label: 'Usuários', icon: Users }] : []),
+      ]
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')

@@ -1,6 +1,6 @@
+import Link from 'next/link'
 import { getChecklists, getMyProfile, getEmpilhadeiras } from '@/app/actions'
 import { ChecklistForm } from '@/components/ChecklistForm'
-import { EmpilhadeirasManager } from '@/components/EmpilhadeirasManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +16,11 @@ export default async function ChecklistPage() {
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Inspeção pré-operação. Marque cada item e registre.</p>
       </div>
 
-      {podeGerenciar && <EmpilhadeirasManager empilhadeiras={empilhadeiras} />}
+      {podeGerenciar && empilhadeiras.length === 0 && (
+        <div className="max-w-3xl mb-4 text-sm px-4 py-3 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' }}>
+          Nenhuma empilhadeira cadastrada. <Link href="/cadastros" className="font-semibold underline">Cadastre em Cadastros →</Link>
+        </div>
+      )}
 
       <ChecklistForm operadorPadrao={operadorPadrao} empilhadeiras={empilhadeiras.map(e => e.nome)} />
 

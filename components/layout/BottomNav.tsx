@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, FolderPlus } from 'lucide-react'
 
 const baseItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
@@ -16,11 +16,14 @@ const baseItems = [
 
 export function BottomNav({ role }: { role?: string }) {
   const pathname = usePathname()
+  const podeCadastrar = role === 'admin' || role === 'editor'
   const items = role === 'operador'
     ? [{ href: '/checklist', label: 'Checklist', icon: ClipboardCheck }]
-    : role === 'admin'
-    ? [...baseItems, { href: '/usuarios', label: 'Usuários', icon: Users }]
-    : baseItems
+    : [
+        ...baseItems,
+        ...(podeCadastrar ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
+        ...(role === 'admin' ? [{ href: '/usuarios', label: 'Usuários', icon: Users }] : []),
+      ]
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
