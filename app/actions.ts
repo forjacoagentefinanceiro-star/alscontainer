@@ -12,6 +12,18 @@ async function horimetroDaMaquina(supabase: SB, equipamento: string): Promise<nu
   return data?.horimetro_atual ?? null
 }
 
+// maior horímetro já lançado considerando o cadastro da máquina E os lançamentos da própria operação
+async function baselineHorimetro(supabase: SB, checklistId: string, equipamento: string | undefined): Promise<number | null> {
+  let max: number | null = null
+  const up = (v: number | null | undefined) => { if (v != null) max = max == null ? Number(v) : Math.max(max, Number(v)) }
+  if (equipamento) up(await horimetroDaMaquina(supabase, equipamento))
+  const { data: ck } = await supabase.from('checklists').select('horimetro, horimetro_final').eq('id', checklistId).single()
+  up(ck?.horimetro); up(ck?.horimetro_final)
+  const { data: evs } = await supabase.from('operacao_eventos').select('horimetro').eq('checklist_id', checklistId)
+  for (const e of evs ?? []) up(e.horimetro)
+  return max
+}
+
 // recalcula o horímetro atual da máquina = maior valor entre todos os lançamentos
 async function recalcHorimetro(supabase: SB, equipamento: string) {
   const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final').eq('equipamento', equipamento)
@@ -265,9 +277,9 @@ export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno',
   if (!user) return { error: 'Não autenticado' }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
   const equip = ck?.equipamento as string | undefined
-  if (horimetro != null && equip) {
-    const atual = await horimetroDaMaquina(supabase, equip)
-    if (atual != null && horimetro < atual) return { error: `Horímetro ${horimetro} é menor que o último lançado (${atual}).` }
+  if (horimetro != null) {
+    const base = await baselineHorimetro(supabase, checklistId, equip)
+    if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}).` }
   }
   const { error } = await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo, horimetro, motivo: motivo?.trim() || null, origem: 'app', user_id: user.id })
   if (error) return { error: error.message }
@@ -282,9 +294,9 @@ export async function encerrarOperacao(checklistId: string, horimetroFinal: numb
   if (!user) return { error: 'Não autenticado' }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
   const equip = ck?.equipamento as string | undefined
-  if (horimetroFinal != null && equip) {
-    const atual = await horimetroDaMaquina(supabase, equip)
-    if (atual != null && horimetroFinal < atual) return { error: `Horímetro ${horimetroFinal} é menor que o último lançado (${atual}).` }
+  if (horimetroFinal != null) {
+    const base = await baselineHorimetro(supabase, checklistId, equip)
+    if (base != null && horimetroFinal < base) return { error: `Horímetro ${horimetroFinal} é menor que o último lançado (${base}).` }
   }
   const { error } = await supabase.from('checklists').update({ status: 'encerrada', horimetro_final: horimetroFinal, encerrada_em: new Date().toISOString() }).eq('id', checklistId)
   if (error) return { error: error.message }
