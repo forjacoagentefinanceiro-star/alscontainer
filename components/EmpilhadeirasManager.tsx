@@ -18,7 +18,7 @@ export function EmpilhadeirasManager({ empilhadeiras, defaultOpen = false }: { e
     startTransition(async () => {
       const res = await addEmpilhadeira(n)
       if (!res.error) {
-        setList(prev => [...prev, { id: crypto.randomUUID(), nome: n, ativo: true, created_at: new Date().toISOString() }].sort((a, b) => a.nome.localeCompare(b.nome)))
+        setList(prev => [...prev, { id: crypto.randomUUID(), nome: n, ativo: true, horimetro_atual: null, created_at: new Date().toISOString() }].sort((a, b) => a.nome.localeCompare(b.nome)))
         setNome('')
       }
     })
@@ -79,7 +79,10 @@ export function EmpilhadeirasManager({ empilhadeiras, defaultOpen = false }: { e
                     </>
                   ) : (
                     <>
-                      <span className="flex-1 text-sm" style={{ color: '#1a2a3a' }}>{e.nome}</span>
+                      <span className="flex-1 text-sm" style={{ color: '#1a2a3a' }}>
+                        {e.nome}
+                        {e.horimetro_atual != null && <span className="ml-2 text-xs" style={{ color: '#6b7280' }}>· horímetro {e.horimetro_atual}h</span>}
+                      </span>
                       <button onClick={() => { setEditId(e.id); setEditVal(e.nome) }} className={btn} style={{ borderColor: '#bfdbfe', color: '#1d4ed8' }}>Editar</button>
                       <button onClick={() => remove(e.id)} disabled={isPending} className={btn} style={{ borderColor: '#fecaca', color: '#ef4444' }}>Remover</button>
                     </>

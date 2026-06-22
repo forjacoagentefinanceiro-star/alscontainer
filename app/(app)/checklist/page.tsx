@@ -23,7 +23,7 @@ export default async function ChecklistPage() {
         </div>
       )}
 
-      <OperacoesAbertas operacoes={operacoes} />
+      <OperacoesAbertas operacoes={operacoes} podeEditar={podeGerenciar} />
 
       <ChecklistForm operadorPadrao={operadorPadrao} empilhadeiras={empilhadeiras.map(e => e.nome)} />
 
