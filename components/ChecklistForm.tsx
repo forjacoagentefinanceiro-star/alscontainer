@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { addChecklist, type ChecklistItem } from '@/app/actions'
 import { createClient } from '@/lib/supabase/client'
 
@@ -43,6 +44,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; txt: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
 
   const pendencias = ITENS.filter(i => status[i] === 'nok').length
 
@@ -92,6 +94,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         setFotos({})
         setObservacoes('')
         setHorimetro('')
+        router.refresh()
       }
     })
   }

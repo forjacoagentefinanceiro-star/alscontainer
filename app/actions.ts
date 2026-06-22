@@ -176,13 +176,22 @@ export async function revokeUser(userId: string) {
 }
 
 // ---- Checklist de empilhadeira ----
-export async function getChecklists(limit = 30): Promise<Checklist[]> {
+// papel do usuário atual (admin/editor veem tudo; demais só o próprio)
+async function usuarioEPapel() {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('checklists')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { supabase, user: null, gestor: false }
+  const { data } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  const role = data?.role as string | undefined
+  return { supabase, user, gestor: role === 'admin' || role === 'editor' }
+}
+
+export async function getChecklists(limit = 30): Promise<Checklist[]> {
+  const { supabase, user, gestor } = await usuarioEPapel()
+  if (!user) return []
+  let q = supabase.from('checklists').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (!gestor) q = q.eq('user_id', user.id)
+  const { data } = await q
   return (data ?? []) as Checklist[]
 }
 
@@ -206,8 +215,11 @@ export async function addChecklist(payload: {
 
 // ---- Operação (checklist aberto + eventos de parada/retorno/encerramento) ----
 export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {
-  const supabase = await createClient()
-  const { data: cks } = await supabase.from('checklists').select('*').eq('status', 'aberta').order('created_at', { ascending: false })
+  const { supabase, user, gestor } = await usuarioEPapel()
+  if (!user) return []
+  let q = supabase.from('checklists').select('*').eq('status', 'aberta').order('created_at', { ascending: false })
+  if (!gestor) q = q.eq('user_id', user.id)
+  const { data: cks } = await q
   const lista = (cks ?? []) as Checklist[]
   if (!lista.length) return []
   const ids = lista.map(c => c.id)
