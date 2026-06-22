@@ -54,7 +54,12 @@ export default async function ChecklistPage() {
                   </div>
                   {noks.length > 0 && (
                     <ul className="mt-2 text-xs" style={{ color: '#b91c1c' }}>
-                      {noks.map((i, idx) => <li key={idx}>• {i.item}{i.obs ? ` — ${i.obs}` : ''}</li>)}
+                      {noks.map((i, idx) => (
+                        <li key={idx}>
+                          • {i.item}{i.obs ? ` — ${i.obs}` : ''}
+                          {i.foto && <a href={i.foto} target="_blank" rel="noopener noreferrer" className="ml-1 underline font-semibold">ver foto</a>}
+                        </li>
+                      ))}
                     </ul>
                   )}
                   {c.observacoes && <p className="mt-2 text-xs" style={{ color: '#6b7280' }}>Obs: {c.observacoes}</p>}

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { addChecklist, type ChecklistItem } from '@/app/actions'
+import { createClient } from '@/lib/supabase/client'
 
 const ITENS = [
   'Nível de óleo do motor',
@@ -36,18 +37,46 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const [horimetro, setHorimetro] = useState('')
   const [status, setStatus] = useState<Record<string, St>>(() => Object.fromEntries(ITENS.map(i => [i, 'ok'])))
   const [obs, setObs] = useState<Record<string, string>>({})
+  const [fotos, setFotos] = useState<Record<string, string>>({})
+  const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [observacoes, setObservacoes] = useState('')
+  const [popup, setPopup] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; txt: string } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const supabase = useMemo(() => createClient(), [])
 
   const pendencias = ITENS.filter(i => status[i] === 'nok').length
+
+  function marcar(item: string, v: St) {
+    setStatus(p => ({ ...p, [item]: v }))
+    if (v === 'nok') setPopup(true)
+  }
+
+  async function enviarFoto(item: string, file: File | undefined) {
+    if (!file) return
+    setUploading(p => ({ ...p, [item]: true }))
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage.from('checklist-fotos').upload(path, file, { upsert: false })
+    if (error) setMsg({ tipo: 'erro', txt: 'Erro ao enviar foto: ' + error.message })
+    else {
+      const { data } = supabase.storage.from('checklist-fotos').getPublicUrl(path)
+      setFotos(p => ({ ...p, [item]: data.publicUrl }))
+    }
+    setUploading(p => ({ ...p, [item]: false }))
+  }
 
   function salvar() {
     if (!operador.trim() || !equipamento.trim()) {
       setMsg({ tipo: 'erro', txt: 'Preencha o operador e o equipamento.' })
       return
     }
-    const itens: ChecklistItem[] = ITENS.map(item => ({ item, status: status[item], obs: obs[item]?.trim() || undefined }))
+    const semFoto = ITENS.filter(i => status[i] === 'nok' && !fotos[i])
+    if (semFoto.length) {
+      setMsg({ tipo: 'erro', txt: `Anexe a foto do(s) item(ns) em desacordo: ${semFoto.join(', ')}` })
+      return
+    }
+    const itens: ChecklistItem[] = ITENS.map(item => ({ item, status: status[item], obs: obs[item]?.trim() || undefined, foto: fotos[item] || undefined }))
     startTransition(async () => {
       const res = await addChecklist({
         operador: operador.trim(),
@@ -62,6 +91,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         setMsg({ tipo: 'ok', txt: '✓ Checklist registrado com sucesso!' })
         setStatus(Object.fromEntries(ITENS.map(i => [i, 'ok'])))
         setObs({})
+        setFotos({})
         setObservacoes('')
         setHorimetro('')
       }
@@ -72,6 +102,21 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const inputStyle = { borderColor: '#d1d5db', color: '#1a2a3a' } as const
 
   return (
+    <>
+    {popup && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setPopup(false)}>
+        <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center" onClick={e => e.stopPropagation()} style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+          <div className="text-4xl mb-2">⚠️</div>
+          <h3 className="text-lg font-bold" style={{ color: '#b91c1c' }}>Item em desacordo</h3>
+          <p className="text-sm mt-2" style={{ color: '#6b7280' }}>
+            Você marcou um item como <strong>Não OK</strong>. Descreva o problema e <strong>anexe a foto</strong> (obrigatória) antes de registrar.
+          </p>
+          <button onClick={() => setPopup(false)} className="mt-5 w-full py-3 rounded-lg text-sm font-semibold text-white" style={{ background: '#b91c1c' }}>
+            Entendi
+          </button>
+        </div>
+      </div>
+    )}
     <div className="bg-white rounded-xl max-w-3xl" style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       {/* Cabeçalho */}
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -111,7 +156,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
               {OPCOES.map(op => {
                 const active = status[item] === op.v
                 return (
-                  <button key={op.v} type="button" onClick={() => setStatus(p => ({ ...p, [item]: op.v }))}
+                  <button key={op.v} type="button" onClick={() => marcar(item, op.v)}
                     className="py-3 rounded-lg text-sm font-semibold border transition-colors active:scale-95"
                     style={{
                       background: active ? op.on : '#fff',
@@ -124,9 +169,27 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
               })}
             </div>
             {status[item] === 'nok' && (
-              <input className="mt-2 w-full rounded-lg border px-3 py-2.5 text-sm outline-none" style={{ borderColor: '#fecaca', color: '#1a2a3a' }}
-                value={obs[item] || ''} onChange={e => setObs(p => ({ ...p, [item]: e.target.value }))}
-                placeholder="Descreva o problema" />
+              <div className="mt-2 space-y-2 p-3 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                <input className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none" style={{ borderColor: '#fecaca', color: '#1a2a3a' }}
+                  value={obs[item] || ''} onChange={e => setObs(p => ({ ...p, [item]: e.target.value }))}
+                  placeholder="Descreva o problema" />
+                {fotos[item] ? (
+                  <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={fotos[item]} alt="foto do item" className="h-20 w-20 rounded-lg object-cover" style={{ border: '1px solid #fecaca' }} />
+                    <label className="text-xs font-semibold cursor-pointer" style={{ color: '#1d4ed8' }}>
+                      trocar foto
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => enviarFoto(item, e.target.files?.[0])} />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-semibold cursor-pointer"
+                    style={{ background: '#fff', border: '1px dashed #f87171', color: '#b91c1c' }}>
+                    {uploading[item] ? 'Enviando foto…' : '📷 Anexar foto (obrigatória)'}
+                    <input type="file" accept="image/*" capture="environment" className="hidden" disabled={uploading[item]} onChange={e => enviarFoto(item, e.target.files?.[0])} />
+                  </label>
+                )}
+              </div>
             )}
           </div>
         ))}
@@ -156,5 +219,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         </div>
       </div>
     </div>
+    </>
   )
 }

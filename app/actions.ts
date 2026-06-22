@@ -42,7 +42,7 @@ export type UserProfile = {
 export type Role = UserProfile['role']
 
 // ---- Checklist de empilhadeira ----
-export type ChecklistItem = { item: string; status: 'ok' | 'nok' | 'na'; obs?: string }
+export type ChecklistItem = { item: string; status: 'ok' | 'nok' | 'na'; obs?: string; foto?: string }
 export type Checklist = {
   id: string
   user_id: string | null
