@@ -53,6 +53,19 @@ export type Checklist = {
   itens: ChecklistItem[]
   observacoes: string
   tem_pendencia: boolean
+  status: 'aberta' | 'encerrada'
+  horimetro_final: number | null
+  encerrada_em: string | null
+  created_at: string
+}
+
+export type OperacaoEvento = {
+  id: string
+  checklist_id: string
+  tipo: 'parada' | 'retorno' | 'encerramento'
+  motivo: string | null
+  horimetro: number | null
+  origem: string
   created_at: string
 }
 
@@ -186,6 +199,39 @@ export async function addChecklist(payload: {
   const tem_pendencia = payload.itens.some(i => i.status === 'nok')
   const { error } = await supabase.from('checklists').insert({ ...payload, user_id: user.id, tem_pendencia })
   if (error) return { error: error.message }
+  revalidatePath('/checklist')
+  return { error: null }
+}
+
+// ---- Operação (checklist aberto + eventos de parada/retorno/encerramento) ----
+export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {
+  const supabase = await createClient()
+  const { data: cks } = await supabase.from('checklists').select('*').eq('status', 'aberta').order('created_at', { ascending: false })
+  const lista = (cks ?? []) as Checklist[]
+  if (!lista.length) return []
+  const ids = lista.map(c => c.id)
+  const { data: evs } = await supabase.from('operacao_eventos').select('*').in('checklist_id', ids).order('created_at', { ascending: true })
+  const eventos = (evs ?? []) as OperacaoEvento[]
+  return lista.map(c => ({ checklist: c, eventos: eventos.filter(e => e.checklist_id === c.id) }))
+}
+
+export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno', horimetro: number | null, motivo?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo, horimetro, motivo: motivo?.trim() || null, origem: 'app', user_id: user.id })
+  if (error) return { error: error.message }
+  revalidatePath('/checklist')
+  return { error: null }
+}
+
+export async function encerrarOperacao(checklistId: string, horimetroFinal: number | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('checklists').update({ status: 'encerrada', horimetro_final: horimetroFinal, encerrada_em: new Date().toISOString() }).eq('id', checklistId)
+  if (error) return { error: error.message }
+  await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo: 'encerramento', horimetro: horimetroFinal, origem: 'app', user_id: user.id })
   revalidatePath('/checklist')
   return { error: null }
 }

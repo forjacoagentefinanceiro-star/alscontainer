@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { getChecklists, getMyProfile, getEmpilhadeiras } from '@/app/actions'
+import { getChecklists, getMyProfile, getEmpilhadeiras, getOperacoesAbertas } from '@/app/actions'
 import { ChecklistForm } from '@/components/ChecklistForm'
+import { OperacoesAbertas } from '@/components/OperacoesAbertas'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ChecklistPage() {
-  const [checklists, profile, empilhadeiras] = await Promise.all([getChecklists(20), getMyProfile(), getEmpilhadeiras()])
+  const [checklists, profile, empilhadeiras, operacoes] = await Promise.all([getChecklists(20), getMyProfile(), getEmpilhadeiras(), getOperacoesAbertas()])
   const podeGerenciar = profile?.role === 'admin' || profile?.role === 'editor'
   const operadorPadrao = profile?.name || profile?.email || ''
 
@@ -23,6 +24,10 @@ export default async function ChecklistPage() {
       )}
 
       <ChecklistForm operadorPadrao={operadorPadrao} empilhadeiras={empilhadeiras.map(e => e.nome)} />
+
+      <div className="mt-8">
+        <OperacoesAbertas operacoes={operacoes} />
+      </div>
 
       <div className="max-w-3xl mt-8">
         <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Últimos registros</h2>
