@@ -7,16 +7,18 @@ import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHori
 
 type Op = { checklist: Checklist; eventos: OperacaoEvento[] }
 type Tipo = 'parada' | 'retorno' | 'encerramento'
+type UiTipo = Tipo | 'abastecimento'
 
 export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes: Op[]; podeEditar?: boolean }) {
   const [list, setList] = useState(operacoes)
-  const [acao, setAcao] = useState<{ id: string; tipo: Tipo } | null>(null)
+  const [acao, setAcao] = useState<{ id: string; tipo: UiTipo } | null>(null)
   const [horim, setHorim] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [litros, setLitros] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [edit, setEdit] = useState<{ kind: 'inicial' | 'evento'; id: string } | null>(null)
   const [editVal, setEditVal] = useState('')
-  const [confirmRetorno, setConfirmRetorno] = useState<{ id: string; h: number; paradaH: number } | null>(null)
+  const [confirmRetorno, setConfirmRetorno] = useState<{ id: string; h: number; paradaH: number; litros: number | null } | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -24,18 +26,18 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const num = (v: string) => (v.trim() === '' ? null : parseFloat(v.replace(',', '.')))
 
-  function executar(id: string, tipo: Tipo, h: number | null, motivoTxt: string, usoSemChecklist: boolean) {
+  function executar(id: string, tipo: Tipo, h: number | null, motivoTxt: string, usoSemChecklist: boolean, abastecimento = false, litrosVal: number | null = null) {
     startTransition(async () => {
       if (tipo === 'encerramento') {
         const res = await encerrarOperacao(id, h)
         if (res.error) setErro(res.error)
         else { setList(prev => prev.filter(o => o.checklist.id !== id)); setAcao(null); router.refresh() }
       } else {
-        const res = await addEvento(id, tipo, h, motivoTxt, usoSemChecklist)
+        const res = await addEvento(id, tipo, h, motivoTxt, usoSemChecklist, abastecimento, litrosVal)
         if (res.error) setErro(res.error)
         else {
           setList(prev => prev.map(o => o.checklist.id === id
-            ? { ...o, eventos: [...o.eventos, { id: crypto.randomUUID(), checklist_id: id, tipo, motivo: motivoTxt || null, horimetro: h, origem: 'app', created_at: new Date().toISOString() }] }
+            ? { ...o, eventos: [...o.eventos, { id: crypto.randomUUID(), checklist_id: id, tipo, motivo: motivoTxt || null, horimetro: h, origem: 'app', abastecimento, litros: litrosVal, consumo_lh: null, created_at: new Date().toISOString() }] }
             : o))
           setAcao(null)
           router.refresh()
@@ -49,15 +51,28 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
     setErro(null)
     const h = num(horim)
     const { id, tipo } = acao
-    // retorno com horímetro diferente da última parada → confirmar (máquina usada na parada)
-    if (tipo === 'retorno' && h != null) {
-      const op = list.find(o => o.checklist.id === id)
+    const op = list.find(o => o.checklist.id === id)
+    const ultimoEv = op?.eventos[op.eventos.length - 1]
+    const aguardandoAbastecimento = ultimoEv?.tipo === 'parada' && !!ultimoEv?.abastecimento
+
+    if (tipo === 'abastecimento') { executar(id, 'parada', h, 'Abastecimento', false, true, null); return }
+
+    if (tipo === 'retorno') {
+      let litrosVal: number | null = null
+      if (aguardandoAbastecimento) {
+        litrosVal = num(litros)
+        if (litrosVal == null || litrosVal <= 0) { setErro('Informe os litros abastecidos.'); return }
+      }
+      // retorno com horímetro diferente da última parada → confirmar (máquina usada na parada)
       const ultimaParada = [...(op?.eventos ?? [])].reverse().find(e => e.tipo === 'parada' && e.horimetro != null)
-      if (ultimaParada && h !== Number(ultimaParada.horimetro)) {
-        setConfirmRetorno({ id, h, paradaH: Number(ultimaParada.horimetro) })
+      if (h != null && ultimaParada && h !== Number(ultimaParada.horimetro)) {
+        setConfirmRetorno({ id, h, paradaH: Number(ultimaParada.horimetro), litros: litrosVal })
         return
       }
+      executar(id, 'retorno', h, '', false, false, litrosVal)
+      return
     }
+
     executar(id, tipo, h, motivo, false)
   }
 
@@ -103,7 +118,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
               Isso indica que a máquina <strong>foi usada durante a parada, sem checklist</strong>. O horímetro está correto?
             </p>
             <div className="mt-5 flex flex-col gap-2">
-              <button onClick={() => { const c = confirmRetorno; setConfirmRetorno(null); executar(c.id, 'retorno', c.h, '', true) }} disabled={isPending}
+              <button onClick={() => { const c = confirmRetorno; setConfirmRetorno(null); executar(c.id, 'retorno', c.h, '', true, false, c.litros) }} disabled={isPending}
                 className="w-full py-3 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#b45309' }}>
                 Sim, está correto (avisar o admin)
               </button>
@@ -144,6 +159,9 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                       <>
                         {e.horimetro != null ? `${e.horimetro}h` : '— h'}
                         {podeEditar && <button onClick={() => abrirEdit('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
+                        {e.litros != null && (
+                          <span style={{ color: '#9a3412' }}>· ⛽ {e.litros}L{e.consumo_lh != null ? ` · ${e.consumo_lh} L/h` : ''}</span>
+                        )}
                       </>
                     )}
                   </li>
@@ -159,6 +177,10 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                   <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Motivo (ex.: almoço)"
                     className="rounded-lg border px-3 py-2 text-sm outline-none flex-1" style={{ borderColor: '#d1d5db', color: '#1a2a3a' }} />
                 )}
+                {acao.tipo === 'retorno' && eventos[eventos.length - 1]?.tipo === 'parada' && eventos[eventos.length - 1]?.abastecimento && (
+                  <input value={litros} onChange={e => setLitros(e.target.value)} placeholder="Litros abastecidos" inputMode="decimal"
+                    className="rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#fdba74', color: '#1a2a3a', width: 160 }} />
+                )}
                 <button onClick={confirmar} disabled={isPending} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#1B4F8A' }}>
                   Confirmar {acao.tipo === 'encerramento' ? 'encerramento' : acao.tipo}
                 </button>
@@ -166,9 +188,10 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
               </div>
             ) : (
               <div className="mt-3 flex gap-2 flex-wrap">
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'parada' }); setHorim(''); setMotivo(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}>Parada</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'retorno' }); setHorim(''); setMotivo(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}>Retorno</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(''); setMotivo(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'parada' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}>Parada</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'abastecimento' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff7ed' }}>⛽ Abastecimento</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'retorno' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}>Retorno</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
               </div>
             )}
           </div>

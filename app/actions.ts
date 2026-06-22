@@ -41,6 +41,15 @@ async function recalcHorimetro(supabase: SB, equipamento: string) {
   await supabase.from('empilhadeiras').update({ horimetro_atual: max || null }).eq('nome', equipamento)
 }
 
+// horímetro do último abastecimento (evento com litros) da máquina — base para o cálculo de consumo
+async function ultimoAbastecimentoHorimetro(supabase: SB, equipamento: string): Promise<number | null> {
+  const { data: cks } = await supabase.from('checklists').select('id').eq('equipamento', equipamento)
+  const ids = (cks ?? []).map(c => c.id)
+  if (!ids.length) return null
+  const { data: evs } = await supabase.from('operacao_eventos').select('horimetro').in('checklist_id', ids).not('litros', 'is', null).order('created_at', { ascending: false }).limit(1)
+  return (evs?.[0]?.horimetro as number | null) ?? null
+}
+
 // vizinhos (anterior/próximo com valor) na sequência da operação: inicial → eventos (por hora) → final
 async function vizinhosSequencia(supabase: SB, checklistId: string, alvo: 'inicial' | 'final' | string): Promise<{ prev: number | null; next: number | null }> {
   const { data: ck } = await supabase.from('checklists').select('horimetro, horimetro_final').eq('id', checklistId).single()
@@ -118,6 +127,9 @@ export type OperacaoEvento = {
   motivo: string | null
   horimetro: number | null
   origem: string
+  abastecimento?: boolean
+  litros?: number | null
+  consumo_lh?: number | null
   created_at: string
 }
 
@@ -285,7 +297,7 @@ export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eve
   return lista.map(c => ({ checklist: c, eventos: eventos.filter(e => e.checklist_id === c.id) }))
 }
 
-export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno', horimetro: number | null, motivo?: string, usoSemChecklist = false) {
+export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno', horimetro: number | null, motivo?: string, usoSemChecklist = false, abastecimento = false, litros: number | null = null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -295,7 +307,16 @@ export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno',
     const base = await baselineHorimetro(supabase, checklistId, equip)
     if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}). Só é permitido igual ou maior.` }
   }
-  const { error } = await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo, horimetro, motivo: motivo?.trim() || null, origem: 'app', user_id: user.id, uso_sem_checklist: usoSemChecklist })
+  // consumo (L/h): litros abastecidos ÷ horas rodadas desde o último abastecimento
+  let consumo_lh: number | null = null
+  if (litros != null && litros > 0 && horimetro != null && equip) {
+    const prevH = await ultimoAbastecimentoHorimetro(supabase, equip)
+    if (prevH != null && horimetro > prevH) consumo_lh = Math.round((litros / (horimetro - prevH)) * 100) / 100
+  }
+  const { error } = await supabase.from('operacao_eventos').insert({
+    checklist_id: checklistId, tipo, horimetro, motivo: motivo?.trim() || null, origem: 'app', user_id: user.id,
+    uso_sem_checklist: usoSemChecklist, abastecimento, litros, consumo_lh,
+  })
   if (error) return { error: error.message }
   if (horimetro != null && equip) await recalcHorimetro(supabase, equip)
   revalidatePath('/checklist')
