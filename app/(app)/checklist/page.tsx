@@ -23,11 +23,9 @@ export default async function ChecklistPage() {
         </div>
       )}
 
-      <ChecklistForm operadorPadrao={operadorPadrao} empilhadeiras={empilhadeiras.map(e => e.nome)} />
+      <OperacoesAbertas operacoes={operacoes} />
 
-      <div className="mt-8">
-        <OperacoesAbertas operacoes={operacoes} />
-      </div>
+      <ChecklistForm operadorPadrao={operadorPadrao} empilhadeiras={empilhadeiras.map(e => e.nome)} />
 
       <div className="max-w-3xl mt-8">
         <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Últimos registros</h2>
