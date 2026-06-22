@@ -396,8 +396,9 @@ export async function resolverPendencia(checklistId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { error } = await supabase.from('checklists').update({ pendencia_resolvida: true }).eq('id', checklistId)
+  const { data, error } = await supabase.from('checklists').update({ pendencia_resolvida: true }).eq('id', checklistId).select('id')
   if (error) return { error: error.message }
+  if (!data?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/', 'layout')
   return { error: null }
 }
@@ -428,8 +429,9 @@ export async function resolverUsoSemChecklist(eventoId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { error } = await supabase.from('operacao_eventos').update({ uso_sem_checklist: false }).eq('id', eventoId)
+  const { data, error } = await supabase.from('operacao_eventos').update({ uso_sem_checklist: false }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
+  if (!data?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/', 'layout')
   return { error: null }
 }

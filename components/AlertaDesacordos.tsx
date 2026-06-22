@@ -8,14 +8,17 @@ import { resolverPendencia } from '@/app/actions'
 export function AlertaDesacordos({ checklists }: { checklists: Checklist[] }) {
   const [list, setList] = useState(checklists)
   const [aberto, setAberto] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   if (!list.length) return null
 
   function resolver(id: string) {
+    setErro(null)
     startTransition(async () => {
       const res = await resolverPendencia(id)
-      if (!res.error) setList(prev => prev.filter(c => c.id !== id))
+      if (res.error) setErro(res.error)
+      else setList(prev => prev.filter(c => c.id !== id))
     })
   }
 
@@ -33,6 +36,7 @@ export function AlertaDesacordos({ checklists }: { checklists: Checklist[] }) {
 
       {aberto && (
         <div className="px-4 pb-4 space-y-3">
+          {erro && <p className="text-xs px-3 py-2 rounded" style={{ background: '#fee2e2', color: '#b91c1c' }}>{erro}</p>}
           {list.map(c => {
             const noks = (c.itens || []).filter(i => i.status === 'nok')
             return (

@@ -7,14 +7,17 @@ import { resolverUsoSemChecklist } from '@/app/actions'
 export function AlertaUsoSemChecklist({ usos }: { usos: UsoSemChecklist[] }) {
   const [list, setList] = useState(usos)
   const [aberto, setAberto] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   if (!list.length) return null
 
   function resolver(id: string) {
+    setErro(null)
     startTransition(async () => {
       const res = await resolverUsoSemChecklist(id)
-      if (!res.error) setList(prev => prev.filter(u => u.id !== id))
+      if (res.error) setErro(res.error)
+      else setList(prev => prev.filter(u => u.id !== id))
     })
   }
 
@@ -32,6 +35,7 @@ export function AlertaUsoSemChecklist({ usos }: { usos: UsoSemChecklist[] }) {
 
       {aberto && (
         <div className="px-4 pb-4 space-y-3">
+          {erro && <p className="text-xs px-3 py-2 rounded" style={{ background: '#fee2e2', color: '#b91c1c' }}>{erro}</p>}
           {list.map(u => (
             <div key={u.id} className="bg-white rounded-lg p-3 flex items-start justify-between gap-3 flex-wrap" style={{ border: '1px solid #fed7aa' }}>
               <div>
