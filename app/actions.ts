@@ -56,6 +56,7 @@ export type Checklist = {
   status: 'aberta' | 'encerrada'
   horimetro_final: number | null
   encerrada_em: string | null
+  pendencia_resolvida: boolean
   created_at: string
 }
 
@@ -233,6 +234,29 @@ export async function encerrarOperacao(checklistId: string, horimetroFinal: numb
   if (error) return { error: error.message }
   await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo: 'encerramento', horimetro: horimetroFinal, origem: 'app', user_id: user.id })
   revalidatePath('/checklist')
+  return { error: null }
+}
+
+// ---- Alertas de desacordo (pendências do checklist, para admin/gestor) ----
+export async function getDesacordosAtivos(): Promise<Checklist[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('checklists')
+    .select('*')
+    .eq('tem_pendencia', true)
+    .eq('pendencia_resolvida', false)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  return (data ?? []) as Checklist[]
+}
+
+export async function resolverPendencia(checklistId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('checklists').update({ pendencia_resolvida: true }).eq('id', checklistId)
+  if (error) return { error: error.message }
+  revalidatePath('/', 'layout')
   return { error: null }
 }
 

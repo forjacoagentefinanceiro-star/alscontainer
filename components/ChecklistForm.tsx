@@ -40,7 +40,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const [fotos, setFotos] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [observacoes, setObservacoes] = useState('')
-  const [popup, setPopup] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; txt: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const supabase = useMemo(() => createClient(), [])
@@ -49,7 +48,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
 
   function marcar(item: string, v: St) {
     setStatus(p => ({ ...p, [item]: v }))
-    if (v === 'nok') setPopup(true)
   }
 
   async function enviarFoto(item: string, file: File | undefined) {
@@ -102,21 +100,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const inputStyle = { borderColor: '#d1d5db', color: '#1a2a3a' } as const
 
   return (
-    <>
-    {popup && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setPopup(false)}>
-        <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center" onClick={e => e.stopPropagation()} style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-          <div className="text-4xl mb-2">⚠️</div>
-          <h3 className="text-lg font-bold" style={{ color: '#b91c1c' }}>Item em desacordo</h3>
-          <p className="text-sm mt-2" style={{ color: '#6b7280' }}>
-            Você marcou um item como <strong>Não OK</strong>. Descreva o problema e <strong>anexe a foto</strong> (obrigatória) antes de registrar.
-          </p>
-          <button onClick={() => setPopup(false)} className="mt-5 w-full py-3 rounded-lg text-sm font-semibold text-white" style={{ background: '#b91c1c' }}>
-            Entendi
-          </button>
-        </div>
-      </div>
-    )}
     <div className="bg-white rounded-xl max-w-3xl" style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       {/* Cabeçalho */}
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -219,6 +202,5 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         </div>
       </div>
     </div>
-    </>
   )
 }
