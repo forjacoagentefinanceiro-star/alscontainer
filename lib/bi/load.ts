@@ -110,10 +110,10 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const ev = estimativas.find(e => /PENDENTE_VISTORIA/.test(e.code)) ?? estimativas.find(e => e.code === 'ESTIMATIVA_PENDENTE')
 
   const kpis: KpiT[] = [
-    { label: `Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
-    { label: `Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
-    { label: 'Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—' },
-    { label: `Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
+    { label: `Depot · Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
+    { label: `Depot · Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
+    { label: 'Depot · Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—' },
+    { label: `Depot · Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
   ]
 
   // Movimentação do terminal (mês corrente até agora) — vinda do escala
