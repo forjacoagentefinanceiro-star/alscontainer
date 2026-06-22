@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, FolderPlus } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, FolderPlus } from 'lucide-react'
 
 const baseItems = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const baseItems = [
   { href: '/inventario', label: 'Inventário', icon: Package2 },
   { href: '/gerador',    label: 'Gerador',    icon: Hash },
   { href: '/checklist',  label: 'Checklist',  icon: ClipboardCheck },
+  { href: '/historico',  label: 'Histórico',  icon: History },
   { href: '/importar',   label: 'Importar',   icon: Upload },
   { href: '/exportar',   label: 'Exportar',   icon: FileCode2 },
 ]

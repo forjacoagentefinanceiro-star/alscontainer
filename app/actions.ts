@@ -297,6 +297,20 @@ export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eve
   return lista.map(c => ({ checklist: c, eventos: eventos.filter(e => e.checklist_id === c.id) }))
 }
 
+export async function getHistorico(limit = 100): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {
+  const { supabase, user, gestor } = await usuarioEPapel()
+  if (!user) return []
+  let q = supabase.from('checklists').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (!gestor) q = q.eq('user_id', user.id)
+  const { data: cks } = await q
+  const lista = (cks ?? []) as Checklist[]
+  if (!lista.length) return []
+  const ids = lista.map(c => c.id)
+  const { data: evs } = await supabase.from('operacao_eventos').select('*').in('checklist_id', ids).order('created_at', { ascending: true })
+  const eventos = (evs ?? []) as OperacaoEvento[]
+  return lista.map(c => ({ checklist: c, eventos: eventos.filter(e => e.checklist_id === c.id) }))
+}
+
 export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno', horimetro: number | null, motivo?: string, usoSemChecklist = false, abastecimento = false, litros: number | null = null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

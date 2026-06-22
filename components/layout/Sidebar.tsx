@@ -12,6 +12,7 @@ import {
   FileCode2,
   Users,
   ClipboardCheck,
+  History,
   FolderPlus,
   PanelLeftClose,
   PanelLeftOpen,
@@ -26,6 +27,7 @@ const operacaoItems: Item[] = [
   { href: '/importar',   label: 'Importar',    icon: Upload          },
   { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
   { href: '/checklist',  label: 'Checklist',   icon: ClipboardCheck  },
+  { href: '/historico',  label: 'Histórico',   icon: History         },
 ]
 
 const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }
