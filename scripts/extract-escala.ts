@@ -142,7 +142,7 @@ async function main() {
         const r = await f.evaluate(() => {
           const norm = (s: string | null) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").toLowerCase();
           const els = [...document.querySelectorAll("div, section, article")];
-          const cont = els.find(e => /movimentacao terminal/.test(norm(e.textContent)) && norm(e.textContent).length < 220);
+          const cont = els.find(e => /movimentacao terminal itj/.test(norm(e.textContent)) && norm(e.textContent).length < 220);
           if (!cont) return null;
           const t = norm(cont.textContent);
           const ent = t.match(/entrada\D*(\d[\d.]*)/);
