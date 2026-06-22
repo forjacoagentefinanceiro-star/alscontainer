@@ -211,6 +211,17 @@ export async function addEmpilhadeira(nome: string) {
   return { error: null }
 }
 
+export async function updateEmpilhadeira(id: string, nome: string) {
+  const supabase = await createClient()
+  const n = nome.trim()
+  if (!n) return { error: 'Informe a identificação do equipamento.' }
+  const { error } = await supabase.from('empilhadeiras').update({ nome: n }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/cadastros')
+  revalidatePath('/checklist')
+  return { error: null }
+}
+
 export async function deleteEmpilhadeira(id: string) {
   const supabase = await createClient()
   const { error } = await supabase.from('empilhadeiras').delete().eq('id', id)
