@@ -41,6 +41,20 @@ async function recalcHorimetro(supabase: SB, equipamento: string) {
   await supabase.from('empilhadeiras').update({ horimetro_atual: max || null }).eq('nome', equipamento)
 }
 
+// vizinhos (anterior/próximo com valor) na sequência da operação: inicial → eventos (por hora) → final
+async function vizinhosSequencia(supabase: SB, checklistId: string, alvo: 'inicial' | 'final' | string): Promise<{ prev: number | null; next: number | null }> {
+  const { data: ck } = await supabase.from('checklists').select('horimetro, horimetro_final').eq('id', checklistId).single()
+  const { data: evs } = await supabase.from('operacao_eventos').select('id, horimetro, created_at').eq('checklist_id', checklistId).order('created_at', { ascending: true })
+  const seq: { key: string; value: number | null }[] = [{ key: 'inicial', value: ck?.horimetro ?? null }]
+  for (const e of evs ?? []) seq.push({ key: e.id, value: e.horimetro ?? null })
+  seq.push({ key: 'final', value: ck?.horimetro_final ?? null })
+  const idx = seq.findIndex(s => s.key === alvo)
+  let prev: number | null = null, next: number | null = null
+  for (let i = idx - 1; i >= 0; i--) if (seq[i].value != null) { prev = Number(seq[i].value); break }
+  for (let i = idx + 1; i < seq.length; i++) if (seq[i].value != null) { next = Number(seq[i].value); break }
+  return { prev, next }
+}
+
 export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
@@ -271,7 +285,7 @@ export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eve
   return lista.map(c => ({ checklist: c, eventos: eventos.filter(e => e.checklist_id === c.id) }))
 }
 
-export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno', horimetro: number | null, motivo?: string) {
+export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno', horimetro: number | null, motivo?: string, usoSemChecklist = false) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -279,12 +293,13 @@ export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno',
   const equip = ck?.equipamento as string | undefined
   if (horimetro != null) {
     const base = await baselineHorimetro(supabase, checklistId, equip)
-    if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}).` }
+    if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}). Só é permitido igual ou maior.` }
   }
-  const { error } = await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo, horimetro, motivo: motivo?.trim() || null, origem: 'app', user_id: user.id })
+  const { error } = await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo, horimetro, motivo: motivo?.trim() || null, origem: 'app', user_id: user.id, uso_sem_checklist: usoSemChecklist })
   if (error) return { error: error.message }
   if (horimetro != null && equip) await recalcHorimetro(supabase, equip)
   revalidatePath('/checklist')
+  revalidatePath('/', 'layout')
   return { error: null }
 }
 
@@ -306,11 +321,16 @@ export async function encerrarOperacao(checklistId: string, horimetroFinal: numb
   return { error: null }
 }
 
-// corrigir horímetros lançados (caso de erro de digitação) — não aplica a regra de "maior que o último"
+// corrigir horímetros lançados — mesmo na edição, nunca menor que o anterior nem maior que o próximo
 export async function updateChecklistHorimetro(checklistId: string, campo: 'horimetro' | 'horimetro_final', valor: number | null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (valor != null) {
+    const { prev, next } = await vizinhosSequencia(supabase, checklistId, campo === 'horimetro' ? 'inicial' : 'final')
+    if (prev != null && valor < prev) return { error: `Horímetro ${valor} não pode ser menor que o anterior (${prev}).` }
+    if (next != null && valor > next) return { error: `Horímetro ${valor} não pode ser maior que o próximo (${next}).` }
+  }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
   const { error } = await supabase.from('checklists').update({ [campo]: valor }).eq('id', checklistId)
   if (error) return { error: error.message }
@@ -324,12 +344,16 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
+  if (!ev?.checklist_id) return { error: 'Evento não encontrado' }
+  if (valor != null) {
+    const { prev, next } = await vizinhosSequencia(supabase, ev.checklist_id, eventoId)
+    if (prev != null && valor < prev) return { error: `Horímetro ${valor} não pode ser menor que o anterior (${prev}).` }
+    if (next != null && valor > next) return { error: `Horímetro ${valor} não pode ser maior que o próximo (${next}).` }
+  }
   const { error } = await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('id', eventoId)
   if (error) return { error: error.message }
-  if (ev?.checklist_id) {
-    const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
-    if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
-  }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
   return { error: null }
 }
@@ -352,6 +376,38 @@ export async function resolverPendencia(checklistId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   const { error } = await supabase.from('checklists').update({ pendencia_resolvida: true }).eq('id', checklistId)
+  if (error) return { error: error.message }
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+export type UsoSemChecklist = { id: string; equipamento: string; operador: string; horimetro: number | null; created_at: string }
+
+export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('operacao_eventos')
+    .select('id, horimetro, created_at, checklists(equipamento, operador)')
+    .eq('uso_sem_checklist', true)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  return (data ?? []).map((e: Record<string, unknown>) => {
+    const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
+    return {
+      id: e.id as string,
+      equipamento: ck?.equipamento ?? '—',
+      operador: ck?.operador ?? '—',
+      horimetro: (e.horimetro as number | null) ?? null,
+      created_at: e.created_at as string,
+    }
+  })
+}
+
+export async function resolverUsoSemChecklist(eventoId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('operacao_eventos').update({ uso_sem_checklist: false }).eq('id', eventoId)
   if (error) return { error: error.message }
   revalidatePath('/', 'layout')
   return { error: null }

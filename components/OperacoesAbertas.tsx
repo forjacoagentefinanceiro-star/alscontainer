@@ -16,6 +16,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   const [erro, setErro] = useState<string | null>(null)
   const [edit, setEdit] = useState<{ kind: 'inicial' | 'evento'; id: string } | null>(null)
   const [editVal, setEditVal] = useState('')
+  const [confirmRetorno, setConfirmRetorno] = useState<{ id: string; h: number; paradaH: number } | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -23,28 +24,41 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const num = (v: string) => (v.trim() === '' ? null : parseFloat(v.replace(',', '.')))
 
-  function confirmar() {
-    if (!acao) return
-    setErro(null)
-    const h = num(horim)
-    const { id, tipo } = acao
+  function executar(id: string, tipo: Tipo, h: number | null, motivoTxt: string, usoSemChecklist: boolean) {
     startTransition(async () => {
       if (tipo === 'encerramento') {
         const res = await encerrarOperacao(id, h)
         if (res.error) setErro(res.error)
-        else { setList(prev => prev.filter(o => o.checklist.id !== id)); setAcao(null) }
+        else { setList(prev => prev.filter(o => o.checklist.id !== id)); setAcao(null); router.refresh() }
       } else {
-        const res = await addEvento(id, tipo, h, motivo)
+        const res = await addEvento(id, tipo, h, motivoTxt, usoSemChecklist)
         if (res.error) setErro(res.error)
         else {
           setList(prev => prev.map(o => o.checklist.id === id
-            ? { ...o, eventos: [...o.eventos, { id: crypto.randomUUID(), checklist_id: id, tipo, motivo: motivo || null, horimetro: h, origem: 'app', created_at: new Date().toISOString() }] }
+            ? { ...o, eventos: [...o.eventos, { id: crypto.randomUUID(), checklist_id: id, tipo, motivo: motivoTxt || null, horimetro: h, origem: 'app', created_at: new Date().toISOString() }] }
             : o))
           setAcao(null)
           router.refresh()
         }
       }
     })
+  }
+
+  function confirmar() {
+    if (!acao) return
+    setErro(null)
+    const h = num(horim)
+    const { id, tipo } = acao
+    // retorno com horímetro diferente da última parada → confirmar (máquina usada na parada)
+    if (tipo === 'retorno' && h != null) {
+      const op = list.find(o => o.checklist.id === id)
+      const ultimaParada = [...(op?.eventos ?? [])].reverse().find(e => e.tipo === 'parada' && e.horimetro != null)
+      if (ultimaParada && h !== Number(ultimaParada.horimetro)) {
+        setConfirmRetorno({ id, h, paradaH: Number(ultimaParada.horimetro) })
+        return
+      }
+    }
+    executar(id, tipo, h, motivo, false)
   }
 
   function salvarEdit() {
@@ -79,6 +93,27 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
 
   return (
     <div className="max-w-3xl mb-6">
+      {confirmRetorno && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center" style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div className="text-4xl mb-2">⚠️</div>
+            <h3 className="text-lg font-bold" style={{ color: '#b45309' }}>Horímetro diferente da parada</h3>
+            <p className="text-sm mt-2" style={{ color: '#6b7280' }}>
+              O retorno (<strong>{confirmRetorno.h}h</strong>) é diferente da parada (<strong>{confirmRetorno.paradaH}h</strong>).
+              Isso indica que a máquina <strong>foi usada durante a parada, sem checklist</strong>. O horímetro está correto?
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button onClick={() => { const c = confirmRetorno; setConfirmRetorno(null); executar(c.id, 'retorno', c.h, '', true) }} disabled={isPending}
+                className="w-full py-3 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#b45309' }}>
+                Sim, está correto (avisar o admin)
+              </button>
+              <button onClick={() => setConfirmRetorno(null)} className="w-full py-2 rounded-lg text-sm font-semibold" style={{ color: '#6b7280' }}>
+                Não, corrigir o valor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Operações em andamento</h2>
       {erro && <p className="text-sm mb-3 px-3 py-2 rounded" style={{ background: '#fef2f2', color: '#b91c1c' }}>{erro}</p>}
       <div className="space-y-3">

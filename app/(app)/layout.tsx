@@ -4,8 +4,9 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { AlertaDesacordos } from '@/components/AlertaDesacordos'
+import { AlertaUsoSemChecklist } from '@/components/AlertaUsoSemChecklist'
 import { LiveRefresh } from '@/components/LiveRefresh'
-import { getDesacordosAtivos } from '@/app/actions'
+import { getDesacordosAtivos, getUsosSemChecklist } from '@/app/actions'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -20,7 +21,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const role = profile?.role as string | undefined
   const podeGerenciar = role === 'admin' || role === 'editor'
-  const desacordos = podeGerenciar ? await getDesacordosAtivos() : []
+  const [desacordos, usosSemChecklist] = podeGerenciar
+    ? await Promise.all([getDesacordosAtivos(), getUsosSemChecklist()])
+    : [[], []]
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f0f2f5' }}>
@@ -30,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           {podeGerenciar && <LiveRefresh seconds={30} />}
           {podeGerenciar && <AlertaDesacordos checklists={desacordos} />}
+          {podeGerenciar && <AlertaUsoSemChecklist usos={usosSemChecklist} />}
           {children}
         </main>
       </div>
