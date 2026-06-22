@@ -124,8 +124,8 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const termEnt = tv('TERMINAL_ENTRADA')
   const termSai = tv('TERMINAL_SAIDA')
   if (termEnt != null || termSai != null) {
-    kpis.push({ label: 'Terminal · Entradas', value: nf.format(termEnt ?? 0), sub: 'no mês', cor: '#4FA3D1' })
-    kpis.push({ label: 'Terminal · Saídas', value: nf.format(termSai ?? 0), sub: 'no mês', cor: '#4FA3D1' })
+    kpis.push({ label: `Terminal · Entradas · ${cap(mes)}`, value: nf.format(termEnt ?? 0), cor: '#4FA3D1' })
+    kpis.push({ label: `Terminal · Saídas · ${cap(mes)}`, value: nf.format(termSai ?? 0), cor: '#4FA3D1' })
   }
 
   const eixosTrend = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
