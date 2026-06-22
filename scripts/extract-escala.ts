@@ -134,6 +134,31 @@ async function main() {
     });
     console.log("[debug] requests:", JSON.stringify([...pedidos].slice(0, 40)));
 
+    // Movimentação terminal (widget em tiles, não é tabela) — Entrada / Saída
+    let terminalEntrada: number | null = null;
+    let terminalSaida: number | null = null;
+    for (const f of page.frames()) {
+      try {
+        const r = await f.evaluate(() => {
+          const norm = (s: string | null) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").toLowerCase();
+          const els = [...document.querySelectorAll("div, section, article")];
+          const cont = els.find(e => /movimentacao terminal/.test(norm(e.textContent)) && norm(e.textContent).length < 220);
+          if (!cont) return null;
+          const t = norm(cont.textContent);
+          const ent = t.match(/entrada\D*(\d[\d.]*)/);
+          const sai = t.match(/saida\D*(\d[\d.]*)/);
+          const toN = (m: RegExpMatchArray | null) => (m ? parseInt(m[1].replace(/\D/g, ""), 10) : null);
+          return { entrada: toN(ent), saida: toN(sai), raw: t.slice(0, 160) };
+        });
+        if (r && (r.entrada != null || r.saida != null)) {
+          terminalEntrada = r.entrada;
+          terminalSaida = r.saida;
+          console.log("[debug] mov. terminal:", JSON.stringify(r));
+          break;
+        }
+      } catch { /* frame sem acesso */ }
+    }
+
     // 4) Extração: cada widget tem [cabeçalho | corpo | total] em tabelas separadas.
     // Acha a tabela do título e pega a linha "Total" nas tabelas seguintes.
     const idx = (re: RegExp) => tabelas.findIndex((t) => re.test((t.h || "").toLowerCase()));
@@ -204,6 +229,9 @@ async function main() {
       if (rDepot) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Depot", eixo: String(y), ano: ANO, valor: num(rDepot[k + 1]) });
       if (rTerminal) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Terminal", eixo: String(y), ano: ANO, valor: num(rTerminal[k + 1]) });
     });
+
+    rows.push({ fonte: "escala", code: "TERMINAL_ENTRADA", titulo: "Terminal — entradas", serie: "Total", eixo: "Atual", ano: ANO, valor: terminalEntrada });
+    rows.push({ fonte: "escala", code: "TERMINAL_SAIDA", titulo: "Terminal — saídas", serie: "Total", eixo: "Atual", ano: ANO, valor: terminalSaida });
 
     console.log("[debug] valores extraídos:", JSON.stringify(rows).slice(0, 2000));
 

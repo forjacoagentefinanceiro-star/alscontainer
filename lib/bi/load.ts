@@ -76,7 +76,8 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const ano = Math.max(...linhas.map(l => l.ano))
   const estimativas = linhas.filter(l => /^ESTIMATIVA/.test(l.code) && l.ano === ano)
   const faturamentoRows = linhas.filter(l => /^FATURAMENTO/.test(l.code) && l.ano === ano)
-  const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^(ESTIMATIVA|FATURAMENTO)/.test(l.code)))
+  const terminalRows = linhas.filter(l => /^TERMINAL_/.test(l.code) && l.ano === ano)
+  const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^(ESTIMATIVA|FATURAMENTO|TERMINAL)/.test(l.code)))
 
   const catMap = new Map<string, Categoria & { ord: number }>()
   for (const g of grupos) {
@@ -114,6 +115,18 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     { label: 'Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—' },
     { label: `Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
   ]
+
+  // Movimentação do terminal (mês corrente até agora) — vinda do escala
+  const tv = (code: string): number | null => {
+    const r = terminalRows.find(x => x.code === code)
+    return r && r.valor != null ? Number(r.valor) : null
+  }
+  const termEnt = tv('TERMINAL_ENTRADA')
+  const termSai = tv('TERMINAL_SAIDA')
+  if (termEnt != null || termSai != null) {
+    kpis.push({ label: 'Terminal · Entradas', value: nf.format(termEnt ?? 0), sub: 'no mês', cor: '#4FA3D1' })
+    kpis.push({ label: 'Terminal · Saídas', value: nf.format(termSai ?? 0), sub: 'no mês', cor: '#4FA3D1' })
+  }
 
   const eixosTrend = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
   const trend: Ponto[] = eixosTrend.map(eixo => ({ eixo, Entradas: entradasMes.get(eixo) ?? 0, 'Saídas': saidasMes.get(eixo) ?? 0 }))
