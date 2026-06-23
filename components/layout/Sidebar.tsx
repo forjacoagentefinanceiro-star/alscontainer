@@ -13,6 +13,7 @@ import {
   Users,
   ClipboardCheck,
   History,
+  Gauge,
   FolderPlus,
   PanelLeftClose,
   PanelLeftOpen,
@@ -29,9 +30,11 @@ const estoqueItems: Item[] = [
   { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
 ]
 
+const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }
 const equipamentosItems: Item[] = [
-  { href: '/checklist',  label: 'Checklist',  icon: ClipboardCheck },
-  { href: '/historico',  label: 'Histórico',  icon: History        },
+  { href: '/equipamentos', label: 'Painel',    icon: Gauge          },
+  checklistItem,
+  { href: '/historico',    label: 'Histórico', icon: History        },
 ]
 
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
@@ -81,7 +84,7 @@ export function Sidebar({ role }: { role?: string }) {
   const isOperador = role === 'operador'
   const podeCadastrar = role === 'admin' || role === 'editor'
   const sections: Section[] = isOperador
-    ? [{ label: 'Equipamentos', items: [equipamentosItems[0]] }]
+    ? [{ label: 'Equipamentos', items: [checklistItem] }]
     : [
         { label: 'Estoque', items: estoqueItems },
         { label: 'Equipamentos', items: equipamentosItems },

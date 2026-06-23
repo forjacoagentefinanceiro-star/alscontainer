@@ -328,6 +328,9 @@ export async function addChecklist(payload: {
   // turno derivado do horário de Brasília (não é mais escolhido no formulário)
   const horaBR = Number(new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date()))
   const turno = payload.turno?.trim() || (horaBR < 12 ? 'Manhã' : horaBR < 18 ? 'Tarde' : 'Noite')
+  // não permite 2 operações abertas para o mesmo equipamento
+  const { data: jaAberta } = await supabase.from('checklists').select('id').eq('equipamento', payload.equipamento).eq('status', 'aberta').limit(1)
+  if (jaAberta?.length) return { error: `Já existe um checklist aberto para ${payload.equipamento}. Encerre a operação atual antes de abrir outro.` }
   if (payload.horimetro != null) {
     const atual = await horimetroDaMaquina(supabase, payload.equipamento)
     if (atual != null && payload.horimetro < atual)
@@ -353,6 +356,45 @@ export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eve
   const { data: evs } = await supabase.from('operacao_eventos').select('*').in('checklist_id', ids).order('created_at', { ascending: true })
   const eventos = (evs ?? []) as OperacaoEvento[]
   return lista.map(c => ({ checklist: c, eventos: eventos.filter(e => e.checklist_id === c.id) }))
+}
+
+export type ResumoEquipamentos = {
+  emOperacao: number
+  totalEquip: number
+  ociosos: string[]
+  checklistsHoje: number
+  desacordos: number
+  usosSemChecklist: number
+  abertas: { equipamento: string; operador: string; created_at: string; horimetro: number | null }[]
+}
+
+export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null> {
+  const { supabase, user } = await usuarioEPapel()
+  if (!user) return null
+  // início do dia no fuso de Brasília
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const inicioDia = `${ymd}T00:00:00-03:00`
+
+  const [emp, abertasRes, hojeRes, desRes, usosRes] = await Promise.all([
+    supabase.from('empilhadeiras').select('nome'),
+    supabase.from('checklists').select('equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false }),
+    supabase.from('checklists').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia),
+    supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('tem_pendencia', true).eq('pendencia_resolvida', false),
+    supabase.from('operacao_eventos').select('id', { count: 'exact', head: true }).eq('uso_sem_checklist', true),
+  ])
+
+  const equipamentos = (emp.data ?? []).map(e => e.nome as string)
+  const abertas = (abertasRes.data ?? []) as ResumoEquipamentos['abertas']
+  const operando = new Set(abertas.map(a => a.equipamento))
+  return {
+    emOperacao: abertas.length,
+    totalEquip: equipamentos.length,
+    ociosos: equipamentos.filter(n => !operando.has(n)),
+    checklistsHoje: hojeRes.count ?? 0,
+    desacordos: desRes.count ?? 0,
+    usosSemChecklist: usosRes.count ?? 0,
+    abertas,
+  }
 }
 
 export async function getHistorico(limit = 100): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {
