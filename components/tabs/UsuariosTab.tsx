@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { UserProfile } from '@/app/actions'
-import { approveUser, updateUserRole, revokeUser, updateUserBiAbas } from '@/app/actions'
+import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, redefinirSenhaOperador } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 
 const roleLabel = { admin: 'Admin', editor: 'Editor', viewer: 'Visualizador', operador: 'Operador' }
@@ -17,6 +17,18 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
   const [list, setList] = useState(users)
   const [isPending, startTransition] = useTransition()
   const [openAbas, setOpenAbas] = useState<string | null>(null)
+  const [resetId, setResetId] = useState<string | null>(null)
+  const [resetVal, setResetVal] = useState('')
+  const [resetMsg, setResetMsg] = useState<{ id: string; txt: string; ok: boolean } | null>(null)
+
+  function handleReset(userId: string) {
+    setResetMsg(null)
+    startTransition(async () => {
+      const res = await redefinirSenhaOperador(userId, resetVal)
+      if (res.error) setResetMsg({ id: userId, txt: res.error, ok: false })
+      else { setResetMsg({ id: userId, txt: '✓ Senha redefinida. O usuário trocará no próximo acesso.', ok: true }); setResetId(null); setResetVal('') }
+    })
+  }
 
   function toggleAba(u: UserProfile, key: string, checked: boolean) {
     const atual = u.bi_abas ?? [...BI_ABAS_KEYS] // null = todas
@@ -154,6 +166,13 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     <option value="operador">Operador</option>
                   </select>
 
+                  {/* Redefinir senha */}
+                  <button onClick={() => { setResetId(resetId === u.id ? null : u.id); setResetVal(''); setResetMsg(null) }} disabled={isPending}
+                    className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    style={{ borderColor: '#cbd5e1', color: '#475569' }}>
+                    Senha
+                  </button>
+
                   {/* Revogar */}
                   <button onClick={() => handleRevoke(u.id)} disabled={isPending}
                     className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-red-50 disabled:opacity-50"
@@ -161,6 +180,25 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     Revogar
                   </button>
                 </div>
+
+                {/* Painel de redefinir senha */}
+                {resetId === u.id && (
+                  <div className="px-5 pb-4 -mt-1">
+                    <div className="rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-2" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                      <span className="text-xs" style={{ color: '#6b7280' }}>Nova senha provisória:</span>
+                      <input value={resetVal} onChange={e => setResetVal(e.target.value)} placeholder="mín. 6 caracteres"
+                        className="rounded border px-2 py-1.5 text-sm outline-none" style={{ borderColor: '#d1d5db', color: '#1a2a3a' }} />
+                      <button onClick={() => handleReset(u.id)} disabled={isPending}
+                        className="text-xs font-semibold px-3 py-1.5 rounded text-white disabled:opacity-50" style={{ background: '#1B4F8A' }}>Redefinir</button>
+                      <button onClick={() => setResetId(null)} className="text-xs px-2 py-1.5" style={{ color: '#6b7280' }}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+                {resetMsg?.id === u.id && (
+                  <div className="px-5 pb-3 -mt-1">
+                    <p className="text-xs px-3 py-2 rounded" style={{ background: resetMsg.ok ? '#ecfdf5' : '#fef2f2', color: resetMsg.ok ? '#047857' : '#b91c1c' }}>{resetMsg.txt}</p>
+                  </div>
+                )}
 
                 {/* Painel de abas do BI */}
                 {openAbas === u.id && u.role !== 'admin' && u.role !== 'operador' && (
