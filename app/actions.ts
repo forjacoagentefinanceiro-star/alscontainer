@@ -458,9 +458,9 @@ export async function encerrarOperacao(checklistId: string, horimetroFinal: numb
 
 // corrigir horímetros lançados — mesmo na edição, nunca menor que o anterior nem maior que o próximo
 export async function updateChecklistHorimetro(checklistId: string, campo: 'horimetro' | 'horimetro_final', valor: number | null) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem corrigir horímetros.' }
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado' }
   if (valor != null) {
     const { prev, next } = await vizinhosSequencia(supabase, checklistId, campo === 'horimetro' ? 'inicial' : 'final')
     if (prev != null && valor < prev) return { error: `Horímetro ${valor} não pode ser menor que o anterior (${prev}).` }
@@ -471,13 +471,14 @@ export async function updateChecklistHorimetro(checklistId: string, campo: 'hori
   if (error) return { error: error.message }
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
+  revalidatePath('/historico')
   return { error: null }
 }
 
 export async function updateEventoHorimetro(eventoId: string, valor: number | null) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem corrigir horímetros.' }
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Não autenticado' }
   const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
   if (!ev?.checklist_id) return { error: 'Evento não encontrado' }
   if (valor != null) {
@@ -490,6 +491,20 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
+  revalidatePath('/historico')
+  return { error: null }
+}
+
+// corrige itens do checklist marcados errado pelo operador (status/observação)
+export async function updateChecklistItens(checklistId: string, itens: ChecklistItem[]) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem editar o checklist.' }
+  const supabase = await createClient()
+  const tem_pendencia = itens.some(i => i.status === 'nok')
+  const { error } = await supabase.from('checklists').update({ itens, tem_pendencia }).eq('id', checklistId)
+  if (error) return { error: error.message }
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
   return { error: null }
 }
 
