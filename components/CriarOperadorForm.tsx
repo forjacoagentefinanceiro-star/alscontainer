@@ -8,6 +8,7 @@ export function CriarOperadorForm() {
   const [nome, setNome] = useState('')
   const [usuario, setUsuario] = useState('')
   const [senha, setSenha] = useState('')
+  const [exigirTroca, setExigirTroca] = useState(true)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; txt: string } | null>(null)
   const [aberto, setAberto] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -16,10 +17,10 @@ export function CriarOperadorForm() {
   function criar() {
     setMsg(null)
     startTransition(async () => {
-      const res = await criarOperador(nome, usuario, senha)
+      const res = await criarOperador(nome, usuario, senha, exigirTroca)
       if (res.error) setMsg({ tipo: 'erro', txt: res.error })
       else {
-        setMsg({ tipo: 'ok', txt: `✓ Operador criado! Login: usuário "${res.usuario}" + a senha definida.` })
+        setMsg({ tipo: 'ok', txt: `✓ Operador criado! Login: usuário "${res.usuario}" + a senha provisória${exigirTroca ? '. Ele será obrigado a trocá-la no 1º acesso.' : '.'}` })
         setNome(''); setUsuario(''); setSenha('')
         router.refresh()
       }
@@ -51,10 +52,14 @@ export function CriarOperadorForm() {
               <input className={inputCls} style={inputStyle} value={usuario} onChange={e => setUsuario(e.target.value)} placeholder="ex.: joao.silva" />
             </div>
             <div>
-              <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Senha</label>
+              <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Senha provisória</label>
               <input className={inputCls} style={inputStyle} value={senha} onChange={e => setSenha(e.target.value)} placeholder="mín. 6 caracteres" />
             </div>
           </div>
+          <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer" style={{ color: '#374151' }}>
+            <input type="checkbox" checked={exigirTroca} onChange={e => setExigirTroca(e.target.checked)} />
+            Pedir troca de senha no 1º acesso (você não fica sabendo a senha final)
+          </label>
           {msg && (
             <p className="text-sm mt-3 px-3 py-2 rounded" style={{ background: msg.tipo === 'ok' ? '#ecfdf5' : '#fef2f2', color: msg.tipo === 'ok' ? '#047857' : '#b91c1c' }}>
               {msg.txt}

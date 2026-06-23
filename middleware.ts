@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   // Verifica perfil e aprovação
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('approved, role')
+    .select('*')
     .eq('id', user.id)
     .single()
 
@@ -47,8 +47,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/aguardando', request.url))
   }
 
-  // Operador → só enxerga o Checklist
-  if (profile.role === 'operador' && !pathname.startsWith('/checklist')) {
+  // Troca de senha obrigatória no primeiro acesso
+  if (profile.must_change_password && !pathname.startsWith('/trocar-senha')) {
+    return NextResponse.redirect(new URL('/trocar-senha', request.url))
+  }
+
+  // Operador → só enxerga o Checklist (e a troca de senha obrigatória)
+  if (profile.role === 'operador' && !pathname.startsWith('/checklist') && !pathname.startsWith('/trocar-senha')) {
     return NextResponse.redirect(new URL('/checklist', request.url))
   }
 

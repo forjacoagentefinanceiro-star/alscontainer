@@ -226,7 +226,7 @@ async function souAdmin(): Promise<{ ok: boolean }> {
 }
 
 // Cria um operador sem e-mail: gera usuario@als.local internamente; operador loga só com o usuário.
-export async function criarOperador(nome: string, usuario: string, senha: string) {
+export async function criarOperador(nome: string, usuario: string, senha: string, exigirTroca = true) {
   if (!(await souAdmin()).ok) return { error: 'Apenas administradores podem criar operadores.' }
   const u = usuario.trim().toLowerCase().replace(/\s+/g, '')
   if (!nome.trim()) return { error: 'Informe o nome do operador.' }
@@ -241,10 +241,24 @@ export async function criarOperador(nome: string, usuario: string, senha: string
   if (error) return { error: error.message.includes('already') ? `O usuário "${u}" já existe.` : error.message }
   const id = created.user?.id
   if (!id) return { error: 'Falha ao criar o usuário.' }
-  const { error: pErr } = await admin.from('user_profiles').upsert({ id, email, name: nome.trim(), role: 'operador', approved: true })
+  const { error: pErr } = await admin.from('user_profiles').upsert({ id, email, name: nome.trim(), role: 'operador', approved: true, must_change_password: exigirTroca })
   if (pErr) return { error: pErr.message }
   revalidatePath('/usuarios')
   return { error: null, usuario: u }
+}
+
+// Troca a senha do próprio usuário (1º acesso obrigatório) e limpa a flag de troca.
+export async function trocarMinhaSenha(novaSenha: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (novaSenha.length < 6) return { error: 'A senha deve ter ao menos 6 caracteres.' }
+  const admin = createAdminClient()
+  const { error } = await admin.auth.admin.updateUserById(user.id, { password: novaSenha })
+  if (error) return { error: error.message }
+  await admin.from('user_profiles').update({ must_change_password: false }).eq('id', user.id)
+  revalidatePath('/', 'layout')
+  return { error: null }
 }
 
 export async function redefinirSenhaOperador(userId: string, novaSenha: string) {
@@ -253,6 +267,7 @@ export async function redefinirSenhaOperador(userId: string, novaSenha: string) 
   const admin = createAdminClient()
   const { error } = await admin.auth.admin.updateUserById(userId, { password: novaSenha })
   if (error) return { error: error.message }
+  await admin.from('user_profiles').update({ must_change_password: true }).eq('id', userId)
   return { error: null }
 }
 
