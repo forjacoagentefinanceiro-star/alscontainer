@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { addChecklist, type ChecklistItem } from '@/app/actions'
 import { createClient } from '@/lib/supabase/client'
+import { HorimetroInput } from '@/components/HorimetroInput'
 
 const ITENS = [
   'Nível de óleo do motor',
@@ -34,7 +35,8 @@ const OPCOES: { v: St; label: string; on: string }[] = [
 export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { operadorPadrao?: string; empilhadeiras?: string[] }) {
   const [operador, setOperador] = useState(operadorPadrao)
   const [equipamento, setEquipamento] = useState('')
-  const [horimetro, setHorimetro] = useState('')
+  const [horimetro, setHorimetro] = useState<number | null>(null)
+  const [horimKey, setHorimKey] = useState(0)
   const [status, setStatus] = useState<Record<string, St>>(() => Object.fromEntries(ITENS.map(i => [i, 'ok'])))
   const [obs, setObs] = useState<Record<string, string>>({})
   const [fotos, setFotos] = useState<Record<string, string>>({})
@@ -80,7 +82,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
       const res = await addChecklist({
         operador: operador.trim(),
         equipamento: equipamento.trim(),
-        horimetro: horimetro ? parseFloat(horimetro.replace(',', '.')) : null,
+        horimetro,
         itens,
         observacoes: observacoes.trim(),
       })
@@ -91,7 +93,8 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         setObs({})
         setFotos({})
         setObservacoes('')
-        setHorimetro('')
+        setHorimetro(null)
+        setHorimKey(k => k + 1)
         router.refresh()
       }
     })
@@ -121,7 +124,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         </div>
         <div>
           <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Horímetro</label>
-          <input className={inputCls} style={inputStyle} value={horimetro} onChange={e => setHorimetro(e.target.value)} placeholder="ex.: 12345" inputMode="decimal" />
+          <HorimetroInput key={horimKey} className={inputCls} style={inputStyle} value={horimetro} onChange={setHorimetro} placeholder="ex.: 12345.0" />
         </div>
       </div>
 

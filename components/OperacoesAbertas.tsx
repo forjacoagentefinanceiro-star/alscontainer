@@ -6,6 +6,7 @@ import type { Checklist, OperacaoEvento } from '@/app/actions'
 import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHorimetro, reportarProblema } from '@/app/actions'
 import { createClient } from '@/lib/supabase/client'
 import { ProblemaTratativa } from '@/components/ProblemaTratativa'
+import { HorimetroInput } from '@/components/HorimetroInput'
 
 type Op = { checklist: Checklist; eventos: OperacaoEvento[] }
 type Tipo = 'parada' | 'retorno' | 'encerramento'
@@ -14,12 +15,12 @@ type UiTipo = Tipo | 'abastecimento' | 'problema'
 export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes: Op[]; podeEditar?: boolean }) {
   const [list, setList] = useState(operacoes)
   const [acao, setAcao] = useState<{ id: string; tipo: UiTipo } | null>(null)
-  const [horim, setHorim] = useState('')
+  const [horim, setHorim] = useState<number | null>(null)
   const [motivo, setMotivo] = useState('')
   const [litros, setLitros] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [edit, setEdit] = useState<{ kind: 'inicial' | 'evento'; id: string } | null>(null)
-  const [editVal, setEditVal] = useState('')
+  const [editVal, setEditVal] = useState<number | null>(null)
   const [confirmRetorno, setConfirmRetorno] = useState<{ id: string; h: number; paradaH: number; litros: number | null } | null>(null)
   const [descricaoProblema, setDescricaoProblema] = useState('')
   const [parado, setParado] = useState<boolean | null>(null)
@@ -73,7 +74,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   function confirmarProblema() {
     if (!acao) return
     setErro(null)
-    const h = num(horim)
+    const h = horim
     if (!descricaoProblema.trim()) { setErro('Descreva o problema.'); return }
     if (parado == null) { setErro('Indique se o equipamento está parado por causa do problema.'); return }
     if (h == null) { setErro('Informe o horímetro.'); return }
@@ -93,7 +94,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
     if (!acao) return
     setErro(null)
     if (acao.tipo === 'problema') { confirmarProblema(); return }
-    const h = num(horim)
+    const h = horim
     const { id, tipo } = acao
     const op = list.find(o => o.checklist.id === id)
     const ultimoEv = op?.eventos[op.eventos.length - 1]
@@ -123,7 +124,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   function salvarEdit() {
     if (!edit) return
     setErro(null)
-    const v = num(editVal)
+    const v = editVal
     const { kind, id } = edit
     startTransition(async () => {
       const res = kind === 'inicial' ? await updateChecklistHorimetro(id, 'horimetro', v) : await updateEventoHorimetro(id, v)
@@ -136,14 +137,14 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   }
 
   function abrirEdit(kind: 'inicial' | 'evento', id: string, atual: number | null) {
-    setEdit({ kind, id }); setEditVal(atual != null ? String(atual) : ''); setErro(null)
+    setEdit({ kind, id }); setEditVal(atual); setErro(null)
   }
 
   if (!list.length) return null
 
   const editInput = (
     <span className="inline-flex items-center gap-1">
-      <input value={editVal} onChange={e => setEditVal(e.target.value)} inputMode="decimal" autoFocus
+      <HorimetroInput key={`${edit?.kind}-${edit?.id}`} value={editVal} onChange={setEditVal} placeholder="0.0" autoFocus
         className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
       <button onClick={salvarEdit} disabled={isPending} className="text-xs font-semibold" style={{ color: '#047857' }}>salvar</button>
       <button onClick={() => setEdit(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
@@ -233,7 +234,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                 <textarea value={descricaoProblema} onChange={e => setDescricaoProblema(e.target.value)} placeholder="Descreva o problema" rows={2}
                   className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#fecaca', color: '#1a2a3a' }} />
                 <div className="flex items-center gap-2 flex-wrap">
-                  <input value={horim} onChange={e => setHorim(e.target.value)} placeholder="Horímetro" inputMode="decimal"
+                  <HorimetroInput key={`problema-${c.id}`} value={horim} onChange={setHorim} placeholder="Horímetro"
                     className="rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#d1d5db', color: '#1a2a3a', width: 130 }} />
                   <span className="text-xs font-medium" style={{ color: '#6b7280' }}>Equipamento parado?</span>
                   <button onClick={() => setParado(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
@@ -260,7 +261,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
               </div>
             ) : acao?.id === c.id ? (
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input value={horim} onChange={e => setHorim(e.target.value)} placeholder="Horímetro" inputMode="decimal" autoFocus
+                <HorimetroInput key={`${c.id}-${acao.tipo}`} value={horim} onChange={setHorim} placeholder="Horímetro" autoFocus
                   className="rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#d1d5db', color: '#1a2a3a', width: 130 }} />
                 {acao.tipo === 'parada' && (
                   <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Motivo (ex.: almoço)"
@@ -277,11 +278,11 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
               </div>
             ) : (
               <div className="mt-3 flex gap-2 flex-wrap">
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'parada' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}>Parada</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'abastecimento' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff7ed' }}>⛽ Abastecimento</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'retorno' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}>Retorno</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'problema' }); setHorim(''); setDescricaoProblema(''); setParado(null); setFotosProblema([]); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>⚠️ Reportar problema</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'parada' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}>Parada</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'abastecimento' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff7ed' }}>⛽ Abastecimento</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'retorno' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}>Retorno</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'problema' }); setHorim(null); setDescricaoProblema(''); setParado(null); setFotosProblema([]); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>⚠️ Reportar problema</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
               </div>
             )}
           </div>

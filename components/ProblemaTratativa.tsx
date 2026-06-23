@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { OperacaoEvento } from '@/app/actions'
 import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento } from '@/app/actions'
+import { HorimetroInput } from '@/components/HorimetroInput'
 
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
 
@@ -24,7 +25,7 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
   useEffect(() => { setE(evento) }, [evento])
   const [etapa, setEtapa] = useState<'acionar' | 'chegada' | 'liberar' | null>(null)
   const [prestadorInput, setPrestadorInput] = useState('Brasmaq')
-  const [horimInput, setHorimInput] = useState('')
+  const [horimInput, setHorimInput] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -43,7 +44,7 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
 
   function confirmarChegada() {
     setErro(null)
-    const h = e.parado ? (e.horimetro ?? null) : (horimInput.trim() === '' ? null : parseFloat(horimInput.replace(',', '.')))
+    const h = e.parado ? (e.horimetro ?? null) : horimInput
     if (h == null) { setErro('Informe o horímetro.'); return }
     startTransition(async () => {
       const res = await marcarChegadaManutencao(e.id, h)
@@ -56,7 +57,7 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
 
   function confirmarLiberar() {
     setErro(null)
-    const h = horimInput.trim() === '' ? null : parseFloat(horimInput.replace(',', '.'))
+    const h = horimInput
     if (h == null) { setErro('Informe o horímetro.'); return }
     startTransition(async () => {
       const res = await liberarEquipamento(e.id, h)
@@ -85,13 +86,13 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
           </span>
           {etapa === 'liberar' ? (
             <span className="inline-flex items-center gap-1">
-              <input value={horimInput} onChange={ev => setHorimInput(ev.target.value)} placeholder="Horímetro" inputMode="decimal" autoFocus
+              <HorimetroInput key={`liberar-${e.id}`} value={horimInput} onChange={setHorimInput} placeholder="Horímetro" autoFocus
                 className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#16a34a', color: '#1a2a3a', width: 110 }} />
               <button onClick={confirmarLiberar} disabled={isPending} className="text-xs font-semibold px-2 py-1 rounded text-white" style={btn('#16a34a')}>Confirmar</button>
               <button onClick={() => setEtapa(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
             </span>
           ) : (
-            <button onClick={() => { setEtapa('liberar'); setHorimInput(''); setErro(null) }}
+            <button onClick={() => { setEtapa('liberar'); setHorimInput(null); setErro(null) }}
               className="text-xs font-semibold px-3 py-1 rounded-lg text-white" style={btn('#16a34a')}>
               Liberar equipamento
             </button>
@@ -109,14 +110,14 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
               </span>
             ) : (
               <span className="inline-flex items-center gap-1">
-                <input value={horimInput} onChange={ev => setHorimInput(ev.target.value)} placeholder="Horímetro atual" inputMode="decimal" autoFocus
+                <HorimetroInput key={`chegada-${e.id}`} value={horimInput} onChange={setHorimInput} placeholder="Horímetro atual" autoFocus
                   className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1d4ed8', color: '#1a2a3a', width: 110 }} />
                 <button onClick={confirmarChegada} disabled={isPending} className="text-xs font-semibold px-2 py-1 rounded text-white" style={btn('#1d4ed8')}>Confirmar</button>
                 <button onClick={() => setEtapa(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
               </span>
             )
           ) : (
-            <button onClick={() => { setEtapa('chegada'); setHorimInput(''); setErro(null) }}
+            <button onClick={() => { setEtapa('chegada'); setHorimInput(null); setErro(null) }}
               className="text-xs font-semibold px-3 py-1 rounded-lg text-white" style={btn('#1d4ed8')}>
               Chegada da manutenção
             </button>

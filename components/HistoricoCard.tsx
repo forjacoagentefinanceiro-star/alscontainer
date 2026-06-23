@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento, ChecklistItem } from '@/app/actions'
 import { updateChecklistItens, updateChecklistHorimetro, updateEventoHorimetro } from '@/app/actions'
 import { ProblemaTratativa } from '@/components/ProblemaTratativa'
+import { HorimetroInput } from '@/components/HorimetroInput'
 
 const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
@@ -24,7 +25,7 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   const [editandoItens, setEditandoItens] = useState(false)
   const [itensEdit, setItensEdit] = useState<ChecklistItem[]>(checklist.itens || [])
   const [editHorim, setEditHorim] = useState<EditAlvo | null>(null)
-  const [editVal, setEditVal] = useState('')
+  const [editVal, setEditVal] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -49,13 +50,13 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   }
 
   function abrirEditHorim(kind: EditAlvo['kind'], id: string, atual: number | null) {
-    setEditHorim({ kind, id }); setEditVal(atual != null ? String(atual) : ''); setErro(null)
+    setEditHorim({ kind, id }); setEditVal(atual); setErro(null)
   }
 
   function salvarHorim() {
     if (!editHorim) return
     setErro(null)
-    const v = editVal.trim() === '' ? null : parseFloat(editVal.replace(',', '.'))
+    const v = editVal
     const { kind, id } = editHorim
     startTransition(async () => {
       const res = kind === 'evento' ? await updateEventoHorimetro(id, v) : await updateChecklistHorimetro(id, kind === 'inicial' ? 'horimetro' : 'horimetro_final', v)
@@ -75,7 +76,7 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
 
   const horimInput = (
     <span className="inline-flex items-center gap-1">
-      <input value={editVal} onChange={e => setEditVal(e.target.value)} inputMode="decimal" autoFocus
+      <HorimetroInput key={`${editHorim?.kind}-${editHorim?.id}`} value={editVal} onChange={setEditVal} placeholder="0.0" autoFocus
         className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
       <button onClick={salvarHorim} disabled={isPending} className="text-xs font-semibold" style={{ color: '#047857' }}>salvar</button>
       <button onClick={() => setEditHorim(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
