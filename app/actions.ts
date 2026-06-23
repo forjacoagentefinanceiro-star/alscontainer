@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient, OPERADOR_DOMINIO } from '@/lib/supabase/admin'
+import { notificarTelegram } from '@/lib/telegram'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -546,7 +547,7 @@ export async function reportarProblema(checklistId: string, descricao: string, p
   if (!user) return { error: 'Não autenticado' }
   if (!descricao.trim()) return { error: 'Descreva o problema.' }
   if (horimetro == null) return { error: 'Informe o horímetro.' }
-  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
+  const { data: ck } = await supabase.from('checklists').select('equipamento, operador').eq('id', checklistId).single()
   const equip = ck?.equipamento as string | undefined
   const base = await baselineHorimetro(supabase, checklistId, equip)
   if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}). Só é permitido igual ou maior.` }
@@ -555,6 +556,12 @@ export async function reportarProblema(checklistId: string, descricao: string, p
   })
   if (error) return { error: error.message }
   if (equip) await recalcHorimetro(supabase, equip)
+  if (parado) {
+    const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    await notificarTelegram(
+      `⛔ MÁQUINA PARADA — problema reportado\n\nEquipamento: ${equip ?? '—'}\nOperador: ${ck?.operador ?? '—'}\nHorário: ${hora}\nHorímetro: ${horimetro}h\nDescrição: ${descricao.trim()}\n\nAbra o app para acionar o prestador.`
+    )
+  }
   revalidatePath('/checklist')
   revalidatePath('/historico')
   revalidatePath('/', 'layout')
