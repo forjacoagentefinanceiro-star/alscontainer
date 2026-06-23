@@ -7,6 +7,17 @@ import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento } 
 
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
 
+// máquina parada: tempo parado = do reporte até a liberação. Operando: só conta a partir da chegada da manutenção (parou pra ser atendida).
+function tempoParado(e: OperacaoEvento): string | null {
+  if (!e.liberado_em) return null
+  const inicio = e.parado ? e.created_at : (e.chegada_em ?? e.created_at)
+  const min = Math.round((new Date(e.liberado_em).getTime() - new Date(inicio).getTime()) / 60000)
+  if (min < 0) return null
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60), m = min % 60
+  return `${h}h${m > 0 ? ` ${m}min` : ''}`
+}
+
 export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEvento; podeAcionar: boolean }) {
   const [e, setE] = useState(evento)
   // re-sincroniza quando o servidor traz dados novos (ex.: outro usuário avançou a tratativa)
@@ -65,6 +76,7 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
       {e.liberado_em ? (
         <span className="text-xs font-semibold" style={{ color: '#047857' }}>
           ✅ Equipamento liberado em {hora(e.liberado_em)} · horímetro {e.liberado_horimetro}h
+          {tempoParado(e) && <> · ⏱️ parado {tempoParado(e)}</>}
         </span>
       ) : e.chegada_em ? (
         <div className="flex items-center gap-2 flex-wrap">
