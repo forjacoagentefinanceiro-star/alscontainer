@@ -366,6 +366,7 @@ export type ResumoEquipamentos = {
   desacordos: number
   usosSemChecklist: number
   abertas: { equipamento: string; operador: string; created_at: string; horimetro: number | null }[]
+  usosDetalhe: UsoSemChecklist[]
 }
 
 export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null> {
@@ -380,20 +381,32 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
     supabase.from('checklists').select('equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false }),
     supabase.from('checklists').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia),
     supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('tem_pendencia', true).eq('pendencia_resolvida', false),
-    supabase.from('operacao_eventos').select('id', { count: 'exact', head: true }).eq('uso_sem_checklist', true),
+    supabase.from('operacao_eventos').select('id, checklist_id, horimetro, created_at, checklists(equipamento, operador)').eq('uso_sem_checklist', true).order('created_at', { ascending: false }).limit(50),
   ])
 
   const equipamentos = (emp.data ?? []).map(e => e.nome as string)
   const abertas = (abertasRes.data ?? []) as ResumoEquipamentos['abertas']
   const operando = new Set(abertas.map(a => a.equipamento))
+  const usosDetalhe: UsoSemChecklist[] = (usosRes.data ?? []).map((e: Record<string, unknown>) => {
+    const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
+    return {
+      id: e.id as string,
+      checklist_id: e.checklist_id as string,
+      equipamento: ck?.equipamento ?? '—',
+      operador: ck?.operador ?? '—',
+      horimetro: (e.horimetro as number | null) ?? null,
+      created_at: e.created_at as string,
+    }
+  })
   return {
     emOperacao: abertas.length,
     totalEquip: equipamentos.length,
     ociosos: equipamentos.filter(n => !operando.has(n)),
     checklistsHoje: hojeRes.count ?? 0,
     desacordos: desRes.count ?? 0,
-    usosSemChecklist: usosRes.count ?? 0,
+    usosSemChecklist: usosDetalhe.length,
     abertas,
+    usosDetalhe,
   }
 }
 
@@ -532,13 +545,13 @@ export async function resolverPendencia(checklistId: string) {
   return { error: null }
 }
 
-export type UsoSemChecklist = { id: string; equipamento: string; operador: string; horimetro: number | null; created_at: string }
+export type UsoSemChecklist = { id: string; checklist_id: string; equipamento: string; operador: string; horimetro: number | null; created_at: string }
 
 export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('operacao_eventos')
-    .select('id, horimetro, created_at, checklists(equipamento, operador)')
+    .select('id, checklist_id, horimetro, created_at, checklists(equipamento, operador)')
     .eq('uso_sem_checklist', true)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -546,6 +559,7 @@ export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
     const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
     return {
       id: e.id as string,
+      checklist_id: e.checklist_id as string,
       equipamento: ck?.equipamento ?? '—',
       operador: ck?.operador ?? '—',
       horimetro: (e.horimetro as number | null) ?? null,

@@ -74,7 +74,7 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   )
 
   return (
-    <div className="bg-white rounded-lg p-4" style={{ border: '1px solid #e5e7eb' }}>
+    <div id={`checklist-${c.id}`} className="bg-white rounded-lg p-4 scroll-mt-20" style={{ border: '1px solid #e5e7eb' }}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>{c.equipamento} · {c.operador}</p>

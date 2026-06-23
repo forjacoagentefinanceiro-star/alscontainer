@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getResumoEquipamentos } from '@/app/actions'
 import { LiveRefresh } from '@/components/LiveRefresh'
 
@@ -74,10 +75,26 @@ export default async function EquipamentosPage() {
         </div>
       </div>
 
-      {r.usosSemChecklist > 0 && (
-        <p className="text-xs mt-4 max-w-4xl px-3 py-2 rounded" style={{ background: '#fff7ed', color: '#b45309' }}>
-          🛠️ {r.usosSemChecklist} uso(s) de máquina sem checklist pendente(s) de revisão.
-        </p>
+      {r.usosDetalhe.length > 0 && (
+        <div className="mt-4 max-w-4xl rounded-xl overflow-hidden" style={{ border: '1px solid #fed7aa', background: '#fff7ed' }}>
+          <p className="text-xs font-semibold px-4 py-2" style={{ color: '#b45309' }}>
+            🛠️ {r.usosDetalhe.length} uso(s) de máquina sem checklist pendente(s) de revisão
+          </p>
+          <div className="divide-y" style={{ borderColor: '#fed7aa' }}>
+            {r.usosDetalhe.map(u => (
+              <div key={u.id} className="px-4 py-2 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: '#1a2a3a' }}>{u.equipamento} · {u.operador}</p>
+                  <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(u.created_at)}{u.horimetro != null ? ` · ${u.horimetro}h` : ''}</p>
+                </div>
+                <Link href={`/historico?equipamento=${encodeURIComponent(u.equipamento)}#checklist-${u.checklist_id}`}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border whitespace-nowrap" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff' }}>
+                  Abrir checklist →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

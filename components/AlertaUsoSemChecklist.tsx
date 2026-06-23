@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import type { UsoSemChecklist } from '@/app/actions'
 import { resolverUsoSemChecklist } from '@/app/actions'
 
@@ -43,10 +44,16 @@ export function AlertaUsoSemChecklist({ usos }: { usos: UsoSemChecklist[] }) {
                 <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(u.created_at)}{u.horimetro != null ? ` · horímetro do retorno ${u.horimetro}h` : ''}</p>
                 <p className="text-xs mt-1" style={{ color: '#b45309' }}>Máquina utilizada durante a parada, sem checklist.</p>
               </div>
-              <button onClick={() => resolver(u.id)} disabled={isPending}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg border disabled:opacity-50" style={{ borderColor: '#a7f3d0', color: '#047857', background: '#ecfdf5' }}>
-                Marcar visto
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href={`/historico?equipamento=${encodeURIComponent(u.equipamento)}#checklist-${u.checklist_id}`}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff' }}>
+                  Abrir checklist →
+                </Link>
+                <button onClick={() => resolver(u.id)} disabled={isPending}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border disabled:opacity-50" style={{ borderColor: '#a7f3d0', color: '#047857', background: '#ecfdf5' }}>
+                  Marcar visto
+                </button>
+              </div>
             </div>
           ))}
         </div>
