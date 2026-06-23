@@ -474,6 +474,17 @@ export type DashboardEquipamentos = {
   maquinas: IndicadorMaquina[]
 }
 
+// média ponderada do consumo: soma dos litros ÷ soma das horas entre abastecimentos (cada um já traz consumo_lh = litros ÷ (horímetro atual − horímetro do abastecimento anterior))
+function consumoPonderado(abastecimentos: { litros: number | null; consumo_lh: number | null }[]): number | null {
+  let somaLitros = 0, somaHoras = 0
+  for (const e of abastecimentos) {
+    if (e.litros == null || e.consumo_lh == null || e.consumo_lh <= 0) continue
+    somaLitros += Number(e.litros)
+    somaHoras += Number(e.litros) / Number(e.consumo_lh)
+  }
+  return somaHoras > 0 ? Math.round((somaLitros / somaHoras) * 10) / 10 : null
+}
+
 export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEquipamentos> {
   const { supabase, user } = await usuarioEPapel()
   const vazio: DashboardEquipamentos = { periodoDias: dias, totais: { horasTrabalhadas: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
@@ -508,8 +519,8 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
 
     const abastecimentos = evsM.filter(e => e.litros != null)
     const litrosTotal = abastecimentos.reduce((a, e) => a + Number(e.litros), 0)
-    // consumo médio = litros consumidos ÷ horas trabalhadas no período
-    const consumoMedio = horasTrabalhadas > 0 && litrosTotal > 0 ? Math.round((litrosTotal / horasTrabalhadas) * 10) / 10 : null
+    // consumo médio = média ponderada do consumo de cada abastecimento (litros do abastecimento ÷ horímetro atual − horímetro do abastecimento anterior)
+    const consumoMedio = consumoPonderado(abastecimentos)
 
     const probs = evsM.filter(e => e.tipo === 'problema')
     const problemasParado = probs.filter(e => e.parado).length
@@ -554,7 +565,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   const respostasValidas = maquinas.filter(m => m.tempoRespostaMedioMin != null).map(m => m.tempoRespostaMedioMin as number)
   const horasTrabalhadasTot = Math.round(soma(maquinas.map(m => m.horasTrabalhadas)) * 10) / 10
   const litrosTotalTot = Math.round(soma(maquinas.map(m => m.litrosTotal)) * 10) / 10
-  const consumoMedioTot = horasTrabalhadasTot > 0 && litrosTotalTot > 0 ? Math.round((litrosTotalTot / horasTrabalhadasTot) * 10) / 10 : null
+  const consumoMedioTot = consumoPonderado(eventos.filter(e => e.litros != null))
 
   return {
     periodoDias: dias,
@@ -619,9 +630,9 @@ export async function getRelatorioOperadores(dias = 30): Promise<RelatorioOperad
   const checklists = cksData ?? []
   const ids = checklists.map(c => c.id)
 
-  let eventos: { checklist_id: string; tipo: string; litros: number | null }[] = []
+  let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null }[] = []
   if (ids.length) {
-    const { data: evs } = await supabase.from('operacao_eventos').select('checklist_id, tipo, litros').in('checklist_id', ids)
+    const { data: evs } = await supabase.from('operacao_eventos').select('checklist_id, tipo, litros, consumo_lh').in('checklist_id', ids)
     eventos = evs ?? []
   }
 
@@ -634,7 +645,8 @@ export async function getRelatorioOperadores(dias = 30): Promise<RelatorioOperad
 
     const horasTrabalhadas = cksOp.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
     const litrosTotal = evsOp.filter(e => e.litros != null).reduce((a, e) => a + Number(e.litros), 0)
-    const consumoMedio = horasTrabalhadas > 0 && litrosTotal > 0 ? Math.round((litrosTotal / horasTrabalhadas) * 10) / 10 : null
+    // consumo médio = média ponderada do consumo de cada abastecimento dele (litros ÷ Δhorímetro desde o abastecimento anterior da máquina)
+    const consumoMedio = consumoPonderado(evsOp.filter(e => e.litros != null))
     const problemas = evsOp.filter(e => e.tipo === 'problema').length
     const comPendencia = cksOp.filter(c => c.tem_pendencia).length
     const pendenciaPct = cksOp.length ? Math.round((comPendencia / cksOp.length) * 1000) / 10 : null
