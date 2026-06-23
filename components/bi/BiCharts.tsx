@@ -9,8 +9,8 @@ import {
 
 const compactNf = new Intl.NumberFormat('pt-BR', { notation: 'compact' })
 
-// Paleta no padrão "sala de controle" (verde ALS + azuis)
-const PALETTE = ['#7DC242', '#A8D96B', '#4FA3D1', '#2E7DB0', '#1B4F8A', '#5FBFA0', '#C5E89A', '#3AA0C0', '#6FA8DC', '#B6D7A8']
+// Paleta no padrão "sala de controle" (verde ALS + azuis) — única paleta de gráficos do app, não criar outra.
+export const PALETTE = ['#7DC242', '#A8D96B', '#4FA3D1', '#2E7DB0', '#1B4F8A', '#5FBFA0', '#C5E89A', '#3AA0C0', '#6FA8DC', '#B6D7A8']
 
 // Cores fixas por armador (demais usam a paleta padrão)
 const ARMADOR_CORES: Record<string, string> = {

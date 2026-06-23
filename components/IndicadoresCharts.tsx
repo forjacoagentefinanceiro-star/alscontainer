@@ -2,6 +2,12 @@
 
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LabelList } from 'recharts'
 import type { IndicadorMaquina } from '@/app/actions'
+import { PALETTE } from '@/components/bi/BiCharts'
+
+// mesma paleta "sala de controle" do BI — não usar outras cores nos gráficos
+const COR_HORAS = PALETTE[4]   // #1B4F8A
+const COR_CONSUMO = PALETTE[2] // #4FA3D1
+const COR_PARADO = PALETTE[0]  // #7DC242
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -29,8 +35,8 @@ export function IndicadoresCharts({ maquinas }: { maquinas: IndicadorMaquina[] }
             <XAxis dataKey="nome" tick={tickStyle} interval={0} angle={-20} textAnchor="end" height={50} />
             <YAxis tick={tickStyle} />
             <Tooltip formatter={(v) => [`${v}h`, 'Horas']} />
-            <Bar dataKey="valor" fill="#1B4F8A" radius={[4, 4, 0, 0]}>
-              <LabelList dataKey="valor" position="top" style={{ fontSize: 11, fill: '#1B4F8A', fontWeight: 600 }} />
+            <Bar dataKey="valor" fill={COR_HORAS} radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="valor" position="top" style={{ fontSize: 11, fill: COR_HORAS, fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -43,8 +49,8 @@ export function IndicadoresCharts({ maquinas }: { maquinas: IndicadorMaquina[] }
             <XAxis dataKey="nome" tick={tickStyle} interval={0} angle={-20} textAnchor="end" height={50} />
             <YAxis tick={tickStyle} />
             <Tooltip formatter={(v) => [`${v} L/h`, 'Consumo']} />
-            <Bar dataKey="valor" fill="#9a3412" radius={[4, 4, 0, 0]}>
-              <LabelList dataKey="valor" position="top" style={{ fontSize: 11, fill: '#9a3412', fontWeight: 600 }} />
+            <Bar dataKey="valor" fill={COR_CONSUMO} radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="valor" position="top" style={{ fontSize: 11, fill: COR_CONSUMO, fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -57,8 +63,8 @@ export function IndicadoresCharts({ maquinas }: { maquinas: IndicadorMaquina[] }
             <XAxis dataKey="nome" tick={tickStyle} interval={0} angle={-20} textAnchor="end" height={50} />
             <YAxis tick={tickStyle} />
             <Tooltip formatter={(v) => [`${v}h`, 'Parado']} />
-            <Bar dataKey="valor" fill="#b91c1c" radius={[4, 4, 0, 0]}>
-              <LabelList dataKey="valor" position="top" style={{ fontSize: 11, fill: '#b91c1c', fontWeight: 600 }} />
+            <Bar dataKey="valor" fill={COR_PARADO} radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="valor" position="top" style={{ fontSize: 11, fill: COR_PARADO, fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

@@ -3,8 +3,6 @@ import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
 import { IndicadoresCharts } from '@/components/IndicadoresCharts'
 import { LiveRefresh } from '@/components/LiveRefresh'
 
-const dataBR = (s: string) => new Date(s).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-
 export const dynamic = 'force-dynamic'
 
 function fmtMin(min: number | null): string {
@@ -41,22 +39,14 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
 
       <IndicadoresFiltro />
 
-      <div className="max-w-xs mb-3">
-        <Card
-          label={`Horas trabalhadas — ${ciclo.mesLabel} (ciclo 23 a 22)`}
-          value={`${ciclo.horasTrabalhadas}h`}
-          cor="#1B4F8A"
-          sub={`desde ${dataBR(ciclo.inicio)} · zera todo dia 23`}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-5xl mb-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-6xl mb-3">
+        <Card label="Horas trabalhadas no ciclo" value={`${ciclo.horasTrabalhadas}h`} cor="#1B4F8A" sub={`${ciclo.mesLabel} · 23 a 22, zera no dia 23`} />
         <Card label="Horas trabalhadas (período)" value={t.horasTrabalhadas} cor="#1B4F8A" sub="soma de todas as máquinas" />
-        <Card label="Consumo médio" value={t.consumoMedio != null ? `${t.consumoMedio} L/h` : '—'} cor="#9a3412" />
+        <Card label="Consumo médio" value={t.consumoMedio != null ? `${t.consumoMedio} L/h` : '—'} cor="#9a3412" sub="litros ÷ horas trabalhadas" />
         <Card label="Litros abastecidos" value={`${t.litrosTotal} L`} cor="#9a3412" />
-        <Card label="Utilização média" value={t.utilizacaoPct != null ? `${t.utilizacaoPct}%` : '—'} cor="#047857" sub={dias > 0 ? `sobre ${dias} dias` : undefined} />
+        <Card label="Utilização média" value={t.utilizacaoPct != null ? `${t.utilizacaoPct}%` : '—'} cor="#047857" sub={dias > 0 ? `sobre ${dias} dias` : 'período completo'} />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-5xl mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-6xl mb-6">
         <Card label="Problemas reportados" value={t.problemas} cor={t.problemas ? '#b91c1c' : '#047857'} sub={`${t.problemasParado} com máquina parada`} />
         <Card label="Tempo parado (total)" value={fmtMin(t.tempoParadoMin)} cor="#b91c1c" />
         <Card label="Resposta do prestador" value={fmtMin(t.tempoRespostaMedioMin)} cor="#1d4ed8" sub="média acionamento → chegada" />

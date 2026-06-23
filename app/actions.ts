@@ -496,7 +496,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
     const abastecimentos = evsM.filter(e => e.litros != null)
     const litrosTotal = abastecimentos.reduce((a, e) => a + Number(e.litros), 0)
     // consumo médio = litros consumidos ÷ horas trabalhadas no período
-    const consumoMedio = horasTrabalhadas > 0 && litrosTotal > 0 ? Math.round((litrosTotal / horasTrabalhadas) * 100) / 100 : null
+    const consumoMedio = horasTrabalhadas > 0 && litrosTotal > 0 ? Math.round((litrosTotal / horasTrabalhadas) * 10) / 10 : null
 
     const probs = evsM.filter(e => e.tipo === 'problema')
     const problemasParado = probs.filter(e => e.parado).length
@@ -537,7 +537,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   const respostasValidas = maquinas.filter(m => m.tempoRespostaMedioMin != null).map(m => m.tempoRespostaMedioMin as number)
   const horasTrabalhadasTot = Math.round(soma(maquinas.map(m => m.horasTrabalhadas)) * 10) / 10
   const litrosTotalTot = Math.round(soma(maquinas.map(m => m.litrosTotal)) * 10) / 10
-  const consumoMedioTot = horasTrabalhadasTot > 0 && litrosTotalTot > 0 ? Math.round((litrosTotalTot / horasTrabalhadasTot) * 100) / 100 : null
+  const consumoMedioTot = horasTrabalhadasTot > 0 && litrosTotalTot > 0 ? Math.round((litrosTotalTot / horasTrabalhadasTot) * 10) / 10 : null
 
   return {
     periodoDias: dias,
