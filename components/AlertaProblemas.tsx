@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { ProblemaEquipamento } from '@/app/actions'
 import { resolverProblema } from '@/app/actions'
+import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 
 const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
@@ -39,6 +40,7 @@ function Item({ p, resolver, isPending, urgente }: { p: ProblemaEquipamento; res
             ))}
           </div>
         )}
+        <ProblemaTratativa evento={p} podeAcionar />
       </div>
       <div className="flex items-center gap-2 shrink-0 flex-wrap">
         <Link href={`/historico?equipamento=${encodeURIComponent(p.equipamento)}#checklist-${p.checklist_id}`}

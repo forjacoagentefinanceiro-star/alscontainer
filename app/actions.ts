@@ -135,6 +135,12 @@ export type OperacaoEvento = {
   parado?: boolean
   fotos?: string[] | null
   resolvido?: boolean
+  prestador?: string | null
+  acionado_em?: string | null
+  chegada_em?: string | null
+  chegada_horimetro?: number | null
+  liberado_em?: string | null
+  liberado_horimetro?: number | null
   created_at: string
 }
 
@@ -580,6 +586,61 @@ export async function resolverProblema(eventoId: string) {
   const { data, error } = await supabase.from('operacao_eventos').update({ resolvido: true }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
   if (!data?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+// Tratativa do problema: 1) aciona o prestador (ADM, após enviar WhatsApp) → 2) chegada da manutenção → 3) libera o equipamento
+export async function marcarPrestadorAcionado(eventoId: string, prestador: string) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem acionar o prestador.' }
+  if (!prestador.trim()) return { error: 'Informe o prestador (ex.: Brasmaq).' }
+  const supabase = await createClient()
+  const { error } = await supabase.from('operacao_eventos').update({ prestador: prestador.trim(), acionado_em: new Date().toISOString() }).eq('id', eventoId)
+  if (error) return { error: error.message }
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+export async function marcarChegadaManutencao(eventoId: string, horimetro: number | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id, parado, horimetro').eq('id', eventoId).single()
+  if (!ev?.checklist_id) return { error: 'Problema não encontrado' }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  const equip = ck?.equipamento as string | undefined
+  // máquina parada: o horímetro não mudou desde o reporte → reaproveita; rodando: exige o horímetro atual
+  const valor = ev.parado ? (ev.horimetro as number | null) : horimetro
+  if (valor == null) return { error: 'Informe o horímetro.' }
+  const base = await baselineHorimetro(supabase, ev.checklist_id, equip)
+  if (base != null && valor < base) return { error: `Horímetro ${valor} é menor que o último lançado (${base}).` }
+  const { error } = await supabase.from('operacao_eventos').update({ chegada_em: new Date().toISOString(), chegada_horimetro: valor }).eq('id', eventoId)
+  if (error) return { error: error.message }
+  if (equip) await recalcHorimetro(supabase, equip)
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+export async function liberarEquipamento(eventoId: string, horimetro: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
+  if (!ev?.checklist_id) return { error: 'Problema não encontrado' }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  const equip = ck?.equipamento as string | undefined
+  const base = await baselineHorimetro(supabase, ev.checklist_id, equip)
+  if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}).` }
+  const { error } = await supabase.from('operacao_eventos').update({ liberado_em: new Date().toISOString(), liberado_horimetro: horimetro, resolvido: true }).eq('id', eventoId)
+  if (error) return { error: error.message }
+  if (equip) await recalcHorimetro(supabase, equip)
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
   revalidatePath('/', 'layout')
   return { error: null }
 }

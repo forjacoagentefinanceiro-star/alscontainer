@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento, ChecklistItem } from '@/app/actions'
 import { updateChecklistItens, updateChecklistHorimetro, updateEventoHorimetro } from '@/app/actions'
+import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 
 const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
@@ -163,19 +164,22 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
       {evs.length > 0 && (
         <ul className="mt-2 text-xs space-y-1" style={{ color: '#6b7280' }}>
           {evs.map(e => e.tipo === 'problema' ? (
-            <li key={e.id} className="flex items-start gap-1 flex-wrap py-0.5">
-              <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema{e.resolvido ? ' (resolvido)' : ''}:</span>
-              <span>{e.descricao}</span>
-              <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>{e.parado ? '· máquina parada' : '· operando normalmente'}</span>
-              {editHorim?.kind === 'evento' && editHorim.id === e.id ? horimInput : (
-                <>
-                  {e.horimetro != null && <span>· {e.horimetro}h</span>}
-                  {podeEditar && <button onClick={() => abrirEditHorim('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
-                </>
-              )}
-              {(e.fotos ?? []).map((f, i) => (
-                <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
-              ))}
+            <li key={e.id} className="py-2" style={{ borderTop: '1px dashed #fecaca', borderBottom: '1px dashed #fecaca' }}>
+              <div className="flex items-start gap-1 flex-wrap">
+                <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema:</span>
+                <span>{e.descricao}</span>
+                <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>{e.parado ? '· máquina parada' : '· operando normalmente'}</span>
+                {editHorim?.kind === 'evento' && editHorim.id === e.id ? horimInput : (
+                  <>
+                    {e.horimetro != null && <span>· {e.horimetro}h</span>}
+                    {podeEditar && <button onClick={() => abrirEditHorim('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
+                  </>
+                )}
+                {(e.fotos ?? []).map((f, i) => (
+                  <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
+                ))}
+              </div>
+              <ProblemaTratativa evento={e} podeAcionar={podeEditar} />
             </li>
           ) : (
             <li key={e.id} className="flex items-center gap-1 flex-wrap">

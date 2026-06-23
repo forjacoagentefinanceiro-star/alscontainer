@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento } from '@/app/actions'
 import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHorimetro, reportarProblema } from '@/app/actions'
 import { createClient } from '@/lib/supabase/client'
+import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 
 type Op = { checklist: Checklist; eventos: OperacaoEvento[] }
 type Tipo = 'parada' | 'retorno' | 'encerramento'
@@ -193,16 +194,19 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
             {eventos.length > 0 && (
               <ul className="mt-2 text-xs space-y-1" style={{ color: '#6b7280' }}>
                 {eventos.map(e => e.tipo === 'problema' ? (
-                  <li key={e.id} className="flex items-start gap-1 flex-wrap py-1">
-                    <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema reportado{e.resolvido ? ' (resolvido)' : ''}:</span>
-                    <span>{e.descricao}</span>
-                    <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>
-                      {e.parado ? '· máquina parada' : '· operando normalmente'}
-                    </span>
-                    {e.horimetro != null && <span>· {e.horimetro}h</span>}
-                    {(e.fotos ?? []).map((f, i) => (
-                      <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
-                    ))}
+                  <li key={e.id} className="py-2" style={{ borderTop: '1px dashed #fecaca', borderBottom: '1px dashed #fecaca' }}>
+                    <div className="flex items-start gap-1 flex-wrap">
+                      <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema reportado:</span>
+                      <span>{e.descricao}</span>
+                      <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>
+                        {e.parado ? '· máquina parada' : '· operando normalmente'}
+                      </span>
+                      {e.horimetro != null && <span>· {e.horimetro}h</span>}
+                      {(e.fotos ?? []).map((f, i) => (
+                        <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
+                      ))}
+                    </div>
+                    <ProblemaTratativa evento={e} podeAcionar={podeEditar} />
                   </li>
                 ) : (
                   <li key={e.id} className="flex items-center gap-1 flex-wrap">
