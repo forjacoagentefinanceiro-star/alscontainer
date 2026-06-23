@@ -482,8 +482,9 @@ export async function encerrarOperacao(checklistId: string, horimetroFinal: numb
     const base = await baselineHorimetro(supabase, checklistId, equip)
     if (base != null && horimetroFinal < base) return { error: `Horímetro ${horimetroFinal} é menor que o último lançado (${base}).` }
   }
-  const { error } = await supabase.from('checklists').update({ status: 'encerrada', horimetro_final: horimetroFinal, encerrada_em: new Date().toISOString() }).eq('id', checklistId)
+  const { data: upd, error } = await supabase.from('checklists').update({ status: 'encerrada', horimetro_final: horimetroFinal, encerrada_em: new Date().toISOString() }).eq('id', checklistId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo: 'encerramento', horimetro: horimetroFinal, origem: 'app', user_id: user.id })
   if (horimetroFinal != null && equip) await recalcHorimetro(supabase, equip)
   revalidatePath('/checklist')
@@ -501,8 +502,9 @@ export async function updateChecklistHorimetro(checklistId: string, campo: 'hori
     if (next != null && valor > next) return { error: `Horímetro ${valor} não pode ser maior que o próximo (${next}).` }
   }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
-  const { error } = await supabase.from('checklists').update({ [campo]: valor }).eq('id', checklistId)
+  const { data: upd, error } = await supabase.from('checklists').update({ [campo]: valor }).eq('id', checklistId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   // mantém o evento de encerramento sincronizado com o horímetro final do checklist
   if (campo === 'horimetro_final') {
     await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('checklist_id', checklistId).eq('tipo', 'encerramento')
@@ -524,8 +526,9 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
     if (prev != null && valor < prev) return { error: `Horímetro ${valor} não pode ser menor que o anterior (${prev}).` }
     if (next != null && valor > next) return { error: `Horímetro ${valor} não pode ser maior que o próximo (${next}).` }
   }
-  const { error } = await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('id', eventoId)
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   // mantém o horímetro final do checklist sincronizado com o evento de encerramento
   if (ev.tipo === 'encerramento') {
     await supabase.from('checklists').update({ horimetro_final: valor }).eq('id', ev.checklist_id)
@@ -543,8 +546,9 @@ export async function updateChecklistItens(checklistId: string, itens: Checklist
   if (!gestor) return { error: 'Apenas admin/editor podem editar o checklist.' }
   const supabase = await createClient()
   const tem_pendencia = itens.some(i => i.status === 'nok')
-  const { error } = await supabase.from('checklists').update({ itens, tem_pendencia }).eq('id', checklistId)
+  const { data: upd, error } = await supabase.from('checklists').update({ itens, tem_pendencia }).eq('id', checklistId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/historico')
   revalidatePath('/', 'layout')
   return { error: null }
@@ -613,8 +617,9 @@ export async function marcarPrestadorAcionado(eventoId: string, prestador: strin
   if (!gestor) return { error: 'Apenas admin/editor podem acionar o prestador.' }
   if (!prestador.trim()) return { error: 'Informe o prestador (ex.: Brasmaq).' }
   const supabase = await createClient()
-  const { error } = await supabase.from('operacao_eventos').update({ prestador: prestador.trim(), acionado_em: new Date().toISOString() }).eq('id', eventoId)
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ prestador: prestador.trim(), acionado_em: new Date().toISOString() }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/checklist')
   revalidatePath('/historico')
   revalidatePath('/', 'layout')
@@ -634,8 +639,9 @@ export async function marcarChegadaManutencao(eventoId: string, horimetro: numbe
   if (valor == null) return { error: 'Informe o horímetro.' }
   const base = await baselineHorimetro(supabase, ev.checklist_id, equip)
   if (base != null && valor < base) return { error: `Horímetro ${valor} é menor que o último lançado (${base}).` }
-  const { error } = await supabase.from('operacao_eventos').update({ chegada_em: new Date().toISOString(), chegada_horimetro: valor }).eq('id', eventoId)
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ chegada_em: new Date().toISOString(), chegada_horimetro: valor }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   if (equip) await recalcHorimetro(supabase, equip)
   revalidatePath('/checklist')
   revalidatePath('/historico')
@@ -653,8 +659,9 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   const equip = ck?.equipamento as string | undefined
   const base = await baselineHorimetro(supabase, ev.checklist_id, equip)
   if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}).` }
-  const { error } = await supabase.from('operacao_eventos').update({ liberado_em: new Date().toISOString(), liberado_horimetro: horimetro, resolvido: true }).eq('id', eventoId)
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ liberado_em: new Date().toISOString(), liberado_horimetro: horimetro, resolvido: true }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   if (equip) await recalcHorimetro(supabase, equip)
   revalidatePath('/checklist')
   revalidatePath('/historico')
