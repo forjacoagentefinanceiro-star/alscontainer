@@ -583,6 +583,64 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   }
 }
 
+// ---- Consumo médio por mês civil, por equipamento (tendência) ----
+export type ConsumoMensal = {
+  meses: string[]
+  equipamentos: string[]
+  pontos: Array<{ mes: string } & Record<string, number | null | string>>
+}
+
+export async function getConsumoMensal(numMeses = 6): Promise<ConsumoMensal> {
+  const { supabase, user } = await usuarioEPapel()
+  if (!user) return { meses: [], equipamentos: [], pontos: [] }
+
+  const tz = 'America/Sao_Paulo'
+  const nomesMes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const ymdNow = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const [yNow, mNow] = ymdNow.split('-').map(Number)
+
+  const chaves: { key: string; label: string; ano: number; mes: number }[] = []
+  for (let i = numMeses - 1; i >= 0; i--) {
+    let mes = mNow - i, ano = yNow
+    while (mes <= 0) { mes += 12; ano -= 1 }
+    chaves.push({ key: `${ano}-${String(mes).padStart(2, '0')}`, label: `${nomesMes[mes - 1]}/${String(ano).slice(2)}`, ano, mes })
+  }
+  const inicio = new Date(`${chaves[0].ano}-${String(chaves[0].mes).padStart(2, '0')}-01T00:00:00-03:00`)
+
+  const { data: cks } = await supabase.from('checklists').select('id, equipamento').gte('created_at', inicio.toISOString())
+  const checklists = cks ?? []
+  const ids = checklists.map(c => c.id)
+  const equipPorChecklist = new Map(checklists.map(c => [c.id, c.equipamento as string]))
+
+  let eventos: { checklist_id: string; litros: number | null; consumo_lh: number | null; created_at: string }[] = []
+  if (ids.length) {
+    const { data: evs } = await supabase.from('operacao_eventos').select('checklist_id, litros, consumo_lh, created_at').in('checklist_id', ids).not('litros', 'is', null)
+    eventos = evs ?? []
+  }
+
+  const grupos = new Map<string, { litros: number | null; consumo_lh: number | null }[]>()
+  for (const e of eventos) {
+    const equip = equipPorChecklist.get(e.checklist_id)
+    if (!equip) continue
+    const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(e.created_at))
+    const chave = `${equip}|${ymd.slice(0, 7)}`
+    if (!grupos.has(chave)) grupos.set(chave, [])
+    grupos.get(chave)!.push({ litros: e.litros, consumo_lh: e.consumo_lh })
+  }
+
+  const equipamentos = [...new Set(checklists.map(c => c.equipamento as string))].sort((a, b) => a.localeCompare(b))
+
+  const pontos = chaves.map(({ key, label }) => {
+    const ponto: { mes: string } & Record<string, number | null | string> = { mes: label }
+    for (const equip of equipamentos) {
+      ponto[equip] = consumoPonderado(grupos.get(`${equip}|${key}`) ?? [])
+    }
+    return ponto
+  })
+
+  return { meses: chaves.map(c => c.label), equipamentos, pontos }
+}
+
 // ciclo de faturamento: começa todo dia 23, fecha no dia 22 do mês seguinte (zera no dia 23)
 function cicloAtual(): { inicio: Date; fim: Date; mesLabel: string } {
   const tz = 'America/Sao_Paulo'

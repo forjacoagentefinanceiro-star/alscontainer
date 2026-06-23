@@ -1,6 +1,7 @@
-import { getDashboardEquipamentos, getHorasCicloAtual } from '@/app/actions'
+import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
 import { IndicadoresCharts } from '@/components/IndicadoresCharts'
+import { ConsumoMensalChart, ConsumoMensalTabela } from '@/components/ConsumoMensal'
 import { LiveRefresh } from '@/components/LiveRefresh'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,7 @@ function Card({ label, value, cor, sub }: { label: string; value: string | numbe
 export default async function IndicadoresPage({ searchParams }: { searchParams: Promise<{ dias?: string }> }) {
   const { dias: diasParam } = await searchParams
   const dias = diasParam != null ? Number(diasParam) : 30
-  const [d, ciclo] = await Promise.all([getDashboardEquipamentos(dias), getHorasCicloAtual()])
+  const [d, ciclo, consumoMensal] = await Promise.all([getDashboardEquipamentos(dias), getHorasCicloAtual(), getConsumoMensal(6)])
   const t = d.totais
   const disponibilidadePct = t.utilizacaoPct != null ? Math.round((100 - t.utilizacaoPct) * 10) / 10 : null
 
@@ -103,6 +104,18 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
 
           <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Gráficos</h2>
           <IndicadoresCharts maquinas={d.maquinas} />
+        </>
+      )}
+
+      {consumoMensal.equipamentos.length > 0 && (
+        <>
+          <h2 className="text-sm font-bold mt-2 mb-3" style={{ color: '#1a2a3a' }}>Tendência mensal de consumo (últimos 6 meses)</h2>
+          <div className="bg-white rounded-xl p-4 mb-4" style={{ border: '1px solid #e5e7eb' }}>
+            <ConsumoMensalChart dados={consumoMensal} />
+          </div>
+          <div className="bg-white rounded-xl overflow-hidden mb-6" style={{ border: '1px solid #e5e7eb' }}>
+            <ConsumoMensalTabela dados={consumoMensal} />
+          </div>
         </>
       )}
     </div>
