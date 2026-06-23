@@ -19,22 +19,24 @@ import {
 } from 'lucide-react'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
+type Section = { label: string; items: Item[] }
 
-const operacaoItems: Item[] = [
+const estoqueItems: Item[] = [
   { href: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
   { href: '/inventario', label: 'Inventário',  icon: Package2        },
   { href: '/gerador',    label: 'Gerador ISO', icon: Hash            },
   { href: '/importar',   label: 'Importar',    icon: Upload          },
   { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
-  { href: '/checklist',  label: 'Checklist',   icon: ClipboardCheck  },
-  { href: '/historico',  label: 'Histórico',   icon: History         },
 ]
 
-const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }
-
-const biItems: Item[] = [
-  { href: '/bi', label: 'BI Depot', icon: BarChart3 },
+const equipamentosItems: Item[] = [
+  { href: '/checklist',  label: 'Checklist',  icon: ClipboardCheck },
+  { href: '/historico',  label: 'Histórico',  icon: History        },
 ]
+
+const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
+const usuariosItem: Item = { href: '/usuarios', label: 'Usuários', icon: Users }
+const biItems: Item[] = [{ href: '/bi', label: 'BI Depot', icon: BarChart3 }]
 
 function NavLink({ item, active, collapsed }: { item: Item; active: boolean; collapsed: boolean }) {
   return (
@@ -63,8 +65,9 @@ function NavLink({ item, active, collapsed }: { item: Item; active: boolean; col
   )
 }
 
-function SectionLabel({ children, collapsed }: { children: string; collapsed: boolean }) {
+function SectionLabel({ children, collapsed, first }: { children: string; collapsed: boolean; first?: boolean }) {
   if (collapsed) {
+    if (first) return null
     return <div className="mx-3 my-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
   }
   return (
@@ -77,12 +80,14 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
 export function Sidebar({ role }: { role?: string }) {
   const isOperador = role === 'operador'
   const podeCadastrar = role === 'admin' || role === 'editor'
-  const operacao = isOperador
-    ? [checklistItem]
+  const sections: Section[] = isOperador
+    ? [{ label: 'Equipamentos', items: [equipamentosItems[0]] }]
     : [
-        ...operacaoItems,
-        ...(podeCadastrar ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
-        ...(role === 'admin' ? [{ href: '/usuarios', label: 'Usuários', icon: Users }] : []),
+        { label: 'Estoque', items: estoqueItems },
+        { label: 'Equipamentos', items: equipamentosItems },
+        ...(podeCadastrar ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
+        ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
+        { label: 'Análise', items: biItems },
       ]
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -132,19 +137,14 @@ export function Sidebar({ role }: { role?: string }) {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-3 overflow-y-auto">
-        {!collapsed && <SectionLabel collapsed={collapsed}>Operação</SectionLabel>}
-        <div className="space-y-0.5">
-          {operacao.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
-        </div>
-
-        {!isOperador && (
-          <>
-            <SectionLabel collapsed={collapsed}>Análise</SectionLabel>
+        {sections.map((sec, i) => (
+          <div key={sec.label}>
+            <SectionLabel collapsed={collapsed} first={i === 0}>{sec.label}</SectionLabel>
             <div className="space-y-0.5">
-              {biItems.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
+              {sec.items.map(item => <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />)}
             </div>
-          </>
-        )}
+          </div>
+        ))}
       </nav>
 
       {/* Rodapé */}
