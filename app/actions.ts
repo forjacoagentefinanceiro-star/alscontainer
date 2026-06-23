@@ -451,7 +451,9 @@ export type IndicadorMaquina = {
   consumoMedio: number | null
   problemas: number
   problemasParado: number
+  paradasResolvidas: number
   tempoParadoMin: number
+  tempoMedioParadaMin: number | null
   tempoRespostaMedioMin: number | null
   utilizacaoPct: number | null
   pendenciaPct: number | null
@@ -513,12 +515,14 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
     const problemasParado = probs.filter(e => e.parado).length
 
     let tempoParadoMin = 0
+    let paradasResolvidas = 0
     for (const p of probs) {
       if (!p.liberado_em) continue
       const inicio = p.parado ? p.created_at : (p.chegada_em ?? p.created_at)
       const min = (new Date(p.liberado_em).getTime() - new Date(inicio).getTime()) / 60000
-      if (min > 0) tempoParadoMin += min
+      if (min > 0) { tempoParadoMin += min; paradasResolvidas++ }
     }
+    const tempoMedioParadaMin = paradasResolvidas > 0 ? Math.round(tempoParadoMin / paradasResolvidas) : null
 
     const respostas = probs.filter(e => e.acionado_em && e.chegada_em).map(e => (new Date(e.chegada_em as string).getTime() - new Date(e.acionado_em as string).getTime()) / 60000)
     const tempoRespostaMedioMin = respostas.length ? Math.round(respostas.reduce((a, b) => a + b, 0) / respostas.length) : null
@@ -535,7 +539,9 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
       consumoMedio,
       problemas: probs.length,
       problemasParado,
+      paradasResolvidas,
       tempoParadoMin: Math.round(tempoParadoMin),
+      tempoMedioParadaMin,
       tempoRespostaMedioMin,
       utilizacaoPct,
       pendenciaPct,
