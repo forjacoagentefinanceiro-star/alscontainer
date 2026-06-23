@@ -34,7 +34,6 @@ const OPCOES: { v: St; label: string; on: string }[] = [
 export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { operadorPadrao?: string; empilhadeiras?: string[] }) {
   const [operador, setOperador] = useState(operadorPadrao)
   const [equipamento, setEquipamento] = useState('')
-  const [turno, setTurno] = useState('Manhã')
   const [horimetro, setHorimetro] = useState('')
   const [status, setStatus] = useState<Record<string, St>>(() => Object.fromEntries(ITENS.map(i => [i, 'ok'])))
   const [obs, setObs] = useState<Record<string, string>>({})
@@ -81,7 +80,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
       const res = await addChecklist({
         operador: operador.trim(),
         equipamento: equipamento.trim(),
-        turno,
         horimetro: horimetro ? parseFloat(horimetro.replace(',', '.')) : null,
         itens,
         observacoes: observacoes.trim(),
@@ -120,12 +118,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
           ) : (
             <input className={inputCls} style={inputStyle} value={equipamento} onChange={e => setEquipamento(e.target.value)} placeholder="Nº / placa da empilhadeira" />
           )}
-        </div>
-        <div>
-          <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Turno</label>
-          <select className={inputCls} style={inputStyle} value={turno} onChange={e => setTurno(e.target.value)}>
-            <option>Manhã</option><option>Tarde</option><option>Noite</option>
-          </select>
         </div>
         <div>
           <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Horímetro</label>

@@ -316,7 +316,7 @@ export async function getChecklists(limit = 30): Promise<Checklist[]> {
 export async function addChecklist(payload: {
   operador: string
   equipamento: string
-  turno: string
+  turno?: string
   horimetro: number | null
   itens: ChecklistItem[]
   observacoes: string
@@ -325,12 +325,15 @@ export async function addChecklist(payload: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   const tem_pendencia = payload.itens.some(i => i.status === 'nok')
+  // turno derivado do horário de Brasília (não é mais escolhido no formulário)
+  const horaBR = Number(new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date()))
+  const turno = payload.turno?.trim() || (horaBR < 12 ? 'Manhã' : horaBR < 18 ? 'Tarde' : 'Noite')
   if (payload.horimetro != null) {
     const atual = await horimetroDaMaquina(supabase, payload.equipamento)
     if (atual != null && payload.horimetro < atual)
       return { error: `Horímetro ${payload.horimetro} é menor que o último lançado (${atual}) para ${payload.equipamento}.` }
   }
-  const { error } = await supabase.from('checklists').insert({ ...payload, user_id: user.id, tem_pendencia })
+  const { error } = await supabase.from('checklists').insert({ ...payload, turno, user_id: user.id, tem_pendencia })
   if (error) return { error: error.message }
   if (payload.horimetro != null) await recalcHorimetro(supabase, payload.equipamento)
   revalidatePath('/checklist')
