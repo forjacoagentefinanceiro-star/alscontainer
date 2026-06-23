@@ -655,7 +655,7 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   if (!user) return { error: 'Não autenticado' }
   const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
   if (!ev?.checklist_id) return { error: 'Problema não encontrado' }
-  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  const { data: ck } = await supabase.from('checklists').select('equipamento, operador').eq('id', ev.checklist_id).single()
   const equip = ck?.equipamento as string | undefined
   const base = await baselineHorimetro(supabase, ev.checklist_id, equip)
   if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}).` }
@@ -663,6 +663,10 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   if (error) return { error: error.message }
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   if (equip) await recalcHorimetro(supabase, equip)
+  const horaLiberado = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  await notificarTelegram(
+    `✅ EQUIPAMENTO LIBERADO\n\nEquipamento: ${equip ?? '—'}\nOperador: ${ck?.operador ?? '—'}\nHorário: ${horaLiberado}\nHorímetro: ${horimetro}h\n\nA tratativa foi concluída e a máquina está liberada para operar.`
+  )
   revalidatePath('/checklist')
   revalidatePath('/historico')
   revalidatePath('/', 'layout')
