@@ -124,13 +124,17 @@ export type Checklist = {
 export type OperacaoEvento = {
   id: string
   checklist_id: string
-  tipo: 'parada' | 'retorno' | 'encerramento'
+  tipo: 'parada' | 'retorno' | 'encerramento' | 'problema'
   motivo: string | null
   horimetro: number | null
   origem: string
   abastecimento?: boolean
   litros?: number | null
   consumo_lh?: number | null
+  descricao?: string | null
+  parado?: boolean
+  fotos?: string[] | null
+  resolvido?: boolean
   created_at: string
 }
 
@@ -525,6 +529,57 @@ export async function updateChecklistItens(checklistId: string, itens: Checklist
   const { error } = await supabase.from('checklists').update({ itens, tem_pendencia }).eq('id', checklistId)
   if (error) return { error: error.message }
   revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+// ---- Reportar problema no equipamento durante a operação ----
+export async function reportarProblema(checklistId: string, descricao: string, parado: boolean, fotos: string[], horimetro: number | null) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  if (!descricao.trim()) return { error: 'Descreva o problema.' }
+  if (horimetro == null) return { error: 'Informe o horímetro.' }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
+  const equip = ck?.equipamento as string | undefined
+  const base = await baselineHorimetro(supabase, checklistId, equip)
+  if (base != null && horimetro < base) return { error: `Horímetro ${horimetro} é menor que o último lançado (${base}). Só é permitido igual ou maior.` }
+  const { error } = await supabase.from('operacao_eventos').insert({
+    checklist_id: checklistId, tipo: 'problema', descricao: descricao.trim(), parado, fotos, horimetro, origem: 'app', user_id: user.id,
+  })
+  if (error) return { error: error.message }
+  if (equip) await recalcHorimetro(supabase, equip)
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+export type ProblemaEquipamento = OperacaoEvento & { equipamento: string; operador: string }
+
+export async function getProblemasAtivos(): Promise<ProblemaEquipamento[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('operacao_eventos')
+    .select('*, checklists(equipamento, operador)')
+    .eq('tipo', 'problema')
+    .eq('resolvido', false)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  return (data ?? []).map((e: Record<string, unknown>) => {
+    const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
+    const { checklists, ...rest } = e
+    return { ...(rest as unknown as OperacaoEvento), equipamento: ck?.equipamento ?? '—', operador: ck?.operador ?? '—' }
+  })
+}
+
+export async function resolverProblema(eventoId: string) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem resolver problemas.' }
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('operacao_eventos').update({ resolvido: true }).eq('id', eventoId).select('id')
+  if (error) return { error: error.message }
+  if (!data?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/', 'layout')
   return { error: null }
 }

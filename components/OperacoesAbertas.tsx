@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento } from '@/app/actions'
-import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHorimetro } from '@/app/actions'
+import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHorimetro, reportarProblema } from '@/app/actions'
+import { createClient } from '@/lib/supabase/client'
 
 type Op = { checklist: Checklist; eventos: OperacaoEvento[] }
 type Tipo = 'parada' | 'retorno' | 'encerramento'
-type UiTipo = Tipo | 'abastecimento'
+type UiTipo = Tipo | 'abastecimento' | 'problema'
 
 export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes: Op[]; podeEditar?: boolean }) {
   const [list, setList] = useState(operacoes)
@@ -19,8 +20,27 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   const [edit, setEdit] = useState<{ kind: 'inicial' | 'evento'; id: string } | null>(null)
   const [editVal, setEditVal] = useState('')
   const [confirmRetorno, setConfirmRetorno] = useState<{ id: string; h: number; paradaH: number; litros: number | null } | null>(null)
+  const [descricaoProblema, setDescricaoProblema] = useState('')
+  const [parado, setParado] = useState<boolean | null>(null)
+  const [fotosProblema, setFotosProblema] = useState<string[]>([])
+  const [uploadingFoto, setUploadingFoto] = useState(false)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+
+  async function enviarFotoProblema(file: File | undefined) {
+    if (!file) return
+    setUploadingFoto(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage.from('checklist-fotos').upload(path, file, { upsert: false })
+    if (error) setErro('Erro ao enviar foto: ' + error.message)
+    else {
+      const { data } = supabase.storage.from('checklist-fotos').getPublicUrl(path)
+      setFotosProblema(prev => [...prev, data.publicUrl])
+    }
+    setUploadingFoto(false)
+  }
 
   const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
   const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
@@ -46,9 +66,29 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
     })
   }
 
+  function confirmarProblema() {
+    if (!acao) return
+    setErro(null)
+    const h = num(horim)
+    if (!descricaoProblema.trim()) { setErro('Descreva o problema.'); return }
+    if (parado == null) { setErro('Indique se o equipamento está parado por causa do problema.'); return }
+    if (h == null) { setErro('Informe o horímetro.'); return }
+    const { id } = acao
+    startTransition(async () => {
+      const res = await reportarProblema(id, descricaoProblema, parado, fotosProblema, h)
+      if (res.error) { setErro(res.error); return }
+      setList(prev => prev.map(o => o.checklist.id === id
+        ? { ...o, eventos: [...o.eventos, { id: crypto.randomUUID(), checklist_id: id, tipo: 'problema', motivo: null, horimetro: h, origem: 'app', descricao: descricaoProblema.trim(), parado, fotos: fotosProblema, resolvido: false, created_at: new Date().toISOString() }] }
+        : o))
+      setAcao(null)
+      router.refresh()
+    })
+  }
+
   function confirmar() {
     if (!acao) return
     setErro(null)
+    if (acao.tipo === 'problema') { confirmarProblema(); return }
     const h = num(horim)
     const { id, tipo } = acao
     const op = list.find(o => o.checklist.id === id)
@@ -152,7 +192,19 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
 
             {eventos.length > 0 && (
               <ul className="mt-2 text-xs space-y-1" style={{ color: '#6b7280' }}>
-                {eventos.map(e => (
+                {eventos.map(e => e.tipo === 'problema' ? (
+                  <li key={e.id} className="flex items-start gap-1 flex-wrap py-1">
+                    <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema reportado{e.resolvido ? ' (resolvido)' : ''}:</span>
+                    <span>{e.descricao}</span>
+                    <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>
+                      {e.parado ? '· máquina parada' : '· operando normalmente'}
+                    </span>
+                    {e.horimetro != null && <span>· {e.horimetro}h</span>}
+                    {(e.fotos ?? []).map((f, i) => (
+                      <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
+                    ))}
+                  </li>
+                ) : (
                   <li key={e.id} className="flex items-center gap-1 flex-wrap">
                     • {hora(e.created_at)} — {e.tipo}{e.motivo ? ` (${e.motivo})` : ''} ·{' '}
                     {edit?.kind === 'evento' && edit.id === e.id ? editInput : (
@@ -169,7 +221,37 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
               </ul>
             )}
 
-            {acao?.id === c.id ? (
+            {acao?.id === c.id && acao.tipo === 'problema' ? (
+              <div className="mt-3 p-3 rounded-lg space-y-2" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                <textarea value={descricaoProblema} onChange={e => setDescricaoProblema(e.target.value)} placeholder="Descreva o problema" rows={2}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#fecaca', color: '#1a2a3a' }} />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input value={horim} onChange={e => setHorim(e.target.value)} placeholder="Horímetro" inputMode="decimal"
+                    className="rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#d1d5db', color: '#1a2a3a', width: 130 }} />
+                  <span className="text-xs font-medium" style={{ color: '#6b7280' }}>Equipamento parado?</span>
+                  <button onClick={() => setParado(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                    style={{ background: parado === true ? '#b91c1c' : '#fff', color: parado === true ? '#fff' : '#b91c1c', borderColor: '#fecaca' }}>Sim, parada</button>
+                  <button onClick={() => setParado(false)} className="px-3 py-1.5 rounded-lg text-xs font-semibold border"
+                    style={{ background: parado === false ? '#92400e' : '#fff', color: parado === false ? '#fff' : '#92400e', borderColor: '#fde68a' }}>Não, operando</button>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {fotosProblema.map((f, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={f} alt="foto do problema" className="h-16 w-16 rounded-lg object-cover" style={{ border: '1px solid #fecaca' }} />
+                  ))}
+                  <label className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer" style={{ background: '#fff', border: '1px dashed #f87171', color: '#b91c1c' }}>
+                    {uploadingFoto ? 'Enviando…' : '📷 Adicionar foto'}
+                    <input type="file" accept="image/*" capture="environment" className="hidden" disabled={uploadingFoto} onChange={e => enviarFotoProblema(e.target.files?.[0])} />
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={confirmar} disabled={isPending} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#b91c1c' }}>
+                    Reportar problema
+                  </button>
+                  <button onClick={() => { setAcao(null); setErro(null) }} className="px-3 py-2 rounded-lg text-sm" style={{ color: '#6b7280' }}>Cancelar</button>
+                </div>
+              </div>
+            ) : acao?.id === c.id ? (
               <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input value={horim} onChange={e => setHorim(e.target.value)} placeholder="Horímetro" inputMode="decimal" autoFocus
                   className="rounded-lg border px-3 py-2 text-sm outline-none" style={{ borderColor: '#d1d5db', color: '#1a2a3a', width: 130 }} />
@@ -191,6 +273,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                 <button onClick={() => { setAcao({ id: c.id, tipo: 'parada' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}>Parada</button>
                 <button onClick={() => { setAcao({ id: c.id, tipo: 'abastecimento' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff7ed' }}>⛽ Abastecimento</button>
                 <button onClick={() => { setAcao({ id: c.id, tipo: 'retorno' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}>Retorno</button>
+                <button onClick={() => { setAcao({ id: c.id, tipo: 'problema' }); setHorim(''); setDescricaoProblema(''); setParado(null); setFotosProblema([]); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>⚠️ Reportar problema</button>
                 <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(''); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
               </div>
             )}

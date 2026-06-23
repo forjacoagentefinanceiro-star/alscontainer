@@ -162,7 +162,22 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
 
       {evs.length > 0 && (
         <ul className="mt-2 text-xs space-y-1" style={{ color: '#6b7280' }}>
-          {evs.map(e => (
+          {evs.map(e => e.tipo === 'problema' ? (
+            <li key={e.id} className="flex items-start gap-1 flex-wrap py-0.5">
+              <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema{e.resolvido ? ' (resolvido)' : ''}:</span>
+              <span>{e.descricao}</span>
+              <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>{e.parado ? '· máquina parada' : '· operando normalmente'}</span>
+              {editHorim?.kind === 'evento' && editHorim.id === e.id ? horimInput : (
+                <>
+                  {e.horimetro != null && <span>· {e.horimetro}h</span>}
+                  {podeEditar && <button onClick={() => abrirEditHorim('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
+                </>
+              )}
+              {(e.fotos ?? []).map((f, i) => (
+                <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
+              ))}
+            </li>
+          ) : (
             <li key={e.id} className="flex items-center gap-1 flex-wrap">
               • {hora(e.created_at)} — {e.tipo}{e.motivo ? ` (${e.motivo})` : ''} ·{' '}
               {editHorim?.kind === 'evento' && editHorim.id === e.id ? horimInput : (
