@@ -21,7 +21,9 @@ export default function LoginPage() {
     setError(''); setSuccess(''); setLoading(true)
 
     if (mode === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      // operador loga só com o usuário (sem @) → completa com o domínio interno
+      const loginEmail = email.includes('@') ? email.trim() : `${email.trim().toLowerCase()}@als.local`
+      const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
       if (error) setError(error.message)
       else router.push('/')
     } else if (mode === 'signup') {
@@ -75,13 +77,13 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>E-mail</label>
-              <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>{mode === 'login' ? 'E-mail ou usuário' : 'E-mail'}</label>
+              <input type={mode === 'login' ? 'text' : 'email'} required value={email} onChange={e => setEmail(e.target.value)}
                 className="w-full rounded border px-3 py-2.5 text-sm outline-none transition-colors"
                 style={{ borderColor: '#d1d5db', color: '#374151' }}
                 onFocus={e => e.currentTarget.style.borderColor = '#1B4F8A'}
                 onBlur={e => e.currentTarget.style.borderColor = '#d1d5db'}
-                placeholder="seu@email.com" />
+                placeholder={mode === 'login' ? 'e-mail ou usuário' : 'seu@email.com'} />
             </div>
 
             {mode !== 'forgot' && (

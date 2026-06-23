@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, OPERADOR_DOMINIO } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -213,6 +214,45 @@ export async function updateUserRole(userId: string, role: Role) {
     .eq('id', userId)
   if (error) return { error: error.message }
   revalidatePath('/usuarios')
+  return { error: null }
+}
+
+async function souAdmin(): Promise<{ ok: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false }
+  const { data } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  return { ok: data?.role === 'admin' }
+}
+
+// Cria um operador sem e-mail: gera usuario@als.local internamente; operador loga só com o usuário.
+export async function criarOperador(nome: string, usuario: string, senha: string) {
+  if (!(await souAdmin()).ok) return { error: 'Apenas administradores podem criar operadores.' }
+  const u = usuario.trim().toLowerCase().replace(/\s+/g, '')
+  if (!nome.trim()) return { error: 'Informe o nome do operador.' }
+  if (!u || !/^[a-z0-9._-]+$/.test(u)) return { error: 'Usuário inválido (use letras, números, ponto, hífen ou _).' }
+  if (senha.length < 6) return { error: 'A senha deve ter ao menos 6 caracteres.' }
+
+  const email = `${u}@${OPERADOR_DOMINIO}`
+  const admin = createAdminClient()
+  const { data: created, error } = await admin.auth.admin.createUser({
+    email, password: senha, email_confirm: true, user_metadata: { name: nome.trim(), usuario: u },
+  })
+  if (error) return { error: error.message.includes('already') ? `O usuário "${u}" já existe.` : error.message }
+  const id = created.user?.id
+  if (!id) return { error: 'Falha ao criar o usuário.' }
+  const { error: pErr } = await admin.from('user_profiles').upsert({ id, email, name: nome.trim(), role: 'operador', approved: true })
+  if (pErr) return { error: pErr.message }
+  revalidatePath('/usuarios')
+  return { error: null, usuario: u }
+}
+
+export async function redefinirSenhaOperador(userId: string, novaSenha: string) {
+  if (!(await souAdmin()).ok) return { error: 'Apenas administradores.' }
+  if (novaSenha.length < 6) return { error: 'A senha deve ter ao menos 6 caracteres.' }
+  const admin = createAdminClient()
+  const { error } = await admin.auth.admin.updateUserById(userId, { password: novaSenha })
+  if (error) return { error: error.message }
   return { error: null }
 }
 
