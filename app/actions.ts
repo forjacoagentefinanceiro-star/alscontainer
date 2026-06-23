@@ -258,6 +258,16 @@ export async function criarOperador(nome: string, usuario: string, senha: string
   return { error: null, usuario: u }
 }
 
+export async function testarAlertaTelegram() {
+  if (!(await souAdmin()).ok) return { error: 'Apenas administradores.' }
+  if (!process.env.TELEGRAM_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
+    return { error: 'TELEGRAM_TOKEN/TELEGRAM_CHAT_ID não configurados na Vercel.' }
+  }
+  const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  await notificarTelegram(`✅ Teste — alerta do ALS Depot está funcionando (${hora}).`)
+  return { error: null }
+}
+
 // Troca a senha do próprio usuário (1º acesso obrigatório) e limpa a flag de troca.
 export async function trocarMinhaSenha(novaSenha: string) {
   const supabase = await createClient()
