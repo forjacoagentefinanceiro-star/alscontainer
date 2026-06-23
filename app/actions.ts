@@ -431,6 +431,129 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
   }
 }
 
+// ---- Dashboard de indicadores das máquinas (frota + por equipamento) ----
+export type IndicadorMaquina = {
+  equipamento: string
+  horimetroAtual: number | null
+  horasTrabalhadas: number
+  litrosTotal: number
+  consumoMedio: number | null
+  problemas: number
+  problemasParado: number
+  tempoParadoMin: number
+  tempoRespostaMedioMin: number | null
+  utilizacaoPct: number | null
+  pendenciaPct: number | null
+}
+
+export type DashboardEquipamentos = {
+  periodoDias: number
+  totais: {
+    horasTrabalhadas: number
+    litrosTotal: number
+    consumoMedio: number | null
+    problemas: number
+    problemasParado: number
+    tempoParadoMin: number
+    tempoRespostaMedioMin: number | null
+    utilizacaoPct: number | null
+  }
+  maquinas: IndicadorMaquina[]
+}
+
+export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEquipamentos> {
+  const { supabase, user } = await usuarioEPapel()
+  const vazio: DashboardEquipamentos = { periodoDias: dias, totais: { horasTrabalhadas: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
+  if (!user) return vazio
+
+  const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
+  const { data: emp } = await supabase.from('empilhadeiras').select('nome, horimetro_atual')
+  let q = supabase.from('checklists').select('id, equipamento, horimetro, horimetro_final, tem_pendencia, created_at')
+  if (cutoff) q = q.gte('created_at', cutoff)
+  const { data: cksData } = await q
+  const checklists = cksData ?? []
+  const ids = checklists.map(c => c.id)
+
+  let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null; parado: boolean | null; acionado_em: string | null; chegada_em: string | null; liberado_em: string | null; created_at: string }[] = []
+  if (ids.length) {
+    const { data: evs } = await supabase.from('operacao_eventos')
+      .select('checklist_id, tipo, litros, consumo_lh, parado, acionado_em, chegada_em, liberado_em, created_at')
+      .in('checklist_id', ids)
+    eventos = evs ?? []
+  }
+
+  const nomes = [...new Set([...(emp ?? []).map(e => e.nome as string), ...checklists.map(c => c.equipamento as string)])].sort((a, b) => a.localeCompare(b))
+  const horimetroAtualMap = new Map((emp ?? []).map(e => [e.nome as string, e.horimetro_atual as number | null]))
+  const periodoHoras = cutoff ? dias * 24 : null
+
+  const maquinas: IndicadorMaquina[] = nomes.map(nome => {
+    const cksM = checklists.filter(c => c.equipamento === nome)
+    const idsM = new Set(cksM.map(c => c.id))
+    const evsM = eventos.filter(e => idsM.has(e.checklist_id))
+
+    const horasTrabalhadas = cksM.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+
+    const abastecimentos = evsM.filter(e => e.litros != null)
+    const litrosTotal = abastecimentos.reduce((a, e) => a + Number(e.litros), 0)
+    const consumos = abastecimentos.filter(e => e.consumo_lh != null).map(e => Number(e.consumo_lh))
+    const consumoMedio = consumos.length ? Math.round((consumos.reduce((a, b) => a + b, 0) / consumos.length) * 100) / 100 : null
+
+    const probs = evsM.filter(e => e.tipo === 'problema')
+    const problemasParado = probs.filter(e => e.parado).length
+
+    let tempoParadoMin = 0
+    for (const p of probs) {
+      if (!p.liberado_em) continue
+      const inicio = p.parado ? p.created_at : (p.chegada_em ?? p.created_at)
+      const min = (new Date(p.liberado_em).getTime() - new Date(inicio).getTime()) / 60000
+      if (min > 0) tempoParadoMin += min
+    }
+
+    const respostas = probs.filter(e => e.acionado_em && e.chegada_em).map(e => (new Date(e.chegada_em as string).getTime() - new Date(e.acionado_em as string).getTime()) / 60000)
+    const tempoRespostaMedioMin = respostas.length ? Math.round(respostas.reduce((a, b) => a + b, 0) / respostas.length) : null
+
+    const utilizacaoPct = periodoHoras ? Math.round((horasTrabalhadas / periodoHoras) * 1000) / 10 : null
+    const comPendencia = cksM.filter(c => c.tem_pendencia).length
+    const pendenciaPct = cksM.length ? Math.round((comPendencia / cksM.length) * 1000) / 10 : null
+
+    return {
+      equipamento: nome,
+      horimetroAtual: horimetroAtualMap.get(nome) ?? null,
+      horasTrabalhadas: Math.round(horasTrabalhadas * 10) / 10,
+      litrosTotal: Math.round(litrosTotal * 10) / 10,
+      consumoMedio,
+      problemas: probs.length,
+      problemasParado,
+      tempoParadoMin: Math.round(tempoParadoMin),
+      tempoRespostaMedioMin,
+      utilizacaoPct,
+      pendenciaPct,
+    }
+  })
+
+  const soma = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
+  const media = (arr: number[]) => (arr.length ? Math.round((soma(arr) / arr.length) * 100) / 100 : null)
+
+  const consumosValidos = maquinas.filter(m => m.consumoMedio != null).map(m => m.consumoMedio as number)
+  const respostasValidas = maquinas.filter(m => m.tempoRespostaMedioMin != null).map(m => m.tempoRespostaMedioMin as number)
+  const horasTrabalhadasTot = Math.round(soma(maquinas.map(m => m.horasTrabalhadas)) * 10) / 10
+
+  return {
+    periodoDias: dias,
+    totais: {
+      horasTrabalhadas: horasTrabalhadasTot,
+      litrosTotal: Math.round(soma(maquinas.map(m => m.litrosTotal)) * 10) / 10,
+      consumoMedio: media(consumosValidos),
+      problemas: soma(maquinas.map(m => m.problemas)),
+      problemasParado: soma(maquinas.map(m => m.problemasParado)),
+      tempoParadoMin: Math.round(soma(maquinas.map(m => m.tempoParadoMin))),
+      tempoRespostaMedioMin: respostasValidas.length ? Math.round(media(respostasValidas) as number) : null,
+      utilizacaoPct: periodoHoras && maquinas.length ? Math.round((horasTrabalhadasTot / (periodoHoras * maquinas.length)) * 1000) / 10 : null,
+    },
+    maquinas,
+  }
+}
+
 export async function getHistorico(limit = 100): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {
   const { supabase, user, gestor } = await usuarioEPapel()
   if (!user) return []

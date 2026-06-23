@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   History,
   Gauge,
+  LineChart,
   FolderPlus,
   PanelLeftClose,
   PanelLeftOpen,
@@ -32,9 +33,10 @@ const estoqueItems: Item[] = [
 
 const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }
 const equipamentosItems: Item[] = [
-  { href: '/equipamentos', label: 'Painel',    icon: Gauge          },
+  { href: '/equipamentos', label: 'Painel',       icon: Gauge          },
   checklistItem,
-  { href: '/historico',    label: 'Histórico', icon: History        },
+  { href: '/historico',    label: 'Histórico',    icon: History        },
+  { href: '/equipamentos/indicadores', label: 'Indicadores', icon: LineChart },
 ]
 
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }

@@ -23,9 +23,14 @@ export default async function EquipamentosPage() {
   return (
     <div>
       <LiveRefresh seconds={30} />
-      <div className="mb-5">
-        <h1 className="text-xl font-bold" style={{ color: '#1a2a3a' }}>Painel de Equipamentos</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Checklist aberto = máquina em operação. Atualiza ao vivo.</p>
+      <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: '#1a2a3a' }}>Painel de Equipamentos</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Checklist aberto = máquina em operação. Atualiza ao vivo.</p>
+        </div>
+        <Link href="/equipamentos/indicadores" className="text-sm font-semibold px-4 py-2 rounded-lg text-white whitespace-nowrap" style={{ background: '#1B4F8A' }}>
+          📊 Ver dashboard completo →
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl mb-6">
