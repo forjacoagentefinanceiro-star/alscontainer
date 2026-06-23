@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { Checklist } from '@/app/actions'
 import { resolverPendencia } from '@/app/actions'
@@ -10,6 +10,8 @@ export function AlertaDesacordos({ checklists }: { checklists: Checklist[] }) {
   const [aberto, setAberto] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => { setList(checklists) }, [checklists])
 
   if (!list.length) return null
 

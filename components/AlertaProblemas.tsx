@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { ProblemaEquipamento } from '@/app/actions'
 import { resolverProblema } from '@/app/actions'
@@ -65,6 +65,9 @@ export function AlertaProblemas({ problemas }: { problemas: ProblemaEquipamento[
   const [aberto, setAberto] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  // re-sincroniza com o servidor (LiveRefresh) — pega tratativas avançadas por outro usuário
+  useEffect(() => { setList(problemas) }, [problemas])
 
   if (!list.length) return null
 

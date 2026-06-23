@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { OperacaoEvento } from '@/app/actions'
 import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento } from '@/app/actions'
@@ -9,6 +9,8 @@ const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 
 
 export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEvento; podeAcionar: boolean }) {
   const [e, setE] = useState(evento)
+  // re-sincroniza quando o servidor traz dados novos (ex.: outro usuário avançou a tratativa)
+  useEffect(() => { setE(evento) }, [evento])
   const [etapa, setEtapa] = useState<'acionar' | 'chegada' | 'liberar' | null>(null)
   const [prestadorInput, setPrestadorInput] = useState('Brasmaq')
   const [horimInput, setHorimInput] = useState('')

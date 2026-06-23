@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento, ChecklistItem } from '@/app/actions'
 import { updateChecklistItens, updateChecklistHorimetro, updateEventoHorimetro } from '@/app/actions'
@@ -28,6 +28,9 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
+  // re-sincroniza com o servidor (LiveRefresh) — sem sobrescrever uma edição em andamento
+  useEffect(() => { if (!editandoItens) { setC(checklist); setEvs(eventos) } }, [checklist, eventos, editandoItens])
 
   const noks = (c.itens || []).filter(i => i.status === 'nok')
   const encerrada = c.status === 'encerrada'

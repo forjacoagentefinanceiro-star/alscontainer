@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { UsoSemChecklist } from '@/app/actions'
 import { resolverUsoSemChecklist } from '@/app/actions'
@@ -10,6 +10,8 @@ export function AlertaUsoSemChecklist({ usos }: { usos: UsoSemChecklist[] }) {
   const [aberto, setAberto] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => { setList(usos) }, [usos])
 
   if (!list.length) return null
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento } from '@/app/actions'
 import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHorimetro, reportarProblema } from '@/app/actions'
@@ -28,6 +28,9 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
+
+  // re-sincroniza com o servidor (LiveRefresh) — pega lançamentos feitos por outro usuário
+  useEffect(() => { setList(operacoes) }, [operacoes])
 
   async function enviarFotoProblema(file: File | undefined) {
     if (!file) return
