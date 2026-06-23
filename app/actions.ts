@@ -495,8 +495,8 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
 
     const abastecimentos = evsM.filter(e => e.litros != null)
     const litrosTotal = abastecimentos.reduce((a, e) => a + Number(e.litros), 0)
-    const consumos = abastecimentos.filter(e => e.consumo_lh != null).map(e => Number(e.consumo_lh))
-    const consumoMedio = consumos.length ? Math.round((consumos.reduce((a, b) => a + b, 0) / consumos.length) * 100) / 100 : null
+    // consumo médio = litros consumidos ÷ horas trabalhadas no período
+    const consumoMedio = horasTrabalhadas > 0 && litrosTotal > 0 ? Math.round((litrosTotal / horasTrabalhadas) * 100) / 100 : null
 
     const probs = evsM.filter(e => e.tipo === 'problema')
     const problemasParado = probs.filter(e => e.parado).length
@@ -534,16 +534,17 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   const soma = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
   const media = (arr: number[]) => (arr.length ? Math.round((soma(arr) / arr.length) * 100) / 100 : null)
 
-  const consumosValidos = maquinas.filter(m => m.consumoMedio != null).map(m => m.consumoMedio as number)
   const respostasValidas = maquinas.filter(m => m.tempoRespostaMedioMin != null).map(m => m.tempoRespostaMedioMin as number)
   const horasTrabalhadasTot = Math.round(soma(maquinas.map(m => m.horasTrabalhadas)) * 10) / 10
+  const litrosTotalTot = Math.round(soma(maquinas.map(m => m.litrosTotal)) * 10) / 10
+  const consumoMedioTot = horasTrabalhadasTot > 0 && litrosTotalTot > 0 ? Math.round((litrosTotalTot / horasTrabalhadasTot) * 100) / 100 : null
 
   return {
     periodoDias: dias,
     totais: {
       horasTrabalhadas: horasTrabalhadasTot,
-      litrosTotal: Math.round(soma(maquinas.map(m => m.litrosTotal)) * 10) / 10,
-      consumoMedio: media(consumosValidos),
+      litrosTotal: litrosTotalTot,
+      consumoMedio: consumoMedioTot,
       problemas: soma(maquinas.map(m => m.problemas)),
       problemasParado: soma(maquinas.map(m => m.problemasParado)),
       tempoParadoMin: Math.round(soma(maquinas.map(m => m.tempoParadoMin))),
@@ -552,6 +553,32 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
     },
     maquinas,
   }
+}
+
+// ciclo de faturamento: começa todo dia 23, fecha no dia 22 do mês seguinte (zera no dia 23)
+function cicloAtual(): { inicio: Date; fim: Date; mesLabel: string } {
+  const tz = 'America/Sao_Paulo'
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const [y, m, d] = ymd.split('-').map(Number)
+  let anoIni = y, mesIni = m
+  if (d < 23) { mesIni -= 1; if (mesIni === 0) { mesIni = 12; anoIni -= 1 } }
+  const inicio = new Date(`${anoIni}-${String(mesIni).padStart(2, '0')}-23T00:00:00-03:00`)
+  let anoFim = anoIni, mesFim = mesIni + 1
+  if (mesFim === 13) { mesFim = 1; anoFim += 1 }
+  const fim = new Date(`${anoFim}-${String(mesFim).padStart(2, '0')}-22T23:59:59-03:00`)
+  const nomesMes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+  return { inicio, fim, mesLabel: `${nomesMes[mesFim - 1]}/${anoFim}` }
+}
+
+export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasTrabalhadas: number }
+
+export async function getHorasCicloAtual(): Promise<CicloHoras> {
+  const { supabase, user } = await usuarioEPapel()
+  const { inicio, fim, mesLabel } = cicloAtual()
+  if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0 }
+  const { data } = await supabase.from('checklists').select('horimetro, horimetro_final').gte('created_at', inicio.toISOString())
+  const horas = (data ?? []).reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+  return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: Math.round(horas * 10) / 10 }
 }
 
 export async function getHistorico(limit = 100): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {

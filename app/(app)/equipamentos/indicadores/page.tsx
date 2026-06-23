@@ -1,6 +1,9 @@
-import { getDashboardEquipamentos } from '@/app/actions'
+import { getDashboardEquipamentos, getHorasCicloAtual } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
+import { IndicadoresCharts } from '@/components/IndicadoresCharts'
 import { LiveRefresh } from '@/components/LiveRefresh'
+
+const dataBR = (s: string) => new Date(s).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +27,7 @@ function Card({ label, value, cor, sub }: { label: string; value: string | numbe
 export default async function IndicadoresPage({ searchParams }: { searchParams: Promise<{ dias?: string }> }) {
   const { dias: diasParam } = await searchParams
   const dias = diasParam != null ? Number(diasParam) : 30
-  const d = await getDashboardEquipamentos(dias)
+  const [d, ciclo] = await Promise.all([getDashboardEquipamentos(dias), getHorasCicloAtual()])
   const t = d.totais
   const disponibilidadePct = t.utilizacaoPct != null ? Math.round((100 - t.utilizacaoPct) * 10) / 10 : null
 
@@ -38,8 +41,17 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
 
       <IndicadoresFiltro />
 
+      <div className="max-w-xs mb-3">
+        <Card
+          label={`Horas trabalhadas — ${ciclo.mesLabel} (ciclo 23 a 22)`}
+          value={`${ciclo.horasTrabalhadas}h`}
+          cor="#1B4F8A"
+          sub={`desde ${dataBR(ciclo.inicio)} · zera todo dia 23`}
+        />
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-5xl mb-3">
-        <Card label="Horas trabalhadas (frota)" value={t.horasTrabalhadas} cor="#1B4F8A" sub="soma de todas as máquinas" />
+        <Card label="Horas trabalhadas (período)" value={t.horasTrabalhadas} cor="#1B4F8A" sub="soma de todas as máquinas" />
         <Card label="Consumo médio" value={t.consumoMedio != null ? `${t.consumoMedio} L/h` : '—'} cor="#9a3412" />
         <Card label="Litros abastecidos" value={`${t.litrosTotal} L`} cor="#9a3412" />
         <Card label="Utilização média" value={t.utilizacaoPct != null ? `${t.utilizacaoPct}%` : '—'} cor="#047857" sub={dias > 0 ? `sobre ${dias} dias` : undefined} />
@@ -89,6 +101,20 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
           </div>
         )}
       </div>
+
+      {d.maquinas.length > 0 && (
+        <>
+          <h2 className="text-sm font-bold mt-6 mb-3" style={{ color: '#1a2a3a' }}>Consumo médio por equipamento</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-full mb-6">
+            {d.maquinas.map(m => (
+              <Card key={m.equipamento} label={m.equipamento} value={m.consumoMedio != null ? `${m.consumoMedio} L/h` : '—'} cor="#9a3412" sub={`${m.litrosTotal}L no período`} />
+            ))}
+          </div>
+
+          <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Gráficos</h2>
+          <IndicadoresCharts maquinas={d.maquinas} />
+        </>
+      )}
     </div>
   )
 }
