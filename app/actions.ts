@@ -386,7 +386,7 @@ export type ResumoEquipamentos = {
   checklistsHoje: number
   desacordos: number
   usosSemChecklist: number
-  abertas: { equipamento: string; operador: string; created_at: string; horimetro: number | null }[]
+  abertas: { id: string; equipamento: string; operador: string; created_at: string; horimetro: number | null; status: 'operando' | 'parado' | 'atenção' }[]
   usosDetalhe: UsoSemChecklist[]
 }
 
@@ -399,14 +399,25 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
 
   const [emp, abertasRes, hojeRes, desRes, usosRes] = await Promise.all([
     supabase.from('empilhadeiras').select('nome'),
-    supabase.from('checklists').select('equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false }),
+    supabase.from('checklists').select('id, equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false }),
     supabase.from('checklists').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia),
     supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('tem_pendencia', true).eq('pendencia_resolvida', false),
     supabase.from('operacao_eventos').select('id, checklist_id, horimetro, created_at, checklists(equipamento, operador)').eq('uso_sem_checklist', true).order('created_at', { ascending: false }).limit(50),
   ])
 
   const equipamentos = (emp.data ?? []).map(e => e.nome as string)
-  const abertas = (abertasRes.data ?? []) as ResumoEquipamentos['abertas']
+  const abertasRaw = abertasRes.data ?? []
+  const abertasIds = abertasRaw.map(c => c.id as string)
+  let problemasAbertos: { checklist_id: string; parado: boolean | null }[] = []
+  if (abertasIds.length) {
+    const { data: probs } = await supabase.from('operacao_eventos').select('checklist_id, parado').eq('tipo', 'problema').eq('resolvido', false).in('checklist_id', abertasIds)
+    problemasAbertos = probs ?? []
+  }
+  const abertas: ResumoEquipamentos['abertas'] = abertasRaw.map(c => {
+    const probsC = problemasAbertos.filter(p => p.checklist_id === c.id)
+    const status = probsC.some(p => p.parado) ? 'parado' : probsC.length ? 'atenção' : 'operando'
+    return { id: c.id as string, equipamento: c.equipamento as string, operador: c.operador as string, created_at: c.created_at as string, horimetro: c.horimetro as number | null, status }
+  })
   const operando = new Set(abertas.map(a => a.equipamento))
   const usosDetalhe: UsoSemChecklist[] = (usosRes.data ?? []).map((e: Record<string, unknown>) => {
     const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
@@ -579,6 +590,122 @@ export async function getHorasCicloAtual(): Promise<CicloHoras> {
   const { data } = await supabase.from('checklists').select('horimetro, horimetro_final').gte('created_at', inicio.toISOString())
   const horas = (data ?? []).reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
   return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: Math.round(horas * 10) / 10 }
+}
+
+// ---- Relatório por operador (horas operadas conforme o horímetro dos checklists dele) ----
+export type RelatorioOperador = {
+  operador: string
+  checklists: number
+  horasTrabalhadas: number
+  litrosTotal: number
+  consumoMedio: number | null
+  problemas: number
+  pendenciaPct: number | null
+}
+
+export async function getRelatorioOperadores(dias = 30): Promise<RelatorioOperador[]> {
+  const { supabase, user } = await usuarioEPapel()
+  if (!user) return []
+  const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
+  let q = supabase.from('checklists').select('id, operador, horimetro, horimetro_final, tem_pendencia, created_at')
+  if (cutoff) q = q.gte('created_at', cutoff)
+  const { data: cksData } = await q
+  const checklists = cksData ?? []
+  const ids = checklists.map(c => c.id)
+
+  let eventos: { checklist_id: string; tipo: string; litros: number | null }[] = []
+  if (ids.length) {
+    const { data: evs } = await supabase.from('operacao_eventos').select('checklist_id, tipo, litros').in('checklist_id', ids)
+    eventos = evs ?? []
+  }
+
+  const operadores = [...new Set(checklists.map(c => c.operador as string))].sort((a, b) => a.localeCompare(b))
+
+  const relatorio: RelatorioOperador[] = operadores.map(op => {
+    const cksOp = checklists.filter(c => c.operador === op)
+    const idsOp = new Set(cksOp.map(c => c.id))
+    const evsOp = eventos.filter(e => idsOp.has(e.checklist_id))
+
+    const horasTrabalhadas = cksOp.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+    const litrosTotal = evsOp.filter(e => e.litros != null).reduce((a, e) => a + Number(e.litros), 0)
+    const consumoMedio = horasTrabalhadas > 0 && litrosTotal > 0 ? Math.round((litrosTotal / horasTrabalhadas) * 10) / 10 : null
+    const problemas = evsOp.filter(e => e.tipo === 'problema').length
+    const comPendencia = cksOp.filter(c => c.tem_pendencia).length
+    const pendenciaPct = cksOp.length ? Math.round((comPendencia / cksOp.length) * 1000) / 10 : null
+
+    return {
+      operador: op,
+      checklists: cksOp.length,
+      horasTrabalhadas: Math.round(horasTrabalhadas * 10) / 10,
+      litrosTotal: Math.round(litrosTotal * 10) / 10,
+      consumoMedio,
+      problemas,
+      pendenciaPct,
+    }
+  })
+
+  return relatorio.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas)
+}
+
+// ---- Relatório detalhado de problemas (linha do tempo completa, não só os ativos) ----
+export type RelatorioProblema = {
+  id: string
+  checklist_id: string
+  equipamento: string
+  operador: string
+  created_at: string
+  descricao: string | null
+  parado: boolean
+  prestador: string | null
+  acionado_em: string | null
+  chegada_em: string | null
+  liberado_em: string | null
+  resolvido: boolean
+  tempoRespostaMin: number | null
+  tempoParadoMin: number | null
+}
+
+export async function getRelatorioProblemas(dias = 30): Promise<RelatorioProblema[]> {
+  const { supabase, user } = await usuarioEPapel()
+  if (!user) return []
+  const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
+  let q = supabase.from('operacao_eventos')
+    .select('id, checklist_id, descricao, parado, prestador, acionado_em, chegada_em, liberado_em, resolvido, created_at, checklists(equipamento, operador)')
+    .eq('tipo', 'problema')
+    .order('created_at', { ascending: false })
+  if (cutoff) q = q.gte('created_at', cutoff)
+  const { data } = await q
+  return (data ?? []).map((e: Record<string, unknown>) => {
+    const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
+    const acionado = e.acionado_em as string | null
+    const chegada = e.chegada_em as string | null
+    const liberado = e.liberado_em as string | null
+    const parado = !!e.parado
+    const createdAt = e.created_at as string
+    const tempoRespostaMin = acionado && chegada ? Math.round((new Date(chegada).getTime() - new Date(acionado).getTime()) / 60000) : null
+    let tempoParadoMin: number | null = null
+    if (liberado) {
+      const inicio = parado ? createdAt : (chegada ?? createdAt)
+      const min = (new Date(liberado).getTime() - new Date(inicio).getTime()) / 60000
+      tempoParadoMin = min > 0 ? Math.round(min) : 0
+    }
+    return {
+      id: e.id as string,
+      checklist_id: e.checklist_id as string,
+      equipamento: ck?.equipamento ?? '—',
+      operador: ck?.operador ?? '—',
+      created_at: createdAt,
+      descricao: e.descricao as string | null,
+      parado,
+      prestador: e.prestador as string | null,
+      acionado_em: acionado,
+      chegada_em: chegada,
+      liberado_em: liberado,
+      resolvido: !!e.resolvido,
+      tempoRespostaMin,
+      tempoParadoMin,
+    }
+  })
 }
 
 export async function getHistorico(limit = 100): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {

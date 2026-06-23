@@ -15,6 +15,7 @@ import {
   History,
   Gauge,
   LineChart,
+  FileText,
   FolderPlus,
   PanelLeftClose,
   PanelLeftOpen,
@@ -37,6 +38,7 @@ const equipamentosItems: Item[] = [
   checklistItem,
   { href: '/historico',    label: 'Histórico',    icon: History        },
   { href: '/equipamentos/indicadores', label: 'Indicadores', icon: LineChart },
+  { href: '/equipamentos/relatorios',  label: 'Relatórios',  icon: FileText },
 ]
 
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }

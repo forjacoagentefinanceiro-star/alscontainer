@@ -28,9 +28,14 @@ export default async function EquipamentosPage() {
           <h1 className="text-xl font-bold" style={{ color: '#1a2a3a' }}>Painel de Equipamentos</h1>
           <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Checklist aberto = máquina em operação. Atualiza ao vivo.</p>
         </div>
-        <Link href="/equipamentos/indicadores" className="text-sm font-semibold px-4 py-2 rounded-lg text-white whitespace-nowrap" style={{ background: '#1B4F8A' }}>
-          📊 Ver dashboard completo →
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/equipamentos/relatorios" className="text-sm font-semibold px-4 py-2 rounded-lg border whitespace-nowrap" style={{ borderColor: '#1B4F8A', color: '#1B4F8A', background: '#fff' }}>
+            📄 Relatórios
+          </Link>
+          <Link href="/equipamentos/indicadores" className="text-sm font-semibold px-4 py-2 rounded-lg text-white whitespace-nowrap" style={{ background: '#1B4F8A' }}>
+            📊 Ver dashboard completo →
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl mb-6">
@@ -50,15 +55,22 @@ export default async function EquipamentosPage() {
             <p className="text-sm text-center py-8" style={{ color: '#9ca3af' }}>Nenhuma máquina em operação.</p>
           ) : (
             <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
-              {r.abertas.map((a, i) => (
-                <div key={i} className="px-4 py-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: '#1a2a3a' }}>{a.equipamento}</p>
-                    <p className="text-xs" style={{ color: '#9ca3af' }}>{a.operador} · desde {dataHora(a.created_at)}</p>
+              {r.abertas.map((a, i) => {
+                const cor = a.status === 'parado' ? '#dc2626' : a.status === 'atenção' ? '#f59e0b' : '#22c55e'
+                const tituloStatus = a.status === 'parado' ? 'Máquina parada por problema' : a.status === 'atenção' ? 'Problema reportado (operando)' : 'Operando normalmente'
+                return (
+                  <div key={i} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span title={tituloStatus} className="shrink-0 rounded-full" style={{ width: 9, height: 9, background: cor }} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: '#1a2a3a' }}>{a.equipamento}</p>
+                        <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{a.operador} · desde {dataHora(a.created_at)}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs shrink-0" style={{ color: '#6b7280' }}>{a.horimetro != null ? `${a.horimetro}h` : '—'}</span>
                   </div>
-                  <span className="text-xs" style={{ color: '#6b7280' }}>{a.horimetro != null ? `${a.horimetro}h` : '—'}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
