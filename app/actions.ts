@@ -482,6 +482,10 @@ export async function updateChecklistHorimetro(checklistId: string, campo: 'hori
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
   const { error } = await supabase.from('checklists').update({ [campo]: valor }).eq('id', checklistId)
   if (error) return { error: error.message }
+  // mantém o evento de encerramento sincronizado com o horímetro final do checklist
+  if (campo === 'horimetro_final') {
+    await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('checklist_id', checklistId).eq('tipo', 'encerramento')
+  }
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
   revalidatePath('/historico')
@@ -492,7 +496,7 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   const { gestor } = await usuarioEPapel()
   if (!gestor) return { error: 'Apenas admin/editor podem corrigir horímetros.' }
   const supabase = await createClient()
-  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id, tipo').eq('id', eventoId).single()
   if (!ev?.checklist_id) return { error: 'Evento não encontrado' }
   if (valor != null) {
     const { prev, next } = await vizinhosSequencia(supabase, ev.checklist_id, eventoId)
@@ -501,6 +505,10 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   }
   const { error } = await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('id', eventoId)
   if (error) return { error: error.message }
+  // mantém o horímetro final do checklist sincronizado com o evento de encerramento
+  if (ev.tipo === 'encerramento') {
+    await supabase.from('checklists').update({ horimetro_final: valor }).eq('id', ev.checklist_id)
+  }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')

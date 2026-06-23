@@ -56,7 +56,12 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
     startTransition(async () => {
       const res = kind === 'evento' ? await updateEventoHorimetro(id, v) : await updateChecklistHorimetro(id, kind === 'inicial' ? 'horimetro' : 'horimetro_final', v)
       if (res.error) { setErro(res.error); return }
-      if (kind === 'evento') setEvs(prev => prev.map(e => e.id === id ? { ...e, horimetro: v } : e))
+      if (kind === 'evento') {
+        setEvs(prev => prev.map(e => e.id === id ? { ...e, horimetro: v } : e))
+        // evento de encerramento alimenta o horímetro final do checklist (recalcula horas trabalhadas)
+        const ev = evs.find(e => e.id === id)
+        if (ev?.tipo === 'encerramento') setC(prev => ({ ...prev, horimetro_final: v }))
+      }
       else if (kind === 'inicial') setC(prev => ({ ...prev, horimetro: v }))
       else setC(prev => ({ ...prev, horimetro_final: v }))
       setEditHorim(null)
