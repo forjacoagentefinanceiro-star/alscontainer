@@ -192,9 +192,12 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const metaAtingida = metaMes != null && (fatMesTotal ?? 0) >= metaMes
   const pctMeta = metaMes != null && metaMes > 0 ? Math.round(((fatMesTotal ?? 0) / metaMes) * 1000) / 10 : null
 
+  // "mês atual" do faturamento é sempre o mês do calendário real (Brasília), não uma heurística sobre os dados de movimentação
+  const mesLabelAtual = cap(MESES[mesMeta - 1] ?? mes)
+
   const faturamentoResumo: FaturamentoResumo | null = faturamentoRows.length
     ? {
-        mesLabel: cap(mes),
+        mesLabel: mesLabelAtual,
         mesReal: fatMesTotal,
         mesTerminal: fatMesTerminal,
         mesDepot: fatMesDepot,
