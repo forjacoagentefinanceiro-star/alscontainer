@@ -189,10 +189,10 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
         { label: `Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true, grupo: `Mês · ${cap(mes)}` },
         { label: `Total`, value: fmtBrl(fatMesTotal), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true, grupo: `Mês · ${cap(mes)}` },
         { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true, grupo: `Mês · ${cap(mes)}` },
-        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#dc2626', destaque: true, compact: true, grupo: `Mês · ${cap(mes)}` },
+        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#dc2626', compact: true, grupo: `Mês · ${cap(mes)}` },
 
         { label: 'Meta do mês', value: fmtBrl(metaMes), cor: '#5f7da0', compact: true, grupo: 'Meta' },
-        { label: '% atingido', value: pctMeta == null ? '—' : `${pctMeta}%`, sub: 'faturamento real até agora', cor: pctMeta == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#F2C200', destaque: true, compact: true, grupo: 'Meta' },
+        { label: '% atingido', value: pctMeta == null ? '—' : `${pctMeta}%`, sub: 'faturamento real até agora', cor: pctMeta == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#F2C200', compact: true, grupo: 'Meta' },
         {
           label: 'Falta para a meta',
           value: metaMes == null ? '—' : metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faltaMeta),

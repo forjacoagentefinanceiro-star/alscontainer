@@ -196,7 +196,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
           {agruparKpis(faturamento).map(([grupo, itens]) => (
             <div key={grupo}>
               <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>{grupo}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 200px))', gap: 12 }}>
                 {itens.map(k => <Kpi key={k.label} k={k} />)}
               </div>
             </div>
