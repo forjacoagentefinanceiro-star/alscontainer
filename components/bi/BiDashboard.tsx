@@ -235,7 +235,11 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
             <HeroCard
               label="Falta para a meta"
               value={faturamentoResumo.metaMes == null ? '—' : faturamentoResumo.metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faturamentoResumo.faltaMeta)}
-              sub="sobre o faturamento real"
+              sub={
+                faturamentoResumo.metaMes == null || faturamentoResumo.metaAtingida
+                  ? 'sobre o faturamento real'
+                  : `${Math.round((100 - (faturamentoResumo.pctMeta ?? 0)) * 10) / 10}% restante · sobre o faturamento real`
+              }
               cor={faturamentoResumo.metaMes == null ? '#5f7da0' : faturamentoResumo.metaAtingida ? '#7DC242' : '#dc2626'}
             />
           </div>
