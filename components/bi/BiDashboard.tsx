@@ -40,6 +40,18 @@ function Card({ titulo, sub, children }: { titulo: string; sub?: string; childre
   )
 }
 
+// agrupa KPIs pelo campo `grupo` (preserva a ordem de primeira aparição)
+function agruparKpis(itens: KpiT[]): [string, KpiT[]][] {
+  const ordem: string[] = []
+  const map = new Map<string, KpiT[]>()
+  for (const k of itens) {
+    const g = k.grupo ?? ''
+    if (!map.has(g)) { map.set(g, []); ordem.push(g) }
+    map.get(g)!.push(k)
+  }
+  return ordem.map(g => [g, map.get(g)!])
+}
+
 function MetaEditor({ metaMes, podeGerenciar }: { metaMes: number | null; podeGerenciar: boolean }) {
   const [editando, setEditando] = useState(false)
   const [valor, setValor] = useState(metaMes != null ? String(metaMes) : '')
@@ -179,11 +191,16 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
       ) : current === 'faturamento' ? (
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div style={{ display: 'grid', gap: 18 }}>
           <MetaEditor metaMes={metaMes} podeGerenciar={podeGerenciar} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
-            {faturamento.map(k => <Kpi key={k.label} k={k} />)}
-          </div>
+          {agruparKpis(faturamento).map(([grupo, itens]) => (
+            <div key={grupo}>
+              <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>{grupo}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                {itens.map(k => <Kpi key={k.label} k={k} />)}
+              </div>
+            </div>
+          ))}
           {(faturamentoMensal || faturamentoAnual) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 14 }}>
               {faturamentoMensal && (

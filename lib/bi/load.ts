@@ -3,7 +3,7 @@ import type { Ponto } from '@/components/bi/BiCharts'
 
 export type Grupo = { code: string; titulo: string; data: Ponto[]; series: string[]; medida: string }
 export type Categoria = { key: string; label: string; grupos: Grupo[] }
-export type KpiT = { label: string; value: string; sub?: string; accent?: boolean; cor?: string; destaque?: boolean; compact?: boolean }
+export type KpiT = { label: string; value: string; sub?: string; accent?: boolean; cor?: string; destaque?: boolean; compact?: boolean; grupo?: string }
 export type ConfItem = { eixo: string; total: number; soma: number; dif: number }
 export type Conferencia = { metrica: string; itens: ConfItem[]; ok: boolean }
 export type BiData = {
@@ -174,21 +174,25 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const fatAFaturar = fv('FATURAMENTO_TERMINAL_AFATURAR')
   const fatMesTotal = somaBrl(fatMesTerminal, fatMesDepot)
   const projecao = somaBrl(fatMesTotal, fatAFaturar)
-  // "falta para a meta" usa o faturamento REAL do mês (fatMesTotal), não a projeção
+  // "falta para a meta" e "% atingido" usam o faturamento REAL do mês (fatMesTotal), não a projeção
   const faltaMeta = metaMes != null ? Math.max(0, metaMes - (fatMesTotal ?? 0)) : null
   const metaAtingida = metaMes != null && (fatMesTotal ?? 0) >= metaMes
+  const pctMeta = metaMes != null && metaMes > 0 ? Math.round(((fatMesTotal ?? 0) / metaMes) * 1000) / 10 : null
 
   const faturamento: KpiT[] = faturamentoRows.length
     ? [
-        { label: 'Anual · Terminal', value: fmtBrl(fatAnualTerminal), cor: '#7DC242', compact: true },
-        { label: 'Anual · Depot', value: fmtBrl(fatAnualDepot), cor: '#7DC242', compact: true },
-        { label: 'Anual · Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
-        { label: `Mês · Terminal`, value: fmtBrl(fatMesTerminal), cor: '#7DC242', compact: true },
-        { label: `Mês · Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true },
-        { label: `Mês · Total`, value: fmtBrl(fatMesTotal), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
-        { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true },
-        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#dc2626', destaque: true, compact: true },
-        { label: 'Meta do mês', value: fmtBrl(metaMes), cor: '#5f7da0', compact: true },
+        { label: 'Terminal', value: fmtBrl(fatAnualTerminal), cor: '#7DC242', compact: true, grupo: 'Anual' },
+        { label: 'Depot', value: fmtBrl(fatAnualDepot), cor: '#7DC242', compact: true, grupo: 'Anual' },
+        { label: 'Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true, grupo: 'Anual' },
+
+        { label: `Terminal`, value: fmtBrl(fatMesTerminal), cor: '#7DC242', compact: true, grupo: `Mês · ${cap(mes)}` },
+        { label: `Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true, grupo: `Mês · ${cap(mes)}` },
+        { label: `Total`, value: fmtBrl(fatMesTotal), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true, grupo: `Mês · ${cap(mes)}` },
+        { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true, grupo: `Mês · ${cap(mes)}` },
+        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#dc2626', destaque: true, compact: true, grupo: `Mês · ${cap(mes)}` },
+
+        { label: 'Meta do mês', value: fmtBrl(metaMes), cor: '#5f7da0', compact: true, grupo: 'Meta' },
+        { label: '% atingido', value: pctMeta == null ? '—' : `${pctMeta}%`, sub: 'faturamento real até agora', cor: pctMeta == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#F2C200', destaque: true, compact: true, grupo: 'Meta' },
         {
           label: 'Falta para a meta',
           value: metaMes == null ? '—' : metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faltaMeta),
@@ -196,6 +200,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
           cor: metaMes == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#dc2626',
           destaque: metaMes != null,
           compact: true,
+          grupo: 'Meta',
         },
       ]
     : []
