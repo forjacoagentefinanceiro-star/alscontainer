@@ -80,7 +80,6 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const metaMes = metaRow?.valor != null ? Number(metaRow.valor) : null
 
   const ano = Math.max(...linhas.map(l => l.ano))
-  const estimativas = linhas.filter(l => /^ESTIMATIVA/.test(l.code) && l.ano === ano)
   const faturamentoRows = linhas.filter(l => /^FATURAMENTO/.test(l.code) && l.ano === ano)
   const terminalRows = linhas.filter(l => /^TERMINAL_/.test(l.code) && l.ano === ano)
   const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^(ESTIMATIVA|FATURAMENTO|TERMINAL)/.test(l.code)))
@@ -113,12 +112,9 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const saiMes = saidasMes.get(mes) ?? 0
   const teusMes = (teusEntMes.get(mes) ?? 0) + (teusSaiMes.get(mes) ?? 0)
 
-  const ev = estimativas.find(e => /PENDENTE_VISTORIA/.test(e.code)) ?? estimativas.find(e => e.code === 'ESTIMATIVA_PENDENTE')
-
   const kpis: KpiT[] = [
     { label: `Depot · Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
     { label: `Depot · Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
-    { label: 'Depot · Aguardando vistoria', value: ev ? nf.format(Number(ev.valor) || 0) : '—' },
     { label: `Depot · Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
   ]
 
@@ -132,6 +128,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   if (termEnt != null || termSai != null) {
     kpis.push({ label: `Terminal · Entradas · ${cap(mes)}`, value: nf.format(termEnt ?? 0), cor: '#4FA3D1' })
     kpis.push({ label: `Terminal · Saídas · ${cap(mes)}`, value: nf.format(termSai ?? 0), cor: '#4FA3D1' })
+    kpis.push({ label: `Terminal · Total mov. · ${cap(mes)}`, value: nf.format((termEnt ?? 0) + (termSai ?? 0)), sub: 'entradas + saídas', cor: '#4FA3D1' })
   }
 
   const eixosTrend = [...new Set([...entradasMes.keys(), ...saidasMes.keys()])].sort((a, b) => mesIdx(a) - mesIdx(b))
