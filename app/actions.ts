@@ -1083,7 +1083,12 @@ export async function getDesacordosAtivos(): Promise<Checklist[]> {
     .eq('pendencia_resolvida', false)
     .order('created_at', { ascending: false })
     .limit(50)
-  return (data ?? []) as Checklist[]
+  const lista = (data ?? []) as Checklist[]
+  if (!lista.length) return lista
+  // checklists com pendência que já têm um evento de problema vinculado seguem só pelo banner novo (tratativa) — evita banner duplicado
+  const { data: probs } = await supabase.from('operacao_eventos').select('checklist_id').eq('tipo', 'problema').in('checklist_id', lista.map(c => c.id))
+  const comProblema = new Set((probs ?? []).map(p => p.checklist_id))
+  return lista.filter(c => !comProblema.has(c.id))
 }
 
 export async function resolverPendencia(checklistId: string) {
