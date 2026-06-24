@@ -17,6 +17,7 @@ export type BiData = {
   faturamento: KpiT[]
   faturamentoMensal: Grupo | null
   faturamentoAnual: Grupo | null
+  metaMes: number | null
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -70,8 +71,13 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [], faturamentoMensal: null, faturamentoAnual: null }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [], faturamentoMensal: null, faturamentoAnual: null, metaMes: null }
   }
+
+  const ymdMeta = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
+  const [anoMeta, mesMeta] = ymdMeta.split('-').map(Number)
+  const { data: metaRow } = await supabase.from('bi_metas').select('valor').eq('ano', anoMeta).eq('mes', mesMeta).maybeSingle()
+  const metaMes = metaRow?.valor != null ? Number(metaRow.valor) : null
 
   const ano = Math.max(...linhas.map(l => l.ano))
   const estimativas = linhas.filter(l => /^ESTIMATIVA/.test(l.code) && l.ano === ano)
@@ -171,6 +177,9 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const fatAFaturar = fv('FATURAMENTO_TERMINAL_AFATURAR')
   const fatMesTotal = somaBrl(fatMesTerminal, fatMesDepot)
   const projecao = somaBrl(fatMesTotal, fatAFaturar)
+  // "falta para a meta" usa o faturamento REAL do mês (fatMesTotal), não a projeção
+  const faltaMeta = metaMes != null ? Math.max(0, metaMes - (fatMesTotal ?? 0)) : null
+  const metaAtingida = metaMes != null && (fatMesTotal ?? 0) >= metaMes
 
   const faturamento: KpiT[] = faturamentoRows.length
     ? [
@@ -181,7 +190,16 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
         { label: `Mês · Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true },
         { label: `Mês · Total`, value: fmtBrl(fatMesTotal), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
         { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true },
-        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#1B4F8A', destaque: true, compact: true },
+        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#dc2626', destaque: true, compact: true },
+        { label: 'Meta do mês', value: fmtBrl(metaMes), cor: '#5f7da0', compact: true },
+        {
+          label: 'Falta para a meta',
+          value: metaMes == null ? '—' : metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faltaMeta),
+          sub: 'sobre o faturamento real (mês total)',
+          cor: metaMes == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#dc2626',
+          destaque: metaMes != null,
+          compact: true,
+        },
       ]
     : []
 
@@ -216,5 +234,5 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual, metaMes }
 }

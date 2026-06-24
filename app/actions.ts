@@ -316,6 +316,33 @@ export async function revokeUser(userId: string) {
   return { error: null }
 }
 
+// ---- Meta de faturamento do mês (BI) ----
+export type MetaFaturamento = { ano: number; mes: number; valor: number | null }
+
+export async function getMetaMesAtual(): Promise<MetaFaturamento> {
+  const supabase = await createClient()
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
+  const [ano, mes] = ymd.split('-').map(Number)
+  const { data } = await supabase.from('bi_metas').select('valor').eq('ano', ano).eq('mes', mes).maybeSingle()
+  return { ano, mes, valor: data?.valor != null ? Number(data.valor) : null }
+}
+
+export async function setMetaMesAtual(valor: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: prof } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  const role = prof?.role as string | undefined
+  if (role !== 'admin' && role !== 'editor') return { error: 'Apenas admin/editor podem definir a meta.' }
+  if (!Number.isFinite(valor) || valor <= 0) return { error: 'Informe um valor de meta válido.' }
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
+  const [ano, mes] = ymd.split('-').map(Number)
+  const { error } = await supabase.from('bi_metas').upsert({ ano, mes, valor }, { onConflict: 'ano,mes' })
+  if (error) return { error: error.message }
+  revalidatePath('/bi')
+  return { error: null }
+}
+
 // ---- Checklist de empilhadeira ----
 // papel do usuário atual (admin/editor veem tudo; demais só o próprio)
 async function usuarioEPapel() {

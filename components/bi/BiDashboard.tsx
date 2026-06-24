@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
 import type { Categoria, KpiT, Conferencia, Grupo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
+import { setMetaMesAtual } from '@/app/actions'
 
 const nf = new Intl.NumberFormat('pt-BR')
 const cardStyle: React.CSSProperties = { background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }
@@ -38,6 +40,48 @@ function Card({ titulo, sub, children }: { titulo: string; sub?: string; childre
   )
 }
 
+function MetaEditor({ metaMes, podeGerenciar }: { metaMes: number | null; podeGerenciar: boolean }) {
+  const [editando, setEditando] = useState(false)
+  const [valor, setValor] = useState(metaMes != null ? String(metaMes) : '')
+  const [erro, setErro] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  if (!podeGerenciar) return null
+
+  function salvar() {
+    setErro(null)
+    const v = Number(valor.replace(',', '.'))
+    if (!Number.isFinite(v) || v <= 0) { setErro('Informe um valor válido.'); return }
+    startTransition(async () => {
+      const res = await setMetaMesAtual(v)
+      if (res.error) { setErro(res.error); return }
+      setEditando(false)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      {editando ? (
+        <>
+          <input value={valor} onChange={e => setValor(e.target.value)} placeholder="Valor da meta (R$)" autoFocus
+            style={{ background: '#0f2138', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13, width: 160 }} />
+          <button onClick={salvar} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer' }}>
+            Salvar
+          </button>
+          <button onClick={() => setEditando(false)} style={{ fontSize: 12, color: '#5f7da0', background: 'none', border: 'none', cursor: 'pointer' }}>cancelar</button>
+        </>
+      ) : (
+        <button onClick={() => { setEditando(true); setErro(null) }} style={{ fontSize: 12, fontWeight: 600, color: '#8ca5c8', background: 'rgba(255,255,255,0.04)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+          {metaMes != null ? 'Editar meta do mês' : '+ Definir meta do mês'}
+        </button>
+      )}
+      {erro && <span style={{ fontSize: 12, color: '#f87171' }}>{erro}</span>}
+    </div>
+  )
+}
+
 function ConfCard({ c }: { c: Conferencia }) {
   const th: React.CSSProperties = { padding: '6px 8px', textAlign: 'right', color: '#8ca5c8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }
   const td: React.CSSProperties = { padding: '6px 8px', textAlign: 'right', color: '#cfe0f2', fontVariantNumeric: 'tabular-nums' }
@@ -65,8 +109,9 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual, abasPermitidas }: {
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual, abasPermitidas, metaMes, podeGerenciar }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
+  metaMes: number | null; podeGerenciar: boolean
 }) {
   const todasTabs = [
     { key: 'visao-geral', label: 'Visão Geral' },
@@ -135,6 +180,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
         </Card>
       ) : current === 'faturamento' ? (
         <div style={{ display: 'grid', gap: 14 }}>
+          <MetaEditor metaMes={metaMes} podeGerenciar={podeGerenciar} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
             {faturamento.map(k => <Kpi key={k.label} k={k} />)}
           </div>

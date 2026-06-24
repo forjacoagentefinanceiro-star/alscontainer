@@ -22,5 +22,6 @@ export default async function BiPage() {
     )
   }
 
-  return <BiDashboard ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias} conferencia={d.conferencia} faturamento={d.faturamento} faturamentoMensal={d.faturamentoMensal} faturamentoAnual={d.faturamentoAnual} abasPermitidas={abasPermitidas} />
+  const podeGerenciar = profile?.role === 'admin' || profile?.role === 'editor'
+  return <BiDashboard ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias} conferencia={d.conferencia} faturamento={d.faturamento} faturamentoMensal={d.faturamentoMensal} faturamentoAnual={d.faturamentoAnual} abasPermitidas={abasPermitidas} metaMes={d.metaMes} podeGerenciar={podeGerenciar} />
 }
