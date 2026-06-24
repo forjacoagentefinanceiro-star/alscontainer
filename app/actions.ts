@@ -341,11 +341,14 @@ export async function addChecklist(payload: {
   horimetro: number | null
   itens: ChecklistItem[]
   observacoes: string
+  parado?: boolean | null
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const tem_pendencia = payload.itens.some(i => i.status === 'nok')
+  const itensNok = payload.itens.filter(i => i.status === 'nok')
+  const tem_pendencia = itensNok.length > 0
+  if (tem_pendencia && payload.parado == null) return { error: 'Indique se o equipamento vai ficar parado ou operando aguardando manutenção.' }
   // turno derivado do horário de Brasília (não é mais escolhido no formulário)
   const horaBR = Number(new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date()))
   const turno = payload.turno?.trim() || (horaBR < 12 ? 'Manhã' : horaBR < 18 ? 'Tarde' : 'Noite')
@@ -357,10 +360,29 @@ export async function addChecklist(payload: {
     if (atual != null && payload.horimetro < atual)
       return { error: `Horímetro ${payload.horimetro} é menor que o último lançado (${atual}) para ${payload.equipamento}.` }
   }
-  const { error } = await supabase.from('checklists').insert({ ...payload, turno, user_id: user.id, tem_pendencia })
+  const { parado, ...checklistPayload } = payload
+  const { data: novo, error } = await supabase.from('checklists').insert({ ...checklistPayload, turno, user_id: user.id, tem_pendencia }).select('id').single()
   if (error) return { error: error.message }
   if (payload.horimetro != null) await recalcHorimetro(supabase, payload.equipamento)
+
+  // item(ns) em desacordo: tratado igual ao "Reportar problema" (mesma tratativa: acionar prestador → chegada → liberar)
+  if (tem_pendencia && novo?.id) {
+    const descricao = `Item(ns) em desacordo no checklist: ${itensNok.map(i => i.obs ? `${i.item} (${i.obs})` : i.item).join('; ')}`
+    const fotos = itensNok.map(i => i.foto).filter((f): f is string => !!f)
+    await supabase.from('operacao_eventos').insert({
+      checklist_id: novo.id, tipo: 'problema', descricao, parado: payload.parado, fotos, horimetro: payload.horimetro, origem: 'app', user_id: user.id,
+    })
+    if (payload.parado) {
+      const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+      await notificarTelegram(
+        `⛔ MÁQUINA PARADA — item em desacordo no checklist\n\nEquipamento: ${payload.equipamento}\nOperador: ${payload.operador}\nHorário: ${hora}\nHorímetro: ${payload.horimetro ?? '—'}\n${descricao}\n\nAbra o app para acionar o prestador.`
+      )
+    }
+  }
+
   revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
   return { error: null }
 }
 

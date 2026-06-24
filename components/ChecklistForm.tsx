@@ -43,6 +43,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
   const [observacoes, setObservacoes] = useState('')
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; txt: string } | null>(null)
+  const [confirmarParada, setConfirmarParada] = useState(false)
   const [isPending, startTransition] = useTransition()
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
@@ -67,16 +68,27 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
     setUploading(p => ({ ...p, [item]: false }))
   }
 
-  function salvar() {
+  function validar(): boolean {
     if (!operador.trim() || !equipamento.trim()) {
       setMsg({ tipo: 'erro', txt: 'Preencha o operador e o equipamento.' })
-      return
+      return false
     }
     const semFoto = ITENS.filter(i => status[i] === 'nok' && !fotos[i])
     if (semFoto.length) {
       setMsg({ tipo: 'erro', txt: `Anexe a foto do(s) item(ns) em desacordo: ${semFoto.join(', ')}` })
-      return
+      return false
     }
+    return true
+  }
+
+  function salvar() {
+    if (!validar()) return
+    if (pendencias > 0) { setMsg(null); setConfirmarParada(true); return }
+    enviar(null)
+  }
+
+  function enviar(parado: boolean | null) {
+    setConfirmarParada(false)
     const itens: ChecklistItem[] = ITENS.map(item => ({ item, status: status[item], obs: obs[item]?.trim() || undefined, foto: fotos[item] || undefined }))
     startTransition(async () => {
       const res = await addChecklist({
@@ -85,6 +97,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         horimetro,
         itens,
         observacoes: observacoes.trim(),
+        parado,
       })
       if (res.error) setMsg({ tipo: 'erro', txt: 'Erro ao salvar: ' + res.error })
       else {
@@ -104,6 +117,31 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const inputStyle = { borderColor: '#d1d5db', color: '#1a2a3a' } as const
 
   return (
+    <>
+    {confirmarParada && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center" style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+          <div className="text-4xl mb-2">⚠️</div>
+          <h3 className="text-lg font-bold" style={{ color: '#b91c1c' }}>Item(ns) em desacordo</h3>
+          <p className="text-sm mt-2" style={{ color: '#6b7280' }}>
+            O equipamento vai ficar <strong>parado</strong> aguardando manutenção, ou vai <strong>operar</strong> aguardando manutenção?
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <button onClick={() => enviar(true)} disabled={isPending}
+              className="w-full py-3 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#b91c1c' }}>
+              Vai ficar parado
+            </button>
+            <button onClick={() => enviar(false)} disabled={isPending}
+              className="w-full py-3 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: '#92400e' }}>
+              Vai operar aguardando manutenção
+            </button>
+            <button onClick={() => setConfirmarParada(false)} className="w-full py-2 rounded-lg text-sm font-semibold" style={{ color: '#6b7280' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="bg-white rounded-xl max-w-3xl" style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       {/* Cabeçalho */}
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -200,5 +238,6 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
         </div>
       </div>
     </div>
+    </>
   )
 }
