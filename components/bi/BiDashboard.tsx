@@ -6,11 +6,18 @@ import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
 import type { Categoria, KpiT, Conferencia, Grupo, FaturamentoResumo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
-import { setMetaMesAtual } from '@/app/actions'
+import { setMetaMes } from '@/app/actions'
 
 const nf = new Intl.NumberFormat('pt-BR')
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtBrl = (v: number | null) => (v == null ? '—' : brl.format(v))
+
+const MESES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+function mesNumero(eixo: string): number {
+  const idx = MESES_PT.findIndex(m => normalizar(m) === normalizar(eixo))
+  return idx >= 0 ? idx + 1 : new Date().getMonth() + 1
+}
 const cardStyle: React.CSSProperties = { background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }
 
 function Kpi({ k }: { k: KpiT }) {
@@ -68,7 +75,7 @@ function StatRow({ label, value, cor }: { label: string; value: string; cor?: st
   )
 }
 
-function MetaEditor({ metaMes, podeGerenciar }: { metaMes: number | null; podeGerenciar: boolean }) {
+function MetaEditor({ ano, mes, metaMes, podeGerenciar }: { ano: number; mes: number; metaMes: number | null; podeGerenciar: boolean }) {
   const [editando, setEditando] = useState(false)
   const [valor, setValor] = useState(metaMes != null ? String(metaMes) : '')
   const [erro, setErro] = useState<string | null>(null)
@@ -82,7 +89,7 @@ function MetaEditor({ metaMes, podeGerenciar }: { metaMes: number | null; podeGe
     const v = Number(valor.replace(',', '.'))
     if (!Number.isFinite(v) || v <= 0) { setErro('Informe um valor válido.'); return }
     startTransition(async () => {
-      const res = await setMetaMesAtual(v)
+      const res = await setMetaMes(ano, mes, v)
       if (res.error) { setErro(res.error); return }
       setEditando(false)
       router.refresh()
@@ -137,10 +144,25 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar }: {
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar, metasPorMes }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamentoResumo: FaturamentoResumo | null; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
-  podeGerenciar: boolean
+  podeGerenciar: boolean; metasPorMes: Record<string, number>
 }) {
+  // navegação por mês na aba Faturamento (dentro do ano corrente, que é o que o robô extrai)
+  const mesesDisponiveis = faturamentoMensal?.data.map(p => p.eixo) ?? (faturamentoResumo ? [faturamentoResumo.mesLabel] : [])
+  const idxMesAtual = faturamentoResumo ? mesesDisponiveis.indexOf(faturamentoResumo.mesLabel) : -1
+  const [mesIdx, setMesIdx] = useState(idxMesAtual >= 0 ? idxMesAtual : mesesDisponiveis.length - 1)
+  const eixoSelecionado = mesesDisponiveis[mesIdx] ?? faturamentoResumo?.mesLabel ?? ''
+  const isMesAtual = eixoSelecionado === faturamentoResumo?.mesLabel
+  const pontoSelecionado = faturamentoMensal?.data.find(p => p.eixo === eixoSelecionado)
+  const mesRealSelecionado = isMesAtual
+    ? faturamentoResumo?.mesReal ?? null
+    : pontoSelecionado ? (faturamentoMensal?.series ?? []).reduce((acc, s) => acc + (Number(pontoSelecionado[s]) || 0), 0) : null
+  const metaSelecionada = metasPorMes[eixoSelecionado] ?? null
+  const pctSelecionado = metaSelecionada != null && metaSelecionada > 0 ? Math.round(((mesRealSelecionado ?? 0) / metaSelecionada) * 1000) / 10 : null
+  const faltaSelecionada = metaSelecionada != null ? Math.max(0, metaSelecionada - (mesRealSelecionado ?? 0)) : null
+  const atingidaSelecionada = metaSelecionada != null && (mesRealSelecionado ?? 0) >= metaSelecionada
+  const numeroMesSelecionado = mesNumero(eixoSelecionado)
   const todasTabs = [
     { key: 'visao-geral', label: 'Visão Geral' },
     ...categorias.map(c => ({ key: c.key, label: c.label })),
@@ -208,43 +230,63 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
         </Card>
       ) : current === 'faturamento' && faturamentoResumo ? (
         <div style={{ display: 'grid', gap: 20 }}>
-          {/* Hero — as 4 métricas que importam para decisão, igual o resto do BI nunca tem mais que isso por tela */}
+          {/* Navegação entre meses */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => setMesIdx(i => Math.max(0, i - 1))} disabled={mesIdx <= 0}
+              style={{ fontSize: 16, color: '#cfe0f2', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px', cursor: mesIdx <= 0 ? 'default' : 'pointer', opacity: mesIdx <= 0 ? 0.4 : 1 }}>
+              ←
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#e6eef7', minWidth: 90, textAlign: 'center' }}>{eixoSelecionado} · {ano}</span>
+            <button onClick={() => setMesIdx(i => Math.min(mesesDisponiveis.length - 1, i + 1))} disabled={mesIdx >= mesesDisponiveis.length - 1}
+              style={{ fontSize: 16, color: '#cfe0f2', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px', cursor: mesIdx >= mesesDisponiveis.length - 1 ? 'default' : 'pointer', opacity: mesIdx >= mesesDisponiveis.length - 1 ? 0.4 : 1 }}>
+              →
+            </button>
+            {!isMesAtual && (
+              <button onClick={() => setMesIdx(idxMesAtual >= 0 ? idxMesAtual : mesesDisponiveis.length - 1)} style={{ fontSize: 12, color: '#7DC242', background: 'none', border: 'none', cursor: 'pointer' }}>
+                voltar para o mês atual
+              </button>
+            )}
+          </div>
+
+          {/* Hero — as métricas que importam para decisão, sempre poucas por tela */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <HeroCard
-              label={`Faturamento real · ${faturamentoResumo.mesLabel}`}
-              value={fmtBrl(faturamentoResumo.mesReal)}
+              label={`Faturamento real · ${eixoSelecionado}`}
+              value={fmtBrl(mesRealSelecionado)}
               sub="terminal + depot"
               cor="#4FA3D1"
             />
             <div style={{ display: 'grid', gap: 6 }}>
               <HeroCard
                 label="Meta do mês"
-                value={fmtBrl(faturamentoResumo.metaMes)}
-                sub={faturamentoResumo.pctMeta != null ? `${faturamentoResumo.pctMeta}% atingido` : 'meta não definida'}
+                value={fmtBrl(metaSelecionada)}
+                sub={pctSelecionado != null ? `${pctSelecionado}% atingido` : 'meta não definida'}
                 cor="#7DC242"
-                progresso={faturamentoResumo.pctMeta}
+                progresso={pctSelecionado}
               />
-              <MetaEditor metaMes={faturamentoResumo.metaMes} podeGerenciar={podeGerenciar} />
+              <MetaEditor key={`${ano}-${numeroMesSelecionado}`} ano={ano} mes={numeroMesSelecionado} metaMes={metaSelecionada} podeGerenciar={podeGerenciar} />
             </div>
-            <HeroCard
-              label="Projeção"
-              value={fmtBrl(faturamentoResumo.projecao)}
-              sub="real + terminal a faturar"
-              cor="#dc2626"
-            />
+            {isMesAtual && (
+              <HeroCard
+                label="Projeção"
+                value={fmtBrl(faturamentoResumo.projecao)}
+                sub="real + terminal a faturar"
+                cor="#dc2626"
+              />
+            )}
             <HeroCard
               label="Falta para a meta"
-              value={faturamentoResumo.metaMes == null ? '—' : faturamentoResumo.metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faturamentoResumo.faltaMeta)}
+              value={metaSelecionada == null ? '—' : atingidaSelecionada ? 'Meta atingida 🎉' : fmtBrl(faltaSelecionada)}
               sub={
-                faturamentoResumo.metaMes == null || faturamentoResumo.metaAtingida
+                metaSelecionada == null || atingidaSelecionada
                   ? 'sobre o faturamento real'
-                  : `${faturamentoResumo.pctMeta ?? 0}% atingido · ${Math.round((100 - (faturamentoResumo.pctMeta ?? 0)) * 10) / 10}% restante`
+                  : `${pctSelecionado ?? 0}% atingido · ${Math.round((100 - (pctSelecionado ?? 0)) * 10) / 10}% restante`
               }
-              cor={faturamentoResumo.metaMes == null ? '#5f7da0' : faturamentoResumo.metaAtingida ? '#7DC242' : '#dc2626'}
+              cor={metaSelecionada == null ? '#5f7da0' : atingidaSelecionada ? '#7DC242' : '#dc2626'}
             />
           </div>
 
-          {/* Detalhamento — secundário, sem o mesmo peso visual do hero */}
+          {/* Detalhamento — secundário, sem o mesmo peso visual do hero (sempre do ano/mês atual, dados anuais não navegam) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             <div style={cardStyle}>
               <h3 style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>Detalhamento anual</h3>
@@ -252,12 +294,14 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
               <StatRow label="Depot" value={fmtBrl(faturamentoResumo.anualDepot)} />
               <StatRow label="Total" value={fmtBrl(faturamentoResumo.anualTotal)} cor="#4FA3D1" />
             </div>
-            <div style={cardStyle}>
-              <h3 style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>Detalhamento do mês</h3>
-              <StatRow label="Terminal" value={fmtBrl(faturamentoResumo.mesTerminal)} />
-              <StatRow label="Depot" value={fmtBrl(faturamentoResumo.mesDepot)} />
-              <StatRow label="Terminal a faturar" value={fmtBrl(faturamentoResumo.terminalAFaturar)} cor="#F2C200" />
-            </div>
+            {isMesAtual && (
+              <div style={cardStyle}>
+                <h3 style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>Detalhamento do mês atual</h3>
+                <StatRow label="Terminal" value={fmtBrl(faturamentoResumo.mesTerminal)} />
+                <StatRow label="Depot" value={fmtBrl(faturamentoResumo.mesDepot)} />
+                <StatRow label="Terminal a faturar" value={fmtBrl(faturamentoResumo.terminalAFaturar)} cor="#F2C200" />
+              </div>
+            )}
           </div>
 
           {(faturamentoMensal || faturamentoAnual) && (

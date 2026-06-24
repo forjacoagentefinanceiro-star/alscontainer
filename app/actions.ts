@@ -317,17 +317,8 @@ export async function revokeUser(userId: string) {
 }
 
 // ---- Meta de faturamento do mês (BI) ----
-export type MetaFaturamento = { ano: number; mes: number; valor: number | null }
-
-export async function getMetaMesAtual(): Promise<MetaFaturamento> {
-  const supabase = await createClient()
-  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
-  const [ano, mes] = ymd.split('-').map(Number)
-  const { data } = await supabase.from('bi_metas').select('valor').eq('ano', ano).eq('mes', mes).maybeSingle()
-  return { ano, mes, valor: data?.valor != null ? Number(data.valor) : null }
-}
-
-export async function setMetaMesAtual(valor: number) {
+// define a meta de um mês específico (qualquer mês, não só o atual — útil para navegar e ajustar meses anteriores)
+export async function setMetaMes(ano: number, mes: number, valor: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -335,8 +326,7 @@ export async function setMetaMesAtual(valor: number) {
   const role = prof?.role as string | undefined
   if (role !== 'admin' && role !== 'editor') return { error: 'Apenas admin/editor podem definir a meta.' }
   if (!Number.isFinite(valor) || valor <= 0) return { error: 'Informe um valor de meta válido.' }
-  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
-  const [ano, mes] = ymd.split('-').map(Number)
+  if (!Number.isInteger(ano) || !Number.isInteger(mes) || mes < 1 || mes > 12) return { error: 'Mês/ano inválido.' }
   const { error } = await supabase.from('bi_metas').upsert({ ano, mes, valor }, { onConflict: 'ano,mes' })
   if (error) return { error: error.message }
   revalidatePath('/bi')

@@ -32,6 +32,7 @@ export type BiData = {
   faturamentoResumo: FaturamentoResumo | null
   faturamentoMensal: Grupo | null
   faturamentoAnual: Grupo | null
+  metasPorMes: Record<string, number>
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -84,7 +85,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {} }
   }
 
   const ymdMeta = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
@@ -223,6 +224,20 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     faturamentoMensal = { code: 'FATURAMENTO_MENSAL', titulo: 'Faturamento por mês (Terminal + Depot)', data, series, medida: 'R$ · por mês' }
   }
 
+  // metas de cada mês do ano (para navegar entre meses na aba Faturamento) — chave = mesmo eixo usado no gráfico mensal
+  const metasPorMes: Record<string, number> = {}
+  if (faturamentoMensal) {
+    const { data: metasRows } = await supabase.from('bi_metas').select('mes, valor').eq('ano', ano)
+    const porMesNum = new Map((metasRows ?? []).map(r => [r.mes as number, Number(r.valor)]))
+    for (const eixo of faturamentoMensal.data.map(p => p.eixo)) {
+      const idx = mesIdx(eixo)
+      if (idx < 12) {
+        const v = porMesNum.get(idx + 1)
+        if (v != null) metasPorMes[eixo] = v
+      }
+    }
+  }
+
   // Faturamento por ano (evolução 2023 → ano corrente)
   const fatAnoRows = faturamentoRows.filter(l => l.code === 'FATURAMENTO_ANO')
   let faturamentoAnual: Grupo | null = null
@@ -240,5 +255,5 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, metasPorMes }
 }
