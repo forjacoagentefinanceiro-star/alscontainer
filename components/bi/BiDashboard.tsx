@@ -149,11 +149,15 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
   podeGerenciar: boolean; metasPorMes: Record<string, number>
 }) {
   // navegação por mês na aba Faturamento (dentro do ano corrente, que é o que o robô extrai)
-  const mesesDisponiveis = faturamentoMensal?.data.map(p => p.eixo) ?? (faturamentoResumo ? [faturamentoResumo.mesLabel] : [])
-  const idxMesAtual = faturamentoResumo ? mesesDisponiveis.indexOf(faturamentoResumo.mesLabel) : -1
-  const [mesIdx, setMesIdx] = useState(idxMesAtual >= 0 ? idxMesAtual : mesesDisponiveis.length - 1)
+  // comparação por mês normalizado: os dados de faturamento (escala) e de movimentação (websag) podem vir com capitalização/acentos diferentes
+  const todosMeses = faturamentoMensal?.data.map(p => p.eixo) ?? (faturamentoResumo ? [faturamentoResumo.mesLabel] : [])
+  const idxMesAtualBruto = faturamentoResumo ? todosMeses.findIndex(m => normalizar(m) === normalizar(faturamentoResumo!.mesLabel)) : -1
+  // não deixa navegar para meses futuros (ainda sem dado, sempre R$ 0,00)
+  const mesesDisponiveis = idxMesAtualBruto >= 0 ? todosMeses.slice(0, idxMesAtualBruto + 1) : todosMeses
+  const idxMesAtual = idxMesAtualBruto >= 0 ? idxMesAtualBruto : mesesDisponiveis.length - 1
+  const [mesIdx, setMesIdx] = useState(idxMesAtual)
   const eixoSelecionado = mesesDisponiveis[mesIdx] ?? faturamentoResumo?.mesLabel ?? ''
-  const isMesAtual = eixoSelecionado === faturamentoResumo?.mesLabel
+  const isMesAtual = normalizar(eixoSelecionado) === normalizar(faturamentoResumo?.mesLabel ?? '')
   const pontoSelecionado = faturamentoMensal?.data.find(p => p.eixo === eixoSelecionado)
   const mesRealSelecionado = isMesAtual
     ? faturamentoResumo?.mesReal ?? null
