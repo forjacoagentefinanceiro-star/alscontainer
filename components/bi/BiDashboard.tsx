@@ -4,11 +4,13 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
-import type { Categoria, KpiT, Conferencia, Grupo } from '@/lib/bi/load'
+import type { Categoria, KpiT, Conferencia, Grupo, FaturamentoResumo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
 import { setMetaMesAtual } from '@/app/actions'
 
 const nf = new Intl.NumberFormat('pt-BR')
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtBrl = (v: number | null) => (v == null ? '—' : brl.format(v))
 const cardStyle: React.CSSProperties = { background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }
 
 function Kpi({ k }: { k: KpiT }) {
@@ -40,16 +42,30 @@ function Card({ titulo, sub, children }: { titulo: string; sub?: string; childre
   )
 }
 
-// agrupa KPIs pelo campo `grupo` (preserva a ordem de primeira aparição)
-function agruparKpis(itens: KpiT[]): [string, KpiT[]][] {
-  const ordem: string[] = []
-  const map = new Map<string, KpiT[]>()
-  for (const k of itens) {
-    const g = k.grupo ?? ''
-    if (!map.has(g)) { map.set(g, []); ordem.push(g) }
-    map.get(g)!.push(k)
-  }
-  return ordem.map(g => [g, map.get(g)!])
+// card "hero" — métrica principal, em destaque (até 4 por tela, conforme boas práticas de dashboard)
+function HeroCard({ label, value, sub, cor, progresso }: { label: string; value: string; sub?: string; cor: string; progresso?: number | null }) {
+  return (
+    <div style={{ background: '#0f2138', border: `1px solid ${cor}66`, borderRadius: 16, padding: 18, minWidth: 0 }}>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 'clamp(20px, 3.5vw, 28px)', fontWeight: 700, color: cor, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: '#5f7da0', marginTop: 4 }}>{sub}</div>}
+      {progresso != null && (
+        <div style={{ marginTop: 10, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progresso))}%`, background: cor, borderRadius: 999 }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// linha compacta de detalhe — informação secundária, sem o peso visual de um card
+function StatRow({ label, value, cor }: { label: string; value: string; cor?: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <span style={{ fontSize: 13, color: '#8ca5c8' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: cor ?? '#cfe0f2', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+    </div>
+  )
 }
 
 function MetaEditor({ metaMes, podeGerenciar }: { metaMes: number | null; podeGerenciar: boolean }) {
@@ -121,14 +137,14 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual, abasPermitidas, metaMes, podeGerenciar }: {
-  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamento: KpiT[]; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
-  metaMes: number | null; podeGerenciar: boolean
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar }: {
+  ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamentoResumo: FaturamentoResumo | null; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
+  podeGerenciar: boolean
 }) {
   const todasTabs = [
     { key: 'visao-geral', label: 'Visão Geral' },
     ...categorias.map(c => ({ key: c.key, label: c.label })),
-    ...(faturamento.length ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
+    ...(faturamentoResumo ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     { key: 'conferencia', label: 'Conferência' },
   ]
   // null = vê todas; senão filtra pelas abas liberadas ao usuário
@@ -190,17 +206,56 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
           {trend.length ? <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
             : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
         </Card>
-      ) : current === 'faturamento' ? (
-        <div style={{ display: 'grid', gap: 18 }}>
-          <MetaEditor metaMes={metaMes} podeGerenciar={podeGerenciar} />
-          {agruparKpis(faturamento).map(([grupo, itens]) => (
-            <div key={grupo}>
-              <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>{grupo}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 200px))', gap: 12 }}>
-                {itens.map(k => <Kpi key={k.label} k={k} />)}
-              </div>
+      ) : current === 'faturamento' && faturamentoResumo ? (
+        <div style={{ display: 'grid', gap: 20 }}>
+          {/* Hero — as 4 métricas que importam para decisão, igual o resto do BI nunca tem mais que isso por tela */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+            <HeroCard
+              label={`Faturamento real · ${faturamentoResumo.mesLabel}`}
+              value={fmtBrl(faturamentoResumo.mesReal)}
+              sub="terminal + depot"
+              cor="#4FA3D1"
+            />
+            <div style={{ display: 'grid', gap: 6 }}>
+              <HeroCard
+                label="Meta do mês"
+                value={fmtBrl(faturamentoResumo.metaMes)}
+                sub={faturamentoResumo.pctMeta != null ? `${faturamentoResumo.pctMeta}% atingido` : 'meta não definida'}
+                cor="#7DC242"
+                progresso={faturamentoResumo.pctMeta}
+              />
+              <MetaEditor metaMes={faturamentoResumo.metaMes} podeGerenciar={podeGerenciar} />
             </div>
-          ))}
+            <HeroCard
+              label="Projeção"
+              value={fmtBrl(faturamentoResumo.projecao)}
+              sub="real + terminal a faturar"
+              cor="#dc2626"
+            />
+            <HeroCard
+              label="Falta para a meta"
+              value={faturamentoResumo.metaMes == null ? '—' : faturamentoResumo.metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faturamentoResumo.faltaMeta)}
+              sub="sobre o faturamento real"
+              cor={faturamentoResumo.metaMes == null ? '#5f7da0' : faturamentoResumo.metaAtingida ? '#7DC242' : '#dc2626'}
+            />
+          </div>
+
+          {/* Detalhamento — secundário, sem o mesmo peso visual do hero */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            <div style={cardStyle}>
+              <h3 style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>Detalhamento anual</h3>
+              <StatRow label="Terminal" value={fmtBrl(faturamentoResumo.anualTerminal)} />
+              <StatRow label="Depot" value={fmtBrl(faturamentoResumo.anualDepot)} />
+              <StatRow label="Total" value={fmtBrl(faturamentoResumo.anualTotal)} cor="#4FA3D1" />
+            </div>
+            <div style={cardStyle}>
+              <h3 style={{ fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>Detalhamento do mês</h3>
+              <StatRow label="Terminal" value={fmtBrl(faturamentoResumo.mesTerminal)} />
+              <StatRow label="Depot" value={fmtBrl(faturamentoResumo.mesDepot)} />
+              <StatRow label="Terminal a faturar" value={fmtBrl(faturamentoResumo.terminalAFaturar)} cor="#F2C200" />
+            </div>
+          </div>
+
           {(faturamentoMensal || faturamentoAnual) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 14 }}>
               {faturamentoMensal && (

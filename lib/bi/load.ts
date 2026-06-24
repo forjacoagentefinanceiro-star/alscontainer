@@ -6,6 +6,21 @@ export type Categoria = { key: string; label: string; grupos: Grupo[] }
 export type KpiT = { label: string; value: string; sub?: string; accent?: boolean; cor?: string; destaque?: boolean; compact?: boolean; grupo?: string }
 export type ConfItem = { eixo: string; total: number; soma: number; dif: number }
 export type Conferencia = { metrica: string; itens: ConfItem[]; ok: boolean }
+export type FaturamentoResumo = {
+  mesLabel: string
+  mesReal: number | null
+  mesTerminal: number | null
+  mesDepot: number | null
+  terminalAFaturar: number | null
+  projecao: number | null
+  metaMes: number | null
+  pctMeta: number | null
+  faltaMeta: number | null
+  metaAtingida: boolean
+  anualTerminal: number | null
+  anualDepot: number | null
+  anualTotal: number | null
+}
 export type BiData = {
   empty: boolean
   ano: number
@@ -14,14 +29,12 @@ export type BiData = {
   trend: Ponto[]
   categorias: Categoria[]
   conferencia: Conferencia[]
-  faturamento: KpiT[]
+  faturamentoResumo: FaturamentoResumo | null
   faturamentoMensal: Grupo | null
   faturamentoAnual: Grupo | null
-  metaMes: number | null
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
-const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const MESES = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const mesIdx = (s: string) => { const i = MESES.indexOf(norm(s)); return i < 0 ? 99 : i }
@@ -71,7 +84,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .select('code,titulo,serie,eixo,ano,valor,captured_at')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamento: [], faturamentoMensal: null, faturamentoAnual: null, metaMes: null }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null }
   }
 
   const ymdMeta = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
@@ -165,7 +178,6 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     const r = faturamentoRows.find(x => x.code === code)
     return r && r.valor != null ? Number(r.valor) : null
   }
-  const fmtBrl = (v: number | null) => (v == null ? '—' : brl.format(v))
   const somaBrl = (a: number | null, b: number | null) => (a == null && b == null ? null : (a ?? 0) + (b ?? 0))
   const fatAnualTerminal = fv('FATURAMENTO_ANUAL_TERMINAL')
   const fatAnualDepot = fv('FATURAMENTO_ANUAL_DEPOT')
@@ -179,31 +191,23 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const metaAtingida = metaMes != null && (fatMesTotal ?? 0) >= metaMes
   const pctMeta = metaMes != null && metaMes > 0 ? Math.round(((fatMesTotal ?? 0) / metaMes) * 1000) / 10 : null
 
-  const faturamento: KpiT[] = faturamentoRows.length
-    ? [
-        { label: 'Terminal', value: fmtBrl(fatAnualTerminal), cor: '#7DC242', compact: true, grupo: 'Anual' },
-        { label: 'Depot', value: fmtBrl(fatAnualDepot), cor: '#7DC242', compact: true, grupo: 'Anual' },
-        { label: 'Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true, grupo: 'Anual' },
-
-        { label: `Terminal`, value: fmtBrl(fatMesTerminal), cor: '#7DC242', compact: true, grupo: `Mês · ${cap(mes)}` },
-        { label: `Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true, grupo: `Mês · ${cap(mes)}` },
-        { label: `Total`, value: fmtBrl(fatMesTotal), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true, grupo: `Mês · ${cap(mes)}` },
-        { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true, grupo: `Mês · ${cap(mes)}` },
-        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#dc2626', compact: true, grupo: `Mês · ${cap(mes)}` },
-
-        { label: 'Meta do mês', value: fmtBrl(metaMes), cor: '#5f7da0', compact: true, grupo: 'Meta' },
-        { label: '% atingido', value: pctMeta == null ? '—' : `${pctMeta}%`, sub: 'faturamento real até agora', cor: pctMeta == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#F2C200', compact: true, grupo: 'Meta' },
-        {
-          label: 'Falta para a meta',
-          value: metaMes == null ? '—' : metaAtingida ? 'Meta atingida 🎉' : fmtBrl(faltaMeta),
-          sub: 'sobre o faturamento real (mês total)',
-          cor: metaMes == null ? '#5f7da0' : metaAtingida ? '#7DC242' : '#dc2626',
-          destaque: metaMes != null,
-          compact: true,
-          grupo: 'Meta',
-        },
-      ]
-    : []
+  const faturamentoResumo: FaturamentoResumo | null = faturamentoRows.length
+    ? {
+        mesLabel: cap(mes),
+        mesReal: fatMesTotal,
+        mesTerminal: fatMesTerminal,
+        mesDepot: fatMesDepot,
+        terminalAFaturar: fatAFaturar,
+        projecao,
+        metaMes,
+        pctMeta,
+        faltaMeta,
+        metaAtingida,
+        anualTerminal: fatAnualTerminal,
+        anualDepot: fatAnualDepot,
+        anualTotal: somaBrl(fatAnualTerminal, fatAnualDepot),
+      }
+    : null
 
   // Faturamento mês a mês (Terminal + Depot) — vira um gráfico empilhado
   const fatMensalRows = faturamentoRows.filter(l => l.code === 'FATURAMENTO_MENSAL')
@@ -236,5 +240,5 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamento, faturamentoMensal, faturamentoAnual, metaMes }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual }
 }
