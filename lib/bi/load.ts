@@ -169,6 +169,8 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const fatMesTerminal = fv('FATURAMENTO_MES_TERMINAL')
   const fatMesDepot = fv('FATURAMENTO_MES_DEPOT')
   const fatAFaturar = fv('FATURAMENTO_TERMINAL_AFATURAR')
+  const fatMesTotal = somaBrl(fatMesTerminal, fatMesDepot)
+  const projecao = somaBrl(fatMesTotal, fatAFaturar)
 
   const faturamento: KpiT[] = faturamentoRows.length
     ? [
@@ -177,8 +179,9 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
         { label: 'Anual · Total', value: fmtBrl(somaBrl(fatAnualTerminal, fatAnualDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
         { label: `Mês · Terminal`, value: fmtBrl(fatMesTerminal), cor: '#7DC242', compact: true },
         { label: `Mês · Depot`, value: fmtBrl(fatMesDepot), cor: '#7DC242', compact: true },
-        { label: `Mês · Total`, value: fmtBrl(somaBrl(fatMesTerminal, fatMesDepot)), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
+        { label: `Mês · Total`, value: fmtBrl(fatMesTotal), sub: 'terminal + depot', cor: '#4FA3D1', destaque: true, compact: true },
         { label: 'Terminal a faturar', value: fmtBrl(fatAFaturar), sub: 'serviços pendentes', cor: '#F2C200', compact: true },
+        { label: 'Projeção', value: fmtBrl(projecao), sub: 'mês total + terminal a faturar', cor: '#1B4F8A', destaque: true, compact: true },
       ]
     : []
 
