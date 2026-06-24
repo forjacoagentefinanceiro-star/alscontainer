@@ -125,7 +125,7 @@ export type Checklist = {
 export type OperacaoEvento = {
   id: string
   checklist_id: string
-  tipo: 'parada' | 'retorno' | 'encerramento' | 'problema'
+  tipo: 'parada' | 'retorno' | 'encerramento' | 'problema' | 'abertura'
   motivo: string | null
   horimetro: number | null
   origem: string
@@ -142,6 +142,8 @@ export type OperacaoEvento = {
   chegada_horimetro?: number | null
   liberado_em?: string | null
   liberado_horimetro?: number | null
+  horas_gap?: number | null
+  gap_confirmado?: boolean | null
   created_at: string
 }
 
@@ -355,15 +357,28 @@ export async function addChecklist(payload: {
   // não permite 2 operações abertas para o mesmo equipamento
   const { data: jaAberta } = await supabase.from('checklists').select('id').eq('equipamento', payload.equipamento).eq('status', 'aberta').limit(1)
   if (jaAberta?.length) return { error: `Já existe um checklist aberto para ${payload.equipamento}. Encerre a operação atual antes de abrir outro.` }
+  let gapHoras: number | null = null
+  let gapDe: number | null = null
   if (payload.horimetro != null) {
     const atual = await horimetroDaMaquina(supabase, payload.equipamento)
     if (atual != null && payload.horimetro < atual)
       return { error: `Horímetro ${payload.horimetro} é menor que o último lançado (${atual}) para ${payload.equipamento}.` }
+    // horímetro inicial maior que o último lançado = a máquina rodou entre o fim da operação anterior e esta abertura, sem checklist algum cobrindo o período
+    if (atual != null && payload.horimetro > atual) { gapHoras = Math.round((payload.horimetro - atual) * 10) / 10; gapDe = atual }
   }
   const { parado, ...checklistPayload } = payload
   const { data: novo, error } = await supabase.from('checklists').insert({ ...checklistPayload, turno, user_id: user.id, tem_pendencia }).select('id').single()
   if (error) return { error: error.message }
   if (payload.horimetro != null) await recalcHorimetro(supabase, payload.equipamento)
+
+  // avisa o admin: máquina pode ter rodado sem checklist entre as operações
+  if (gapHoras != null && gapHoras > 0 && novo?.id) {
+    await supabase.from('operacao_eventos').insert({
+      checklist_id: novo.id, tipo: 'abertura', horimetro: payload.horimetro,
+      motivo: `Horímetro inicial (${payload.horimetro}) maior que o final do checklist anterior (${gapDe}) — possível uso sem checklist de ${gapHoras}h.`,
+      uso_sem_checklist: true, horas_gap: gapHoras, origem: 'app', user_id: user.id,
+    })
+  }
 
   // item(ns) em desacordo: tratado igual ao "Reportar problema" (mesma tratativa: acionar prestador → chegada → liberar)
   if (tem_pendencia && novo?.id) {
@@ -424,7 +439,7 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
     supabase.from('checklists').select('id, equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false }),
     supabase.from('checklists').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia),
     supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('tem_pendencia', true).eq('pendencia_resolvida', false),
-    supabase.from('operacao_eventos').select('id, checklist_id, horimetro, created_at, checklists(equipamento, operador)').eq('uso_sem_checklist', true).order('created_at', { ascending: false }).limit(50),
+    supabase.from('operacao_eventos').select('id, checklist_id, horimetro, motivo, horas_gap, created_at, checklists(equipamento, operador)').eq('uso_sem_checklist', true).order('created_at', { ascending: false }).limit(50),
   ])
 
   const equipamentos = (emp.data ?? []).map(e => e.nome as string)
@@ -449,6 +464,8 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
       equipamento: ck?.equipamento ?? '—',
       operador: ck?.operador ?? '—',
       horimetro: (e.horimetro as number | null) ?? null,
+      motivo: (e.motivo as string | null) ?? null,
+      horas_gap: (e.horas_gap as number | null) ?? null,
       created_at: e.created_at as string,
     }
   })
@@ -469,6 +486,7 @@ export type IndicadorMaquina = {
   equipamento: string
   horimetroAtual: number | null
   horasTrabalhadas: number
+  horasSemChecklist: number
   litrosTotal: number
   consumoMedio: number | null
   problemas: number
@@ -485,6 +503,7 @@ export type DashboardEquipamentos = {
   periodoDias: number
   totais: {
     horasTrabalhadas: number
+    horasSemChecklist: number
     litrosTotal: number
     consumoMedio: number | null
     problemas: number
@@ -509,7 +528,7 @@ function consumoPonderado(abastecimentos: { litros: number | null; consumo_lh: n
 
 export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEquipamentos> {
   const { supabase, user } = await usuarioEPapel()
-  const vazio: DashboardEquipamentos = { periodoDias: dias, totais: { horasTrabalhadas: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
+  const vazio: DashboardEquipamentos = { periodoDias: dias, totais: { horasTrabalhadas: 0, horasSemChecklist: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
   if (!user) return vazio
 
   const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
@@ -520,10 +539,10 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   const checklists = cksData ?? []
   const ids = checklists.map(c => c.id)
 
-  let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null; parado: boolean | null; acionado_em: string | null; chegada_em: string | null; liberado_em: string | null; created_at: string }[] = []
+  let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null; parado: boolean | null; acionado_em: string | null; chegada_em: string | null; liberado_em: string | null; horas_gap: number | null; gap_confirmado: boolean | null; created_at: string }[] = []
   if (ids.length) {
     const { data: evs } = await supabase.from('operacao_eventos')
-      .select('checklist_id, tipo, litros, consumo_lh, parado, acionado_em, chegada_em, liberado_em, created_at')
+      .select('checklist_id, tipo, litros, consumo_lh, parado, acionado_em, chegada_em, liberado_em, horas_gap, gap_confirmado, created_at')
       .in('checklist_id', ids)
     eventos = evs ?? []
   }
@@ -537,7 +556,10 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
     const idsM = new Set(cksM.map(c => c.id))
     const evsM = eventos.filter(e => idsM.has(e.checklist_id))
 
-    const horasTrabalhadas = cksM.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+    const horasChecklist = cksM.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+    // horas confirmadas pelo admin como uso real da máquina sem checklist (gap entre operações) — entram no total de horas trabalhadas
+    const horasSemChecklist = evsM.filter(e => e.gap_confirmado === true).reduce((acc, e) => acc + Number(e.horas_gap ?? 0), 0)
+    const horasTrabalhadas = horasChecklist + horasSemChecklist
 
     const abastecimentos = evsM.filter(e => e.litros != null)
     const litrosTotal = abastecimentos.reduce((a, e) => a + Number(e.litros), 0)
@@ -568,6 +590,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
       equipamento: nome,
       horimetroAtual: horimetroAtualMap.get(nome) ?? null,
       horasTrabalhadas: Math.round(horasTrabalhadas * 10) / 10,
+      horasSemChecklist: Math.round(horasSemChecklist * 10) / 10,
       litrosTotal: Math.round(litrosTotal * 10) / 10,
       consumoMedio,
       problemas: probs.length,
@@ -586,6 +609,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
 
   const respostasValidas = maquinas.filter(m => m.tempoRespostaMedioMin != null).map(m => m.tempoRespostaMedioMin as number)
   const horasTrabalhadasTot = Math.round(soma(maquinas.map(m => m.horasTrabalhadas)) * 10) / 10
+  const horasSemChecklistTot = Math.round(soma(maquinas.map(m => m.horasSemChecklist)) * 10) / 10
   const litrosTotalTot = Math.round(soma(maquinas.map(m => m.litrosTotal)) * 10) / 10
   const consumoMedioTot = consumoPonderado(eventos.filter(e => e.litros != null))
 
@@ -593,6 +617,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
     periodoDias: dias,
     totais: {
       horasTrabalhadas: horasTrabalhadasTot,
+      horasSemChecklist: horasSemChecklistTot,
       litrosTotal: litrosTotalTot,
       consumoMedio: consumoMedioTot,
       problemas: soma(maquinas.map(m => m.problemas)),
@@ -1072,13 +1097,16 @@ export async function resolverPendencia(checklistId: string) {
   return { error: null }
 }
 
-export type UsoSemChecklist = { id: string; checklist_id: string; equipamento: string; operador: string; horimetro: number | null; created_at: string }
+export type UsoSemChecklist = {
+  id: string; checklist_id: string; equipamento: string; operador: string
+  horimetro: number | null; motivo: string | null; horas_gap: number | null; created_at: string
+}
 
 export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('operacao_eventos')
-    .select('id, checklist_id, horimetro, created_at, checklists(equipamento, operador)')
+    .select('id, checklist_id, horimetro, motivo, horas_gap, created_at, checklists(equipamento, operador)')
     .eq('uso_sem_checklist', true)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -1090,19 +1118,24 @@ export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
       equipamento: ck?.equipamento ?? '—',
       operador: ck?.operador ?? '—',
       horimetro: (e.horimetro as number | null) ?? null,
+      motivo: (e.motivo as string | null) ?? null,
+      horas_gap: (e.horas_gap as number | null) ?? null,
       created_at: e.created_at as string,
     }
   })
 }
 
-export async function resolverUsoSemChecklist(eventoId: string) {
+// confirmarReal=true → uso real (entra na métrica "horas sem checklist" e soma nas horas trabalhadas); false → descarta (não conta)
+export async function resolverUsoSemChecklist(eventoId: string, confirmarReal: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { data, error } = await supabase.from('operacao_eventos').update({ uso_sem_checklist: false }).eq('id', eventoId).select('id')
+  const { data, error } = await supabase.from('operacao_eventos').update({ uso_sem_checklist: false, gap_confirmado: confirmarReal }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
   if (!data?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/', 'layout')
+  revalidatePath('/equipamentos/indicadores')
+  revalidatePath('/equipamentos/relatorios')
   return { error: null }
 }
 

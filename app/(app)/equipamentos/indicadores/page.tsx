@@ -53,6 +53,9 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
         <Card label="Resposta do prestador" value={fmtMin(t.tempoRespostaMedioMin)} cor="#1d4ed8" sub="média acionamento → chegada" />
         <Card label="Disponibilidade" value={disponibilidadePct != null ? `${disponibilidadePct}%` : '—'} cor="#047857" sub="100% − utilização" />
       </div>
+      <div className="grid grid-cols-2 max-w-6xl mb-6">
+        <Card label="Horas sem checklist" value={`${t.horasSemChecklist}h`} cor="#9a3412" sub="gaps de horímetro confirmados pelo admin · já somadas nas horas trabalhadas" />
+      </div>
 
       <div className="bg-white rounded-xl overflow-hidden max-w-full" style={{ border: '1px solid #e5e7eb' }}>
         <div className="px-4 py-3" style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -65,7 +68,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
             <table className="w-full text-xs" style={{ color: '#374151' }}>
               <thead>
                 <tr style={{ background: '#f9fafb' }}>
-                  {['Equipamento', 'Horímetro', 'Horas trab.', 'Consumo', 'Litros', 'Problemas', 'Tempo parado', 'Resposta', 'Utilização', '% pendência'].map(h => (
+                  {['Equipamento', 'Horímetro', 'Horas trab.', 'Sem checklist', 'Consumo', 'Litros', 'Problemas', 'Tempo parado', 'Resposta', 'Utilização', '% pendência'].map(h => (
                     <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -76,6 +79,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
                     <td className="px-3 py-2 font-medium whitespace-nowrap" style={{ color: '#1a2a3a' }}>{m.equipamento}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.horimetroAtual ?? '—'}h</td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.horasTrabalhadas}h</td>
+                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: m.horasSemChecklist > 0 ? '#9a3412' : 'inherit' }}>{m.horasSemChecklist > 0 ? `${m.horasSemChecklist}h` : '—'}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.consumoMedio != null ? `${m.consumoMedio} L/h` : '—'}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.litrosTotal}L</td>
                     <td className="px-3 py-2 whitespace-nowrap" style={{ color: m.problemasParado ? '#b91c1c' : 'inherit' }}>

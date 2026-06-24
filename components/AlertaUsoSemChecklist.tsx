@@ -15,10 +15,10 @@ export function AlertaUsoSemChecklist({ usos }: { usos: UsoSemChecklist[] }) {
 
   if (!list.length) return null
 
-  function resolver(id: string) {
+  function resolver(id: string, confirmarReal: boolean) {
     setErro(null)
     startTransition(async () => {
-      const res = await resolverUsoSemChecklist(id)
+      const res = await resolverUsoSemChecklist(id, confirmarReal)
       if (res.error) setErro(res.error)
       else setList(prev => prev.filter(u => u.id !== id))
     })
@@ -43,17 +43,22 @@ export function AlertaUsoSemChecklist({ usos }: { usos: UsoSemChecklist[] }) {
             <div key={u.id} className="bg-white rounded-lg p-3 flex items-start justify-between gap-3 flex-wrap" style={{ border: '1px solid #fed7aa' }}>
               <div>
                 <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>{u.equipamento} · {u.operador}</p>
-                <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(u.created_at)}{u.horimetro != null ? ` · horímetro do retorno ${u.horimetro}h` : ''}</p>
-                <p className="text-xs mt-1" style={{ color: '#b45309' }}>Máquina utilizada durante a parada, sem checklist.</p>
+                <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(u.created_at)}{u.horimetro != null ? ` · horímetro ${u.horimetro}h` : ''}</p>
+                <p className="text-xs mt-1" style={{ color: '#b45309' }}>{u.motivo ?? 'Máquina utilizada sem checklist.'}</p>
+                {u.horas_gap != null && <p className="text-xs font-semibold mt-0.5" style={{ color: '#9a3412' }}>⏱️ {u.horas_gap}h não registradas em checklist</p>}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 <Link href={`/historico?equipamento=${encodeURIComponent(u.equipamento)}#checklist-${u.checklist_id}`}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff' }}>
                   Abrir checklist →
                 </Link>
-                <button onClick={() => resolver(u.id)} disabled={isPending}
+                <button onClick={() => resolver(u.id, true)} disabled={isPending}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg border disabled:opacity-50" style={{ borderColor: '#a7f3d0', color: '#047857', background: '#ecfdf5' }}>
-                  Marcar visto
+                  Confirmar (contar horas)
+                </button>
+                <button onClick={() => resolver(u.id, false)} disabled={isPending}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border disabled:opacity-50" style={{ borderColor: '#e5e7eb', color: '#6b7280', background: '#fff' }}>
+                  Não é real
                 </button>
               </div>
             </div>
