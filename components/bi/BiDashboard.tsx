@@ -238,7 +238,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
               sub={
                 faturamentoResumo.metaMes == null || faturamentoResumo.metaAtingida
                   ? 'sobre o faturamento real'
-                  : `${Math.round((100 - (faturamentoResumo.pctMeta ?? 0)) * 10) / 10}% restante · sobre o faturamento real`
+                  : `${faturamentoResumo.pctMeta ?? 0}% atingido · ${Math.round((100 - (faturamentoResumo.pctMeta ?? 0)) * 10) / 10}% restante`
               }
               cor={faturamentoResumo.metaMes == null ? '#5f7da0' : faturamentoResumo.metaAtingida ? '#7DC242' : '#dc2626'}
             />
