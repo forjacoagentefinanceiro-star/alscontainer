@@ -25,17 +25,34 @@ function Card({ titulo, sub, children }: { titulo: string; sub?: string; childre
   )
 }
 
+// navegadores só liberam tela cheia em resposta a um clique do usuário, daí o botão "Modo TV"
+function entrarTelaCheia() {
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
+}
+
+function sairTelaCheia() {
+  const doc = document as Document & { webkitExitFullscreen?: () => void }
+  if (document.exitFullscreen) document.exitFullscreen().catch(() => {})
+  else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen()
+}
+
 export function BiTelevisao({ ano, atualizado, kpis, trend, categorias }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]
 }) {
   const [hora, setHora] = useState('')
+  const [telaCheia, setTelaCheia] = useState(false)
 
   useEffect(() => {
     const tick = () => setHora(new Date().toLocaleTimeString('pt-BR'))
     tick()
     const t = setInterval(tick, 1000)
     const reload = setInterval(() => window.location.reload(), 15 * 60 * 1000) // 15 min
-    return () => { clearInterval(t); clearInterval(reload) }
+    const onFsChange = () => setTelaCheia(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFsChange)
+    onFsChange()
+    return () => { clearInterval(t); clearInterval(reload); document.removeEventListener('fullscreenchange', onFsChange) }
   }, [])
 
   // um gráfico de destaque por categoria (até 4)
@@ -51,7 +68,18 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias }: {
           </div>
           <div style={{ color: '#5f7da0', fontSize: 'clamp(12px, 1vw, 15px)' }}>e-Professional (websag) · ano {ano} · atualizado {atualizado}</div>
         </div>
-        <div style={{ fontSize: 'clamp(26px, 3vw, 48px)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#cfe0f2' }}>{hora}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ fontSize: 'clamp(26px, 3vw, 48px)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#cfe0f2' }}>{hora}</div>
+          {!telaCheia ? (
+            <button onClick={entrarTelaCheia} style={{ fontSize: 13, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer' }}>
+              🖥️ Modo TV (tela cheia)
+            </button>
+          ) : (
+            <button onClick={sairTelaCheia} title="Sair da tela cheia" style={{ fontSize: 12, color: '#5f7da0', background: 'rgba(255,255,255,0.04)', padding: '6px 10px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* KPIs grandes */}
