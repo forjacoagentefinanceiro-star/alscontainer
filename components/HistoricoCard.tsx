@@ -3,9 +3,10 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento, ChecklistItem } from '@/app/actions'
-import { updateChecklistItens, updateChecklistHorimetro, updateEventoHorimetro } from '@/app/actions'
+import { updateChecklistItens, updateChecklistHorimetro } from '@/app/actions'
 import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 import { HorimetroInput } from '@/components/HorimetroInput'
+import { EventoEditor } from '@/components/EventoEditor'
 
 const dataHora = (s: string) => new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
@@ -17,7 +18,7 @@ const OPCOES: { v: St; label: string; on: string }[] = [
   { v: 'na', label: 'N/A', on: '#6b7280' },
 ]
 
-type EditAlvo = { kind: 'inicial' | 'final' | 'evento'; id: string }
+type EditAlvo = { kind: 'inicial' | 'final'; id: string }
 
 export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: Checklist; eventos: OperacaoEvento[]; podeEditar: boolean }) {
   const [c, setC] = useState(checklist)
@@ -59,15 +60,9 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
     const v = editVal
     const { kind, id } = editHorim
     startTransition(async () => {
-      const res = kind === 'evento' ? await updateEventoHorimetro(id, v) : await updateChecklistHorimetro(id, kind === 'inicial' ? 'horimetro' : 'horimetro_final', v)
+      const res = await updateChecklistHorimetro(id, kind === 'inicial' ? 'horimetro' : 'horimetro_final', v)
       if (res.error) { setErro(res.error); return }
-      if (kind === 'evento') {
-        setEvs(prev => prev.map(e => e.id === id ? { ...e, horimetro: v } : e))
-        // evento de encerramento alimenta o horímetro final do checklist (recalcula horas trabalhadas)
-        const ev = evs.find(e => e.id === id)
-        if (ev?.tipo === 'encerramento') setC(prev => ({ ...prev, horimetro_final: v }))
-      }
-      else if (kind === 'inicial') setC(prev => ({ ...prev, horimetro: v }))
+      if (kind === 'inicial') setC(prev => ({ ...prev, horimetro: v }))
       else setC(prev => ({ ...prev, horimetro_final: v }))
       setEditHorim(null)
       router.refresh()
@@ -75,11 +70,11 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   }
 
   const horimInput = (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1.5">
       <HorimetroInput key={`${editHorim?.kind}-${editHorim?.id}`} value={editVal} onChange={setEditVal} placeholder="0.0" autoFocus
         className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
-      <button onClick={salvarHorim} disabled={isPending} className="text-xs font-semibold" style={{ color: '#047857' }}>salvar</button>
-      <button onClick={() => setEditHorim(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
+      <button onClick={salvarHorim} disabled={isPending} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border text-white disabled:opacity-50" style={{ background: '#047857', borderColor: '#047857' }}>Salvar</button>
+      <button onClick={() => setEditHorim(null)} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border" style={{ color: '#6b7280', borderColor: '#e5e7eb' }}>Cancelar</button>
     </span>
   )
 
@@ -102,7 +97,7 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
         {editHorim?.kind === 'inicial' ? horimInput : (
           <>
             <strong style={{ color: '#1a2a3a' }}>{c.horimetro ?? '—'}</strong>
-            {podeEditar && <button onClick={() => abrirEditHorim('inicial', c.id, c.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
+            {podeEditar && <button onClick={() => abrirEditHorim('inicial', c.id, c.horimetro)} className="text-xs font-semibold px-2 py-1 rounded-lg border" style={{ color: '#1d4ed8', borderColor: '#bfdbfe', background: '#eff6ff' }}>Editar</button>}
           </>
         )}
         {encerrada && (
@@ -111,7 +106,7 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
             {editHorim?.kind === 'final' ? horimInput : (
               <>
                 <strong style={{ color: '#1a2a3a' }}>{c.horimetro_final ?? '—'}</strong>
-                {podeEditar && <button onClick={() => abrirEditHorim('final', c.id, c.horimetro_final)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
+                {podeEditar && <button onClick={() => abrirEditHorim('final', c.id, c.horimetro_final)} className="text-xs font-semibold px-2 py-1 rounded-lg border" style={{ color: '#1d4ed8', borderColor: '#bfdbfe', background: '#eff6ff' }}>Editar</button>}
               </>
             )}
           </>
@@ -173,12 +168,8 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
                 <span style={{ color: '#b91c1c' }}>⚠️ {hora(e.created_at)} — problema:</span>
                 <span>{e.descricao}</span>
                 <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>{e.parado ? '· máquina parada' : '· operando normalmente'}</span>
-                {editHorim?.kind === 'evento' && editHorim.id === e.id ? horimInput : (
-                  <>
-                    {e.horimetro != null && <span>· {e.horimetro}h</span>}
-                    {podeEditar && <button onClick={() => abrirEditHorim('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
-                  </>
-                )}
+                <EventoEditor evento={e} podeEditar={podeEditar} prefixo={false} permitirExcluir={false}
+                  onDeleted={() => setEvs(prev => prev.filter(x => x.id !== e.id))} />
                 {(e.fotos ?? []).map((f, i) => (
                   <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
                 ))}
@@ -186,16 +177,7 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
               <ProblemaTratativa evento={e} podeAcionar={podeEditar} />
             </li>
           ) : (
-            <li key={e.id} className="flex items-center gap-1 flex-wrap">
-              • {hora(e.created_at)} — {e.tipo}{e.motivo ? ` (${e.motivo})` : ''} ·{' '}
-              {editHorim?.kind === 'evento' && editHorim.id === e.id ? horimInput : (
-                <>
-                  {e.horimetro != null ? `${e.horimetro}h` : '— h'}
-                  {podeEditar && <button onClick={() => abrirEditHorim('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
-                </>
-              )}
-              {e.litros != null && <span style={{ color: '#9a3412' }}> · ⛽ {e.litros}L{e.consumo_lh != null ? ` · ${e.consumo_lh} L/h` : ''}</span>}
-            </li>
+            <EventoEditor key={e.id} evento={e} podeEditar={podeEditar} onDeleted={() => setEvs(prev => prev.filter(x => x.id !== e.id))} />
           ))}
         </ul>
       )}

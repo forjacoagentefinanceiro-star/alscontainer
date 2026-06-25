@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento } from '@/app/actions'
-import { addEvento, encerrarOperacao, updateChecklistHorimetro, updateEventoHorimetro, reportarProblema } from '@/app/actions'
+import { addEvento, encerrarOperacao, updateChecklistHorimetro, reportarProblema } from '@/app/actions'
 import { createClient } from '@/lib/supabase/client'
 import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 import { HorimetroInput } from '@/components/HorimetroInput'
+import { EventoEditor } from '@/components/EventoEditor'
 
 type Op = { checklist: Checklist; eventos: OperacaoEvento[] }
 type Tipo = 'parada' | 'retorno' | 'encerramento'
@@ -19,7 +20,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
   const [motivo, setMotivo] = useState('')
   const [litros, setLitros] = useState('')
   const [erro, setErro] = useState<string | null>(null)
-  const [edit, setEdit] = useState<{ kind: 'inicial' | 'evento'; id: string } | null>(null)
+  const [edit, setEdit] = useState<{ kind: 'inicial'; id: string } | null>(null)
   const [editVal, setEditVal] = useState<number | null>(null)
   const [confirmRetorno, setConfirmRetorno] = useState<{ id: string; h: number; paradaH: number; litros: number | null } | null>(null)
   const [descricaoProblema, setDescricaoProblema] = useState('')
@@ -125,29 +126,28 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
     if (!edit) return
     setErro(null)
     const v = editVal
-    const { kind, id } = edit
+    const { id } = edit
     startTransition(async () => {
-      const res = kind === 'inicial' ? await updateChecklistHorimetro(id, 'horimetro', v) : await updateEventoHorimetro(id, v)
+      const res = await updateChecklistHorimetro(id, 'horimetro', v)
       if (res.error) { setErro(res.error); return }
-      if (kind === 'inicial') setList(prev => prev.map(o => o.checklist.id === id ? { ...o, checklist: { ...o.checklist, horimetro: v } } : o))
-      else setList(prev => prev.map(o => ({ ...o, eventos: o.eventos.map(e => e.id === id ? { ...e, horimetro: v } : e) })))
+      setList(prev => prev.map(o => o.checklist.id === id ? { ...o, checklist: { ...o.checklist, horimetro: v } } : o))
       setEdit(null)
       router.refresh()
     })
   }
 
-  function abrirEdit(kind: 'inicial' | 'evento', id: string, atual: number | null) {
-    setEdit({ kind, id }); setEditVal(atual); setErro(null)
+  function abrirEdit(id: string, atual: number | null) {
+    setEdit({ kind: 'inicial', id }); setEditVal(atual); setErro(null)
   }
 
   if (!list.length) return null
 
   const editInput = (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1.5">
       <HorimetroInput key={`${edit?.kind}-${edit?.id}`} value={editVal} onChange={setEditVal} placeholder="0.0" autoFocus
         className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
-      <button onClick={salvarEdit} disabled={isPending} className="text-xs font-semibold" style={{ color: '#047857' }}>salvar</button>
-      <button onClick={() => setEdit(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
+      <button onClick={salvarEdit} disabled={isPending} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border text-white disabled:opacity-50" style={{ background: '#047857', borderColor: '#047857' }}>Salvar</button>
+      <button onClick={() => setEdit(null)} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border" style={{ color: '#6b7280', borderColor: '#e5e7eb' }}>Cancelar</button>
     </span>
   )
 
@@ -187,7 +187,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                   {edit?.kind === 'inicial' && edit.id === c.id ? editInput : (
                     <>
                       <strong style={{ color: '#1a2a3a' }}>{c.horimetro ?? '—'}</strong>
-                      {podeEditar && <button onClick={() => abrirEdit('inicial', c.id, c.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
+                      {podeEditar && <button onClick={() => abrirEdit(c.id, c.horimetro)} className="text-xs font-semibold px-2 py-1 rounded-lg border" style={{ color: '#1d4ed8', borderColor: '#bfdbfe', background: '#eff6ff' }}>Editar</button>}
                     </>
                   )}
                 </p>
@@ -205,7 +205,8 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                       <span className="font-semibold" style={{ color: e.parado ? '#b91c1c' : '#92400e' }}>
                         {e.parado ? '· máquina parada' : '· operando normalmente'}
                       </span>
-                      {e.horimetro != null && <span>· {e.horimetro}h</span>}
+                      <EventoEditor evento={e} podeEditar={podeEditar} prefixo={false} permitirExcluir={false}
+                        onDeleted={() => setList(prev => prev.map(o => o.checklist.id === c.id ? { ...o, eventos: o.eventos.filter(x => x.id !== e.id) } : o))} />
                       {(e.fotos ?? []).map((f, i) => (
                         <a key={i} href={f} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#1d4ed8' }}>foto{(e.fotos?.length ?? 0) > 1 ? ` ${i + 1}` : ''}</a>
                       ))}
@@ -213,18 +214,7 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                     <ProblemaTratativa evento={e} podeAcionar={podeEditar} />
                   </li>
                 ) : (
-                  <li key={e.id} className="flex items-center gap-1 flex-wrap">
-                    • {hora(e.created_at)} — {e.tipo}{e.motivo ? ` (${e.motivo})` : ''} ·{' '}
-                    {edit?.kind === 'evento' && edit.id === e.id ? editInput : (
-                      <>
-                        {e.horimetro != null ? `${e.horimetro}h` : '— h'}
-                        {podeEditar && <button onClick={() => abrirEdit('evento', e.id, e.horimetro)} className="underline" style={{ color: '#1d4ed8' }}>editar</button>}
-                        {e.litros != null && (
-                          <span style={{ color: '#9a3412' }}>· ⛽ {e.litros}L{e.consumo_lh != null ? ` · ${e.consumo_lh} L/h` : ''}</span>
-                        )}
-                      </>
-                    )}
-                  </li>
+                  <EventoEditor key={e.id} evento={e} podeEditar={podeEditar} onDeleted={() => setList(prev => prev.map(o => o.checklist.id === c.id ? { ...o, eventos: o.eventos.filter(x => x.id !== e.id) } : o))} />
                 ))}
               </ul>
             )}

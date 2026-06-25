@@ -144,6 +144,7 @@ export type OperacaoEvento = {
   liberado_horimetro?: number | null
   horas_gap?: number | null
   gap_confirmado?: boolean | null
+  editado_em?: string | null
   created_at: string
 }
 
@@ -952,7 +953,7 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
     if (prev != null && valor < prev) return { error: `Horímetro ${valor} não pode ser menor que o anterior (${prev}).` }
     if (next != null && valor > next) return { error: `Horímetro ${valor} não pode ser maior que o próximo (${next}).` }
   }
-  const { data: upd, error } = await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('id', eventoId).select('id')
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ horimetro: valor, editado_em: new Date().toISOString() }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   // mantém o horímetro final do checklist sincronizado com o evento de encerramento
@@ -963,6 +964,42 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
   revalidatePath('/historico')
+  return { error: null }
+}
+
+// corrige o horário (data/hora) de um lançamento — fica marcado como "editado"
+export async function updateEventoHorario(eventoId: string, novoHorarioISO: string) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem corrigir lançamentos.' }
+  const supabase = await createClient()
+  const d = new Date(novoHorarioISO)
+  if (Number.isNaN(d.getTime())) return { error: 'Horário inválido.' }
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ created_at: d.toISOString(), editado_em: new Date().toISOString() }).eq('id', eventoId).select('id')
+  if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  return { error: null }
+}
+
+// exclui um lançamento (parada/retorno/abastecimento/encerramento/problema/abertura).
+// se for o encerramento, reabre a operação (volta o checklist para "aberta").
+export async function excluirEvento(eventoId: string) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem excluir lançamentos.' }
+  const supabase = await createClient()
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id, tipo').eq('id', eventoId).single()
+  if (!ev?.checklist_id) return { error: 'Evento não encontrado' }
+  const { error } = await supabase.from('operacao_eventos').delete().eq('id', eventoId)
+  if (error) return { error: error.message }
+  if (ev.tipo === 'encerramento') {
+    await supabase.from('checklists').update({ status: 'aberta', horimetro_final: null, encerrada_em: null }).eq('id', ev.checklist_id)
+  }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
   return { error: null }
 }
 
