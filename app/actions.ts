@@ -929,9 +929,11 @@ export async function updateChecklistHorimetro(checklistId: string, campo: 'hori
   const { data: upd, error } = await supabase.from('checklists').update({ [campo]: valor }).eq('id', checklistId).select('id')
   if (error) return { error: error.message }
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
-  // mantém o evento de encerramento sincronizado com o horímetro final do checklist
+  // mantém os eventos espelhados sincronizados com o horímetro do checklist (encerramento ↔ final; abertura ↔ inicial)
   if (campo === 'horimetro_final') {
     await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('checklist_id', checklistId).eq('tipo', 'encerramento')
+  } else {
+    await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('checklist_id', checklistId).eq('tipo', 'abertura')
   }
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
