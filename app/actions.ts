@@ -43,6 +43,34 @@ async function recalcHorimetro(supabase: SB, equipamento: string) {
   await supabase.from('empilhadeiras').update({ horimetro_atual: max || null }).eq('nome', equipamento)
 }
 
+// maior horímetro da máquina considerando TODOS os checklists/eventos, exceto o checklist informado —
+// é a base correta para recalcular o "horas_gap" de um evento de abertura depois de uma correção
+async function baselineExcluindoChecklist(supabase: SB, equipamento: string, checklistIdExcluir: string): Promise<number> {
+  const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final').eq('equipamento', equipamento).neq('id', checklistIdExcluir)
+  let max = 0
+  const ids: string[] = []
+  for (const c of cks ?? []) {
+    ids.push(c.id)
+    if (c.horimetro != null) max = Math.max(max, Number(c.horimetro))
+    if (c.horimetro_final != null) max = Math.max(max, Number(c.horimetro_final))
+  }
+  if (ids.length) {
+    const { data: evs } = await supabase.from('operacao_eventos').select('horimetro').in('checklist_id', ids)
+    for (const e of evs ?? []) if (e.horimetro != null) max = Math.max(max, Number(e.horimetro))
+  }
+  return max
+}
+
+// recalcula o horas_gap do evento de "abertura" (gap) de um checklist a partir do horímetro corrigido
+async function recalcGapAbertura(supabase: SB, checklistId: string, equipamento: string | undefined, novoHorimetroInicial: number | null) {
+  if (!equipamento) return
+  const { data: abertura } = await supabase.from('operacao_eventos').select('id').eq('checklist_id', checklistId).eq('tipo', 'abertura').maybeSingle()
+  if (!abertura) return
+  const baseline = await baselineExcluindoChecklist(supabase, equipamento, checklistId)
+  const novoGap = novoHorimetroInicial != null && novoHorimetroInicial > baseline ? Math.round((novoHorimetroInicial - baseline) * 10) / 10 : 0
+  await supabase.from('operacao_eventos').update({ horas_gap: novoGap }).eq('id', abertura.id)
+}
+
 // horímetro do último abastecimento (evento com litros) da máquina — base para o cálculo de consumo
 async function ultimoAbastecimentoHorimetro(supabase: SB, equipamento: string): Promise<number | null> {
   const { data: cks } = await supabase.from('checklists').select('id').eq('equipamento', equipamento)
@@ -935,6 +963,7 @@ export async function updateChecklistHorimetro(checklistId: string, campo: 'hori
     await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('checklist_id', checklistId).eq('tipo', 'encerramento')
   } else {
     await supabase.from('operacao_eventos').update({ horimetro: valor }).eq('checklist_id', checklistId).eq('tipo', 'abertura')
+    await recalcGapAbertura(supabase, checklistId, ck?.equipamento, valor)
   }
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
@@ -956,14 +985,19 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   const { data: upd, error } = await supabase.from('operacao_eventos').update({ horimetro: valor, editado_em: new Date().toISOString() }).eq('id', eventoId).select('id')
   if (error) return { error: error.message }
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
   // mantém o horímetro final do checklist sincronizado com o evento de encerramento
   if (ev.tipo === 'encerramento') {
     await supabase.from('checklists').update({ horimetro_final: valor }).eq('id', ev.checklist_id)
   }
-  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  // editou o próprio evento de abertura → recalcula o gap (horas sem checklist) com o valor corrigido
+  if (ev.tipo === 'abertura') {
+    await recalcGapAbertura(supabase, ev.checklist_id, ck?.equipamento, valor)
+  }
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
   revalidatePath('/historico')
+  revalidatePath('/', 'layout')
   return { error: null }
 }
 
