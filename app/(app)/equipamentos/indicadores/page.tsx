@@ -29,6 +29,8 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
   const [d, ciclo, consumoMensal] = await Promise.all([getDashboardEquipamentos(dias), getHorasCicloAtual(), getConsumoMensal(6)])
   const t = d.totais
   const disponibilidadePct = t.utilizacaoPct != null ? Math.round((100 - t.utilizacaoPct) * 10) / 10 : null
+  const pctSemChecklistCiclo = ciclo.horasTrabalhadas > 0 ? Math.round((ciclo.horasSemChecklist / ciclo.horasTrabalhadas) * 1000) / 10 : null
+  const pctSemChecklistPeriodo = t.horasTrabalhadas > 0 ? Math.round((t.horasSemChecklist / t.horasTrabalhadas) * 1000) / 10 : null
 
   return (
     <div>
@@ -54,7 +56,15 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
         <Card label="Disponibilidade" value={disponibilidadePct != null ? `${disponibilidadePct}%` : '—'} cor="#047857" sub="100% − utilização" />
       </div>
       <div className="grid grid-cols-2 max-w-6xl mb-6">
-        <Card label="Horas sem checklist" value={`${t.horasSemChecklist}h`} cor="#9a3412" sub="gaps de horímetro confirmados pelo admin · já somadas nas horas trabalhadas" />
+        <Card
+          label="Horas sem checklist"
+          value={`${t.horasSemChecklist}h`}
+          cor="#9a3412"
+          sub={
+            `${pctSemChecklistCiclo != null ? `${pctSemChecklistCiclo}% do ciclo` : '—'} · ` +
+            `${pctSemChecklistPeriodo != null ? `${pctSemChecklistPeriodo}% do período` : '—'} · gaps confirmados pelo admin`
+          }
+        />
       </div>
 
       <div className="bg-white rounded-xl overflow-hidden max-w-full" style={{ border: '1px solid #e5e7eb' }}>

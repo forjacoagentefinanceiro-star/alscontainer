@@ -750,22 +750,27 @@ function cicloAtual(): { inicio: Date; fim: Date; mesLabel: string } {
   return { inicio, fim, mesLabel: `${nomesMes[mesFim - 1]}/${anoFim}` }
 }
 
-export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasTrabalhadas: number }
+export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasTrabalhadas: number; horasSemChecklist: number }
 
 export async function getHorasCicloAtual(): Promise<CicloHoras> {
   const { supabase, user } = await usuarioEPapel()
   const { inicio, fim, mesLabel } = cicloAtual()
-  if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0 }
+  if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
   const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final').gte('created_at', inicio.toISOString())
   const checklists = cks ?? []
-  let horas = checklists.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
-  // soma também as horas sem checklist confirmadas pelo admin dentro do ciclo
+  const horasChecklist = checklists.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+  // horas sem checklist confirmadas pelo admin dentro do ciclo (já entram no total de horas trabalhadas)
+  let horasSemChecklist = 0
   const ids = checklists.map(c => c.id)
   if (ids.length) {
     const { data: evs } = await supabase.from('operacao_eventos').select('horas_gap').in('checklist_id', ids).eq('gap_confirmado', true)
-    horas += (evs ?? []).reduce((acc, e) => acc + Number(e.horas_gap ?? 0), 0)
+    horasSemChecklist = (evs ?? []).reduce((acc, e) => acc + Number(e.horas_gap ?? 0), 0)
   }
-  return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: Math.round(horas * 10) / 10 }
+  return {
+    inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel,
+    horasTrabalhadas: Math.round((horasChecklist + horasSemChecklist) * 10) / 10,
+    horasSemChecklist: Math.round(horasSemChecklist * 10) / 10,
+  }
 }
 
 // ---- Relatório por operador (horas operadas conforme o horímetro dos checklists dele) ----
