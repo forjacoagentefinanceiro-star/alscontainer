@@ -181,7 +181,9 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
           <div key={c.id} className="bg-white rounded-lg p-4" style={{ border: '1px solid #e5e7eb' }}>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
-                <p className="text-sm font-medium" style={{ color: '#1a2a3a' }}>{c.equipamento} · {c.operador}</p>
+                <p className="text-sm font-medium" style={{ color: '#1a2a3a' }}>
+                  <span className="font-mono" style={{ color: '#1B4F8A' }}>#{c.numero}</span> · {c.equipamento} · {c.operador}
+                </p>
                 <p className="text-xs flex items-center gap-1" style={{ color: '#9ca3af' }}>
                   aberta {dataHora(c.created_at)} · horímetro inicial{' '}
                   {edit?.kind === 'inicial' && edit.id === c.id ? editInput : (

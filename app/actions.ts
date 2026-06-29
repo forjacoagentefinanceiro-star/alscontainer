@@ -135,6 +135,7 @@ export type Role = UserProfile['role']
 export type ChecklistItem = { item: string; status: 'ok' | 'nok' | 'na'; obs?: string; foto?: string }
 export type Checklist = {
   id: string
+  numero: number
   user_id: string | null
   operador: string
   equipamento: string

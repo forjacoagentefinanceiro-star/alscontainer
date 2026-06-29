@@ -82,7 +82,9 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
     <div id={`checklist-${c.id}`} className="bg-white rounded-lg p-4 scroll-mt-20" style={{ border: '1px solid #e5e7eb' }}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>{c.equipamento} · {c.operador}</p>
+          <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>
+            <span className="font-mono" style={{ color: '#1B4F8A' }}>#{c.numero}</span> · {c.equipamento} · {c.operador}
+          </p>
           <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(c.created_at)} · {c.turno}</p>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={encerrada ? { background: '#eef2ff', color: '#4338ca' } : { background: '#ecfdf5', color: '#047857' }}>
