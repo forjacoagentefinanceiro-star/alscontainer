@@ -174,6 +174,7 @@ export type OperacaoEvento = {
   horas_gap?: number | null
   gap_confirmado?: boolean | null
   editado_em?: string | null
+  excluir_indicadores?: boolean | null
   created_at: string
 }
 
@@ -586,10 +587,10 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   const checklists = cksData ?? []
   const ids = checklists.map(c => c.id)
 
-  let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null; parado: boolean | null; acionado_em: string | null; chegada_em: string | null; liberado_em: string | null; horas_gap: number | null; gap_confirmado: boolean | null; created_at: string }[] = []
+  let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null; parado: boolean | null; acionado_em: string | null; chegada_em: string | null; liberado_em: string | null; horas_gap: number | null; gap_confirmado: boolean | null; excluir_indicadores: boolean | null; created_at: string }[] = []
   if (ids.length) {
     const { data: evs } = await supabase.from('operacao_eventos')
-      .select('checklist_id, tipo, litros, consumo_lh, parado, acionado_em, chegada_em, liberado_em, horas_gap, gap_confirmado, created_at')
+      .select('checklist_id, tipo, litros, consumo_lh, parado, acionado_em, chegada_em, liberado_em, horas_gap, gap_confirmado, excluir_indicadores, created_at')
       .in('checklist_id', ids)
     eventos = evs ?? []
   }
@@ -615,10 +616,12 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
 
     const probs = evsM.filter(e => e.tipo === 'problema')
     const problemasParado = probs.filter(e => e.parado).length
+    // eventos marcados pelo admin para não contar nos indicadores (ex.: tratativa ainda em andamento) — continuam no histórico do checklist
+    const probsIndic = probs.filter(e => !e.excluir_indicadores)
 
     let tempoParadoMin = 0
     let paradasResolvidas = 0
-    for (const p of probs) {
+    for (const p of probsIndic) {
       if (!p.liberado_em) continue
       const inicio = p.parado ? p.created_at : (p.chegada_em ?? p.created_at)
       const min = (new Date(p.liberado_em).getTime() - new Date(inicio).getTime()) / 60000
@@ -626,7 +629,7 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
     }
     const tempoMedioParadaMin = paradasResolvidas > 0 ? Math.round(tempoParadoMin / paradasResolvidas) : null
 
-    const respostas = probs.filter(e => e.acionado_em && e.chegada_em).map(e => (new Date(e.chegada_em as string).getTime() - new Date(e.acionado_em as string).getTime()) / 60000)
+    const respostas = probsIndic.filter(e => e.acionado_em && e.chegada_em).map(e => (new Date(e.chegada_em as string).getTime() - new Date(e.acionado_em as string).getTime()) / 60000)
     const tempoRespostaMedioMin = respostas.length ? Math.round(respostas.reduce((a, b) => a + b, 0) / respostas.length) : null
 
     const utilizacaoPct = periodoHoras ? Math.round((horasTrabalhadas / periodoHoras) * 1000) / 10 : null
@@ -1173,6 +1176,21 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   revalidatePath('/checklist')
   revalidatePath('/historico')
   revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+// marca/desmarca um evento de problema para ser ignorado nos painéis agregados (tempo parado, resposta do prestador),
+// sem remover o registro do histórico do checklist
+export async function setExcluirIndicadores(eventoId: string, excluir: boolean) {
+  const { supabase, gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Sem permissão.' }
+  const { data: upd, error } = await supabase.from('operacao_eventos').update({ excluir_indicadores: excluir }).eq('id', eventoId).select('id')
+  if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/equipamentos/indicadores')
+  revalidatePath('/equipamentos/relatorios')
   return { error: null }
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { OperacaoEvento } from '@/app/actions'
-import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento } from '@/app/actions'
+import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento, setExcluirIndicadores } from '@/app/actions'
 import { HorimetroInput } from '@/components/HorimetroInput'
 
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
@@ -68,11 +68,38 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
     })
   }
 
+  function alternarExcluirIndicadores() {
+    setErro(null)
+    const novo = !e.excluir_indicadores
+    startTransition(async () => {
+      const res = await setExcluirIndicadores(e.id, novo)
+      if (res.error) { setErro(res.error); return }
+      setE(prev => ({ ...prev, excluir_indicadores: novo }))
+      router.refresh()
+    })
+  }
+
   const btn = (bg: string) => ({ background: bg } as const)
 
   return (
     <div className="mt-1 w-full">
       {erro && <p className="text-xs px-2 py-1 rounded mb-1" style={{ background: '#fee2e2', color: '#b91c1c' }}>{erro}</p>}
+
+      {e.excluir_indicadores && (
+        <p className="text-xs font-semibold px-2 py-1 rounded mb-1 inline-block" style={{ background: '#f3f4f6', color: '#6b7280' }}>
+          🚫 Não contabilizado nos indicadores (tempo parado / resposta do prestador)
+        </p>
+      )}
+
+      {podeAcionar && (
+        <button onClick={alternarExcluirIndicadores} disabled={isPending}
+          className="block mt-1 mb-1 text-xs font-semibold px-2.5 py-1 rounded-lg border disabled:opacity-50"
+          style={e.excluir_indicadores
+            ? { color: '#047857', borderColor: '#a7f3d0', background: '#ecfdf5' }
+            : { color: '#6b7280', borderColor: '#e5e7eb', background: '#fff' }}>
+          {e.excluir_indicadores ? 'Voltar a contar nos indicadores' : 'Não contar nos indicadores'}
+        </button>
+      )}
 
       {e.liberado_em ? (
         <span className="text-xs font-semibold" style={{ color: '#047857' }}>
