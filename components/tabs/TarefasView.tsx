@@ -96,7 +96,7 @@ export function TarefasView({
     startTransition(async () => {
       const res = await approveDespachaTask(taskId, assigneeId ?? undefined, urgency)
       if (res.error) setErro(res.error)
-      else setList(prev => prev.map(t => t.id === taskId ? { ...t, needs_approval: false, status: 'em_andamento', urgency } : t))
+      else setList(prev => prev.map(t => t.id === taskId ? { ...t, needs_approval: false, urgency } : t))
     })
   }
 

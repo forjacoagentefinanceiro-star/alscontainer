@@ -1454,7 +1454,8 @@ export async function approveDespachaTask(taskId: string, assigneeId?: string, u
   const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'admin') return { error: 'Apenas admin pode aprovar solicitações.' }
 
-  const body: Record<string, unknown> = { needs_approval: false, status: 'em_andamento' }
+  // Não muda para em_andamento — o prestador informa o início pelo bot
+  const body: Record<string, unknown> = { needs_approval: false }
   if (assigneeId) body.assignee_id = assigneeId
   if (urgency)    body.urgency     = urgency
 
