@@ -20,6 +20,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ListChecks,
+  CalendarDays,
 } from 'lucide-react'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
@@ -44,8 +45,12 @@ const equipamentosItems: Item[] = [
 
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
 const usuariosItem: Item = { href: '/usuarios', label: 'Usuários', icon: Users }
-const tarefasItem: Item = { href: '/tarefas', label: 'Tarefas', icon: ListChecks }
 const biItems: Item[] = [{ href: '/bi', label: 'BI Depot', icon: BarChart3 }]
+
+const gestaoTarefasItems: Item[] = [
+  { href: '/tarefas',        label: 'Tarefas', icon: ListChecks   },
+  { href: '/tarefas/agenda', label: 'Agenda',  icon: CalendarDays },
+]
 
 function NavLink({ item, active, collapsed }: { item: Item; active: boolean; collapsed: boolean }) {
   return (
@@ -95,12 +100,13 @@ export function Sidebar({ role }: { role?: string }) {
         { label: 'Estoque', items: estoqueItems },
         { label: 'Equipamentos', items: equipamentosItems },
         ...(podeCadastrar ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
-        ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem, tarefasItem] }] : []),
+        ...(role === 'admin' ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
+        ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
         { label: 'Análise', items: biItems },
       ]
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && pathname.startsWith(href + '/'))
 
   return (
     <aside
