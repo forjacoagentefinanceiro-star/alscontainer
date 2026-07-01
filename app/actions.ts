@@ -1470,7 +1470,6 @@ export async function approveDespachaTask(taskId: string, assigneeId?: string, u
   return { error: null }
 }
 
-// Atribuir um prestador também inicia o atendimento (tira a tarefa do estado "pendente").
 export async function updateDespachaTaskAssignee(taskId: string, assigneeId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -1480,7 +1479,7 @@ export async function updateDespachaTaskAssignee(taskId: string, assigneeId: str
 
   const res = await despachaFetch(`/task?id=${encodeURIComponent(taskId)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ assignee_id: assigneeId, status: 'em_andamento' }),
+    body: JSON.stringify({ assignee_id: assigneeId }),
   })
   if (!res.success) return { error: res.error }
 

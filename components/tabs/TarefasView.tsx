@@ -58,9 +58,12 @@ export function TarefasView({
   const [list, setList] = useState(tasks)
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
-  // urgência editada localmente antes de confirmar aprovação
-  const [urgencias, setUrgencias] = useState<Record<string, DespachaUrgency>>(() =>
+  // urgência e prestador editados localmente antes de confirmar aprovação
+  const [urgencias,  setUrgencias]  = useState<Record<string, DespachaUrgency>>(() =>
     Object.fromEntries(tasks.filter(t => t.needs_approval).map(t => [t.id, t.urgency]))
+  )
+  const [prestadores, setPrestadores] = useState<Record<string, string>>(() =>
+    Object.fromEntries(tasks.filter(t => t.needs_approval && t.assignee_id).map(t => [t.id, t.assignee_id!]))
   )
 
   const providerName = (id: string | null) => (id ? providers.find(p => p.id === id)?.name ?? id : '—')
@@ -87,7 +90,7 @@ export function TarefasView({
     startTransition(async () => {
       const res = await updateDespachaTaskAssignee(taskId, assigneeId)
       if (res.error) setErro(res.error)
-      else setList(prev => prev.map(t => t.id === taskId ? { ...t, assignee_id: assigneeId, status: 'em_andamento' } : t))
+      else setList(prev => prev.map(t => t.id === taskId ? { ...t, assignee_id: assigneeId } : t))
     })
   }
 
@@ -96,7 +99,7 @@ export function TarefasView({
     startTransition(async () => {
       const res = await approveDespachaTask(taskId, assigneeId ?? undefined, urgency)
       if (res.error) setErro(res.error)
-      else setList(prev => prev.map(t => t.id === taskId ? { ...t, needs_approval: false, urgency } : t))
+      else setList(prev => prev.map(t => t.id === taskId ? { ...t, needs_approval: false, urgency, assignee_id: assigneeId ?? t.assignee_id } : t))
     })
   }
 
@@ -193,10 +196,10 @@ export function TarefasView({
                         <option value="media">Média</option>
                         <option value="baixa">Baixa</option>
                       </select>
-                      {/* Prestador */}
+                      {/* Prestador — só atualiza estado local; salvo ao clicar Aprovar */}
                       <select
-                        value={t.assignee_id ?? ''}
-                        onChange={e => { if (e.target.value) mudarPrestador(t.id, e.target.value) }}
+                        value={prestadores[t.id] ?? t.assignee_id ?? ''}
+                        onChange={e => setPrestadores(prev => ({ ...prev, [t.id]: e.target.value }))}
                         disabled={isPending}
                         className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
                         style={{ borderColor: '#d1d5db', color: '#374151' }}
@@ -205,7 +208,7 @@ export function TarefasView({
                         {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
                       <button
-                        onClick={() => aprovar(t.id, t.assignee_id, urgencias[t.id] ?? t.urgency)}
+                        onClick={() => aprovar(t.id, prestadores[t.id] ?? t.assignee_id, urgencias[t.id] ?? t.urgency)}
                         disabled={isPending}
                         className="rounded text-xs px-3 py-1.5 font-bold disabled:opacity-50"
                         style={{ background: '#16a34a', color: '#fff', border: 'none', cursor: 'pointer' }}
