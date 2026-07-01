@@ -58,6 +58,10 @@ export function TarefasView({
   const [list, setList] = useState(tasks)
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
+  // urgência editada localmente antes de confirmar aprovação
+  const [urgencias, setUrgencias] = useState<Record<string, DespachaUrgency>>(() =>
+    Object.fromEntries(tasks.filter(t => t.needs_approval).map(t => [t.id, t.urgency]))
+  )
 
   const providerName = (id: string | null) => (id ? providers.find(p => p.id === id)?.name ?? id : '—')
 
@@ -87,12 +91,12 @@ export function TarefasView({
     })
   }
 
-  function aprovar(taskId: string, assigneeId: string | null) {
+  function aprovar(taskId: string, assigneeId: string | null, urgency: DespachaUrgency) {
     setErro(null)
     startTransition(async () => {
-      const res = await approveDespachaTask(taskId, assigneeId ?? undefined)
+      const res = await approveDespachaTask(taskId, assigneeId ?? undefined, urgency)
       if (res.error) setErro(res.error)
-      else setList(prev => prev.map(t => t.id === taskId ? { ...t, needs_approval: false, status: 'em_andamento' } : t))
+      else setList(prev => prev.map(t => t.id === taskId ? { ...t, needs_approval: false, status: 'em_andamento', urgency } : t))
     })
   }
 
@@ -176,6 +180,20 @@ export function TarefasView({
                 <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                   {t.needs_approval ? (
                     <>
+                      {/* Prioridade */}
+                      <select
+                        value={urgencias[t.id] ?? t.urgency}
+                        onChange={e => setUrgencias(prev => ({ ...prev, [t.id]: e.target.value as DespachaUrgency }))}
+                        disabled={isPending}
+                        className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
+                        style={{ ...urgencyColor[urgencias[t.id] ?? t.urgency], borderColor: urgencyColor[urgencias[t.id] ?? t.urgency].border }}
+                      >
+                        <option value="critica">Crítica</option>
+                        <option value="alta">Alta</option>
+                        <option value="media">Média</option>
+                        <option value="baixa">Baixa</option>
+                      </select>
+                      {/* Prestador */}
                       <select
                         value={t.assignee_id ?? ''}
                         onChange={e => { if (e.target.value) mudarPrestador(t.id, e.target.value) }}
@@ -187,7 +205,7 @@ export function TarefasView({
                         {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
                       <button
-                        onClick={() => aprovar(t.id, t.assignee_id)}
+                        onClick={() => aprovar(t.id, t.assignee_id, urgencias[t.id] ?? t.urgency)}
                         disabled={isPending}
                         className="rounded text-xs px-3 py-1.5 font-bold disabled:opacity-50"
                         style={{ background: '#16a34a', color: '#fff', border: 'none', cursor: 'pointer' }}

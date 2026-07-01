@@ -1447,7 +1447,7 @@ export async function updateDespachaTaskStatus(taskId: string, status: 'pendente
 }
 
 // Aprovação de solicitação pública: remove a flag needs_approval e inicia o atendimento.
-export async function approveDespachaTask(taskId: string, assigneeId?: string) {
+export async function approveDespachaTask(taskId: string, assigneeId?: string, urgency?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -1456,6 +1456,7 @@ export async function approveDespachaTask(taskId: string, assigneeId?: string) {
 
   const body: Record<string, unknown> = { needs_approval: false, status: 'em_andamento' }
   if (assigneeId) body.assignee_id = assigneeId
+  if (urgency)    body.urgency     = urgency
 
   const res = await despachaFetch(`/task?id=${encodeURIComponent(taskId)}`, {
     method: 'PATCH',
