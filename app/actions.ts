@@ -364,6 +364,27 @@ export async function setMetaMes(ano: number, mes: number, valor: number) {
   return { error: null }
 }
 
+// ---- Meta de horas do ciclo de equipamentos (23→22) ----
+export async function getMetaHorasCiclo(): Promise<number> {
+  const supabase = await createClient()
+  const { data } = await supabase.from('config_equipamentos').select('horas_meta_ciclo').eq('id', 1).single()
+  return Number((data as Record<string, unknown> | null)?.horas_meta_ciclo ?? 0)
+}
+
+export async function setMetaHorasCiclo(valor: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: prof } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  const role = (prof as Record<string, unknown> | null)?.role as string | undefined
+  if (role !== 'admin' && role !== 'editor') return { error: 'Sem permissão.' }
+  if (!Number.isFinite(valor) || valor < 0) return { error: 'Valor inválido.' }
+  const { error } = await supabase.from('config_equipamentos').upsert({ id: 1, horas_meta_ciclo: valor }, { onConflict: 'id' })
+  if (error) return { error: error.message }
+  revalidatePath('/equipamentos/indicadores')
+  return { error: null }
+}
+
 // ---- Checklist de empilhadeira ----
 // papel do usuário atual (admin/editor veem tudo; demais só o próprio)
 async function usuarioEPapel() {
@@ -548,7 +569,6 @@ export type IndicadorMaquina = {
 }
 
 export type DashboardEquipamentos = {
-  periodoDias: number
   totais: {
     horasTrabalhadas: number
     horasSemChecklist: number
@@ -574,15 +594,15 @@ function consumoPonderado(abastecimentos: { litros: number | null; consumo_lh: n
   return somaHoras > 0 ? Math.round((somaLitros / somaHoras) * 10) / 10 : null
 }
 
-export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEquipamentos> {
+export async function getDashboardEquipamentos(inicio: string | null, fim: string | null = null): Promise<DashboardEquipamentos> {
   const { supabase, user } = await usuarioEPapel()
-  const vazio: DashboardEquipamentos = { periodoDias: dias, totais: { horasTrabalhadas: 0, horasSemChecklist: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
+  const vazio: DashboardEquipamentos = { totais: { horasTrabalhadas: 0, horasSemChecklist: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
   if (!user) return vazio
 
-  const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
   const { data: emp } = await supabase.from('empilhadeiras').select('nome, horimetro_atual')
   let q = supabase.from('checklists').select('id, equipamento, horimetro, horimetro_final, tem_pendencia, created_at')
-  if (cutoff) q = q.gte('created_at', cutoff)
+  if (inicio) q = q.gte('created_at', inicio)
+  if (fim) q = q.lt('created_at', fim)
   const { data: cksData } = await q
   const checklists = cksData ?? []
   const ids = checklists.map(c => c.id)
@@ -597,7 +617,8 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
 
   const nomes = [...new Set([...(emp ?? []).map(e => e.nome as string), ...checklists.map(c => c.equipamento as string)])].sort((a, b) => a.localeCompare(b))
   const horimetroAtualMap = new Map((emp ?? []).map(e => [e.nome as string, e.horimetro_atual as number | null]))
-  const periodoHoras = cutoff ? dias * 24 : null
+  const fimMs = fim ? new Date(fim).getTime() : Date.now()
+  const periodoHoras = inicio ? (fimMs - new Date(inicio).getTime()) / 3600000 : null
 
   const maquinas: IndicadorMaquina[] = nomes.map(nome => {
     const cksM = checklists.filter(c => c.equipamento === nome)
@@ -664,7 +685,6 @@ export async function getDashboardEquipamentos(dias = 30): Promise<DashboardEqui
   const consumoMedioTot = consumoPonderado(eventos.filter(e => e.litros != null))
 
   return {
-    periodoDias: dias,
     totais: {
       horasTrabalhadas: horasTrabalhadasTot,
       horasSemChecklist: horasSemChecklistTot,
@@ -787,12 +807,12 @@ export type RelatorioOperador = {
   pendenciaPct: number | null
 }
 
-export async function getRelatorioOperadores(dias = 30): Promise<RelatorioOperador[]> {
+export async function getRelatorioOperadores(inicio: string | null, fim: string | null = null): Promise<RelatorioOperador[]> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return []
-  const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
   let q = supabase.from('checklists').select('id, operador, horimetro, horimetro_final, tem_pendencia, created_at')
-  if (cutoff) q = q.gte('created_at', cutoff)
+  if (inicio) q = q.gte('created_at', inicio)
+  if (fim) q = q.lt('created_at', fim)
   const { data: cksData } = await q
   const checklists = cksData ?? []
   const ids = checklists.map(c => c.id)
@@ -850,15 +870,15 @@ export type RelatorioProblema = {
   tempoParadoMin: number | null
 }
 
-export async function getRelatorioProblemas(dias = 30): Promise<RelatorioProblema[]> {
+export async function getRelatorioProblemas(inicio: string | null, fim: string | null = null): Promise<RelatorioProblema[]> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return []
-  const cutoff = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null
   let q = supabase.from('operacao_eventos')
     .select('id, checklist_id, descricao, parado, prestador, acionado_em, chegada_em, liberado_em, resolvido, created_at, checklists(equipamento, operador)')
     .eq('tipo', 'problema')
     .order('created_at', { ascending: false })
-  if (cutoff) q = q.gte('created_at', cutoff)
+  if (inicio) q = q.gte('created_at', inicio)
+  if (fim) q = q.lt('created_at', fim)
   const { data } = await q
   return (data ?? []).map((e: Record<string, unknown>) => {
     const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined

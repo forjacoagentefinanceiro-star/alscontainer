@@ -60,11 +60,21 @@ function ReportSection({ title, footer, headers, rows, exportName, cells, empty 
   )
 }
 
-export default async function RelatoriosPage({ searchParams }: { searchParams: Promise<{ dias?: string }> }) {
-  const { dias: diasParam } = await searchParams
-  const dias = diasParam != null ? Number(diasParam) : 30
+const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+export default async function RelatoriosPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+  const { mes: mesParam } = await searchParams
+  const mesAtual = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7)
+  const mes = mesParam ?? mesAtual
+  const [ano, mesN] = mes.split('-').map(Number)
+  const inicio = new Date(`${ano}-${String(mesN).padStart(2, '0')}-01T00:00:00-03:00`).toISOString()
+  const fimISO = mesN === 12
+    ? new Date(`${ano + 1}-01-01T00:00:00-03:00`).toISOString()
+    : new Date(`${ano}-${String(mesN + 1).padStart(2, '0')}-01T00:00:00-03:00`).toISOString()
+  const fim = mes === mesAtual ? null : fimISO
+  const mesLabel = `${NOMES_MES[mesN - 1]} ${ano}`
   const [operadores, problemas, dash] = await Promise.all([
-    getRelatorioOperadores(dias), getRelatorioProblemas(dias), getDashboardEquipamentos(dias),
+    getRelatorioOperadores(inicio, fim), getRelatorioProblemas(inicio, fim), getDashboardEquipamentos(inicio, fim),
   ])
   const maquinas = dash.maquinas
 
@@ -75,6 +85,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Operadores, consumo, tempo parado e histórico de problemas/manutenção.</p>
       </div>
 
+      <p className="text-xs mb-1" style={{ color: '#9ca3af' }}>Exibindo dados de: <strong style={{ color: '#1a2a3a' }}>{mesLabel}</strong></p>
       <IndicadoresFiltro basePath="/equipamentos/relatorios" />
 
       {/* Por operador */}
