@@ -77,8 +77,12 @@ export function TarefasView({
   const [prestadores, setPrestadores] = useState<Record<string, string>>(() =>
     Object.fromEntries(tasks.filter(t => t.needs_approval && t.assignee_id).map(t => [t.id, t.assignee_id!]))
   )
+  // prestador selecionado localmente para tarefas regulares (evita revert durante transição)
+  const [prestadoresReg, setPrestadoresReg] = useState<Record<string, string>>(() =>
+    Object.fromEntries(tasks.filter(t => !t.needs_approval && t.assignee_id).map(t => [t.id, t.assignee_id!]))
+  )
 
-  const providerName = (id: string | null) => (id ? providers.find(p => p.id === id)?.name ?? id : '—')
+  const providerName = (id: string | null) => (id ? (providers.find(p => p.id === id)?.name ?? '—') : '—')
 
   function aplicarFiltros(status?: string, urgency?: string) {
     const p = new URLSearchParams()
@@ -98,11 +102,22 @@ export function TarefasView({
   }
 
   function mudarPrestador(taskId: string, assigneeId: string) {
+    // atualização otimista imediata — não reverte durante a transição
+    setPrestadoresReg(prev => ({ ...prev, [taskId]: assigneeId }))
     setErro(null)
     startTransition(async () => {
       const res = await updateDespachaTaskAssignee(taskId, assigneeId)
-      if (res.error) setErro(res.error)
-      else setList(prev => prev.map(t => t.id === taskId ? { ...t, assignee_id: assigneeId } : t))
+      if (res.error) {
+        setErro(`Erro ao atribuir prestador: ${res.error}`)
+        // reverte se falhou
+        setPrestadoresReg(prev => {
+          const next = { ...prev }
+          delete next[taskId]
+          return next
+        })
+      } else {
+        setList(prev => prev.map(t => t.id === taskId ? { ...t, assignee_id: assigneeId } : t))
+      }
     })
   }
 
@@ -286,7 +301,7 @@ export function TarefasView({
                     👁 Ver
                   </button>
                   <select
-                    value={t.assignee_id ?? ''}
+                    value={prestadoresReg[t.id] ?? t.assignee_id ?? ''}
                     onChange={e => { if (e.target.value) mudarPrestador(t.id, e.target.value) }}
                     disabled={isPending}
                     className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
