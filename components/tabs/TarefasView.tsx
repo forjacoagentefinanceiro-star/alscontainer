@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateDespachaTaskStatus, updateDespachaTaskAssignee, approveDespachaTask } from '@/app/actions'
 import type { DespachaTask, DespachaStats, DespachaProvider, DespachaStatus, DespachaUrgency } from '@/lib/despacha/types'
+import { TaskDetailModal } from './TaskDetailModal'
 
 const statusLabel: Record<DespachaStatus, string> = {
   pendente: 'Pendente',
@@ -58,6 +59,7 @@ export function TarefasView({
   const [list, setList] = useState(tasks)
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
+  const [modalTask, setModalTask] = useState<DespachaTask | null>(null)
   // urgência e prestador editados localmente antes de confirmar aprovação
   const [urgencias,  setUrgencias]  = useState<Record<string, DespachaUrgency>>(() =>
     Object.fromEntries(tasks.filter(t => t.needs_approval).map(t => [t.id, t.urgency]))
@@ -181,6 +183,14 @@ export function TarefasView({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  <button
+                    onClick={() => setModalTask(t)}
+                    title="Ver detalhes"
+                    className="rounded text-xs px-2.5 py-1.5 font-semibold"
+                    style={{ background: '#f3f4f6', color: '#374151', border: 'none', cursor: 'pointer' }}
+                  >
+                    👁 Ver
+                  </button>
                   {t.needs_approval ? (
                     <>
                       {/* Prioridade */}
@@ -248,6 +258,22 @@ export function TarefasView({
           </div>
         )}
       </div>
+
+      {modalTask && (
+        <TaskDetailModal
+          task={modalTask}
+          providers={providers}
+          onClose={() => setModalTask(null)}
+          onUpdated={updated => {
+            setList(prev => prev.map(t => t.id === updated.id ? updated : t))
+            setModalTask(updated)
+          }}
+          onDeleted={id => {
+            setList(prev => prev.filter(t => t.id !== id))
+            setModalTask(null)
+          }}
+        />
+      )}
     </div>
   )
 }

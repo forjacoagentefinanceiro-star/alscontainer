@@ -1487,3 +1487,36 @@ export async function updateDespachaTaskAssignee(taskId: string, assigneeId: str
   revalidatePath('/', 'layout')
   return { error: null }
 }
+
+export async function updateDespachaTaskFull(taskId: string, fields: Record<string, unknown>) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Apenas admin pode alterar tarefas do DespachaApp.' }
+
+  const res = await despachaFetch(`/task?id=${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(fields),
+  })
+  if (!res.success) return { error: res.error }
+
+  revalidatePath('/tarefas')
+  revalidatePath('/tarefas/agenda')
+  return { error: null }
+}
+
+export async function deleteDespachaTask(taskId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Apenas admin pode excluir tarefas do DespachaApp.' }
+
+  const res = await despachaFetch(`/task?id=${encodeURIComponent(taskId)}`, { method: 'DELETE' })
+  if (!res.success) return { error: res.error }
+
+  revalidatePath('/tarefas')
+  revalidatePath('/tarefas/agenda')
+  return { error: null }
+}

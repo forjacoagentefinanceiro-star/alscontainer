@@ -22,6 +22,9 @@ export type DespachaTask = {
   client_id: string | null
   source: string | null
   requester_phone: string | null
+  requester_sector: string | null
+  category: string | null
+  notes: string | null
   photos: string | null
   needs_approval: boolean
 }
