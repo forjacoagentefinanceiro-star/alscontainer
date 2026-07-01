@@ -19,6 +19,7 @@ import {
   FolderPlus,
   PanelLeftClose,
   PanelLeftOpen,
+  ListChecks,
 } from 'lucide-react'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
@@ -43,6 +44,7 @@ const equipamentosItems: Item[] = [
 
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
 const usuariosItem: Item = { href: '/usuarios', label: 'Usuários', icon: Users }
+const tarefasItem: Item = { href: '/tarefas', label: 'Tarefas', icon: ListChecks }
 const biItems: Item[] = [{ href: '/bi', label: 'BI Depot', icon: BarChart3 }]
 
 function NavLink({ item, active, collapsed }: { item: Item; active: boolean; collapsed: boolean }) {
@@ -93,7 +95,7 @@ export function Sidebar({ role }: { role?: string }) {
         { label: 'Estoque', items: estoqueItems },
         { label: 'Equipamentos', items: equipamentosItems },
         ...(podeCadastrar ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
-        ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
+        ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem, tarefasItem] }] : []),
         { label: 'Análise', items: biItems },
       ]
   const pathname = usePathname()

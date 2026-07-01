@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks } from 'lucide-react'
 
 const baseItems = [
   { href: '/dashboard',    label: 'Dashboard',  icon: LayoutDashboard },
@@ -24,7 +24,10 @@ export function BottomNav({ role }: { role?: string }) {
     : [
         ...baseItems,
         ...(podeCadastrar ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
-        ...(role === 'admin' ? [{ href: '/usuarios', label: 'Usuários', icon: Users }] : []),
+        ...(role === 'admin' ? [
+          { href: '/usuarios', label: 'Usuários', icon: Users },
+          { href: '/tarefas', label: 'Tarefas', icon: ListChecks },
+        ] : []),
       ]
   return (
     <nav

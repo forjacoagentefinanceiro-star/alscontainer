@@ -67,6 +67,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/inventario', request.url))
   }
 
+  // /tarefas (DespachaApp) → apenas admin
+  if (pathname.startsWith('/tarefas') && profile.role !== 'admin') {
+    return NextResponse.redirect(new URL('/inventario', request.url))
+  }
+
   return supabaseResponse
 }
 
