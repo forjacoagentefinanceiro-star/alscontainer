@@ -15,6 +15,18 @@ async function proxyGet<T>(path: string, query?: string): Promise<T | null> {
   } catch { return null }
 }
 
+async function proxyBulk(tasksQ: string): Promise<{
+  stats: { success: boolean; data: DespachaStats }
+  tasks: { success: boolean; data: DespachaTask[]; total?: number }
+  providers: { success: boolean; data: DespachaProvider[] }
+} | null> {
+  try {
+    const q = new URLSearchParams({ bulk: '1', q: tasksQ })
+    const res = await fetch(`/api/despacha?${q}`)
+    return res.ok ? await res.json() : null
+  } catch { return null }
+}
+
 export function TarefasClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -32,16 +44,13 @@ export function TarefasClient() {
     if (filtroStatus)   q.set('status',  filtroStatus)
     if (filtroUrgencia) q.set('urgency', filtroUrgencia)
 
-    const [s, t, p] = await Promise.all([
-      proxyGet<DespachaStats>('/stats'),
-      proxyGet<DespachaTask[]>('/tasks', q.toString()),
-      proxyGet<DespachaProvider[]>('/providers'),
-    ])
-
-    setStats(s)
-    setTasks(t ?? [])
-    setTotal(t?.length ?? 0)
-    setProviders(p ?? [])
+    const bulk = await proxyBulk(q.toString())
+    if (bulk) {
+      setStats(bulk.stats.success ? bulk.stats.data : null)
+      setTasks(bulk.tasks.success ? bulk.tasks.data : [])
+      setTotal(bulk.tasks.success ? (bulk.tasks.total ?? bulk.tasks.data.length) : 0)
+      setProviders(bulk.providers.success ? bulk.providers.data : [])
+    }
     setInitialized(true)
   }, [filtroStatus, filtroUrgencia])
 

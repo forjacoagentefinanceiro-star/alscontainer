@@ -5,13 +5,17 @@ import { useSearchParams } from 'next/navigation'
 import { AgendaView } from './AgendaView'
 import type { DespachaTask, DespachaProvider } from '@/lib/despacha/types'
 
-async function proxyGet<T>(path: string, query?: string): Promise<T | null> {
+async function proxyBulkAgenda(tasksQ: string): Promise<{
+  tasks: { success: boolean; data: DespachaTask[] }
+  providers: { success: boolean; data: DespachaProvider[] }
+} | null> {
   try {
-    const q = new URLSearchParams({ path })
-    if (query) q.set('q', query)
+    // bulk retorna stats+tasks+providers; aproveitamos tasks e providers
+    const q = new URLSearchParams({ bulk: '1', q: tasksQ })
     const res = await fetch(`/api/despacha?${q}`)
-    const body = await res.json()
-    return body.success ? (body.data as T) : null
+    if (!res.ok) return null
+    const b = await res.json()
+    return { tasks: b.tasks, providers: b.providers }
   } catch { return null }
 }
 
@@ -38,12 +42,9 @@ export function AgendaClient() {
     const due_to   = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
     const q = new URLSearchParams({ due_from, due_to, limit: '100' })
 
-    Promise.all([
-      proxyGet<DespachaTask[]>('/tasks', q.toString()),
-      proxyGet<DespachaProvider[]>('/providers'),
-    ]).then(([t, p]) => {
-      setTasks(t ?? [])
-      setProviders(p ?? [])
+    proxyBulkAgenda(q.toString()).then(bulk => {
+      setTasks(bulk?.tasks.success ? bulk.tasks.data : [])
+      setProviders(bulk?.providers.success ? bulk.providers.data : [])
       setLoading(false)
     })
   }, [year, month])
