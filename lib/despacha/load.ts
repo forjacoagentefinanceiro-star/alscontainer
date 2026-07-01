@@ -31,23 +31,35 @@ export async function getDespachaProviders(): Promise<DespachaProvider[]> {
   return res.success ? res.data : []
 }
 
-export type DespachaAlertCounts = { urgentes: number; atrasadas: number; preview: DespachaTask[] }
+export type DespachaAlertCounts = {
+  urgentes: number
+  atrasadas: number
+  preview: DespachaTask[]
+  novasSolicitacoes: DespachaTask[]
+  providers: DespachaProvider[]
+}
 
-// Usado pelo banner na layout — mantém o custo baixo (roda em toda navegação).
+// Usado pelo banner na layout — mantém o custo baixo (roda em toda navegação):
+// 1 chamada de tarefas pendentes serve tanto o alerta de "urgentes" quanto o
+// de "novas solicitações via QR Code" (source === 'publico').
 export async function getDespachaAlertCounts(): Promise<DespachaAlertCounts | null> {
-  const [stats, criticas, altas] = await Promise.all([
+  const [stats, pendentes, providers] = await Promise.all([
     despachaFetch<DespachaStats>('/stats'),
-    despachaFetch<DespachaTask[]>('/tasks?status=pendente&urgency=critica&limit=5'),
-    despachaFetch<DespachaTask[]>('/tasks?status=pendente&urgency=alta&limit=5'),
+    despachaFetch<DespachaTask[]>('/tasks?status=pendente&limit=50'),
+    getDespachaProviders(),
   ])
 
   if (!stats.success) return null
 
-  const totalUrgentes = (criticas.success ? criticas.total ?? 0 : 0) + (altas.success ? altas.total ?? 0 : 0)
-  const preview = [
-    ...(criticas.success ? criticas.data : []),
-    ...(altas.success ? altas.data : []),
-  ].slice(0, 5)
+  const tasks = pendentes.success ? pendentes.data : []
+  const urgentesTasks = tasks.filter(t => t.urgency === 'critica' || t.urgency === 'alta')
+  const novasSolicitacoes = tasks.filter(t => t.source === 'publico')
 
-  return { urgentes: totalUrgentes, atrasadas: stats.data.atrasadas, preview }
+  return {
+    urgentes: urgentesTasks.length,
+    atrasadas: stats.data.atrasadas,
+    preview: urgentesTasks.slice(0, 5),
+    novasSolicitacoes,
+    providers,
+  }
 }

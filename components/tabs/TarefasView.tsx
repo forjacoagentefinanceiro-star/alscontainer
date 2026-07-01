@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateDespachaTaskStatus } from '@/app/actions'
+import { updateDespachaTaskStatus, updateDespachaTaskAssignee } from '@/app/actions'
 import type { DespachaTask, DespachaStats, DespachaProvider, DespachaStatus, DespachaUrgency } from '@/lib/despacha/types'
 
 const statusLabel: Record<DespachaStatus, string> = {
@@ -78,6 +78,15 @@ export function TarefasView({
     })
   }
 
+  function mudarPrestador(taskId: string, assigneeId: string) {
+    setErro(null)
+    startTransition(async () => {
+      const res = await updateDespachaTaskAssignee(taskId, assigneeId)
+      if (res.error) setErro(res.error)
+      else setList(prev => prev.map(t => t.id === taskId ? { ...t, assignee_id: assigneeId, status: 'em_andamento' } : t))
+    })
+  }
+
   return (
     <div>
       <div className="mb-5">
@@ -150,6 +159,16 @@ export function TarefasView({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={t.assignee_id ?? ''}
+                    onChange={e => { if (e.target.value) mudarPrestador(t.id, e.target.value) }}
+                    disabled={isPending}
+                    className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
+                    style={{ borderColor: '#d1d5db', color: '#374151' }}
+                  >
+                    <option value="" disabled>Prestador…</option>
+                    {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
                   <select
                     value={t.status}
                     onChange={e => mudarStatus(t.id, e.target.value as DespachaStatus)}

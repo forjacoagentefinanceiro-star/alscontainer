@@ -20,6 +20,9 @@ export type DespachaTask = {
   client_address: string | null
   task_type: string | null
   client_id: string | null
+  source: string | null
+  requester_phone: string | null
+  photos: string | null
 }
 
 export type DespachaProvider = {
