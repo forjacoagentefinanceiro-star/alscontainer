@@ -23,6 +23,7 @@ export type DespachaTask = {
   source: string | null
   requester_phone: string | null
   photos: string | null
+  needs_approval: boolean
 }
 
 export type DespachaProvider = {

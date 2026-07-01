@@ -1446,6 +1446,28 @@ export async function updateDespachaTaskStatus(taskId: string, status: 'pendente
   return { error: null }
 }
 
+// Aprovação de solicitação pública: remove a flag needs_approval e inicia o atendimento.
+export async function approveDespachaTask(taskId: string, assigneeId?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: 'Apenas admin pode aprovar solicitações.' }
+
+  const body: Record<string, unknown> = { needs_approval: false, status: 'em_andamento' }
+  if (assigneeId) body.assignee_id = assigneeId
+
+  const res = await despachaFetch(`/task?id=${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+  if (!res.success) return { error: res.error }
+
+  revalidatePath('/tarefas')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
 // Atribuir um prestador também inicia o atendimento (tira a tarefa do estado "pendente").
 export async function updateDespachaTaskAssignee(taskId: string, assigneeId: string) {
   const supabase = await createClient()
