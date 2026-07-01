@@ -53,7 +53,7 @@ export async function getDespachaAlertCounts(): Promise<DespachaAlertCounts | nu
 
   const tasks = pendentes.success ? pendentes.data : []
   const urgentesTasks = tasks.filter(t => t.urgency === 'critica' || t.urgency === 'alta')
-  const novasSolicitacoes = tasks.filter(t => t.source === 'publico')
+  const novasSolicitacoes = tasks.filter(t => t.source === 'publico' && t.needs_approval)
 
   return {
     urgentes: urgentesTasks.length,

@@ -2,10 +2,16 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { updateDespachaTaskAssignee } from '@/app/actions'
-import type { DespachaTask, DespachaProvider } from '@/lib/despacha/types'
+import { approveDespachaTask } from '@/app/actions'
+import type { DespachaTask, DespachaProvider, DespachaUrgency } from '@/lib/despacha/types'
 
 const urgencyLabel: Record<string, string> = { critica: 'Crítica', alta: 'Alta', media: 'Média', baixa: 'Baixa' }
+const urgencyColor: Record<string, { bg: string; color: string; border: string }> = {
+  critica: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  alta:    { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+  media:   { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
+  baixa:   { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
+}
 
 function dataHora(s: string) {
   return new Date(s).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
@@ -13,42 +19,73 @@ function dataHora(s: string) {
 
 function contarFotos(photos: string | null): number {
   if (!photos) return 0
-  try {
-    const arr = JSON.parse(photos)
-    return Array.isArray(arr) ? arr.length : 0
-  } catch {
-    return 0
-  }
+  try { return Array.isArray(JSON.parse(photos)) ? JSON.parse(photos).length : 0 }
+  catch { return 0 }
 }
 
-function NovaSolicitacaoItem({ t, providers, atribuir, isPending }: {
+function NovaSolicitacaoItem({ t, providers, aprovar, isPending }: {
   t: DespachaTask
   providers: DespachaProvider[]
-  atribuir: (taskId: string, providerId: string) => void
+  aprovar: (taskId: string, providerId: string | null, urgency: DespachaUrgency) => void
   isPending: boolean
 }) {
+  const [urgencia,  setUrgencia]  = useState<DespachaUrgency>(t.urgency)
+  const [prestador, setPrestador] = useState<string>(t.assignee_id ?? '')
   const fotos = contarFotos(t.photos)
+  const uc = urgencyColor[urgencia]
+
   return (
-    <div className="bg-white rounded-lg p-3 flex items-start justify-between gap-3 flex-wrap" style={{ border: '1px solid #fca5a5' }}>
-      <div className="flex-1 min-w-0">
+    <div className="bg-white rounded-lg p-3" style={{ border: '1px solid #fca5a5' }}>
+      {/* Dados da solicitação */}
+      <div className="mb-3">
         <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>{t.title}</p>
-        <p className="text-xs" style={{ color: '#9ca3af' }}>
-          {t.requester}{t.requester_phone ? ` · ${t.requester_phone}` : ''}{t.client_address ? ` · ${t.client_address}` : ''}
+        <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+          {t.requester}{t.requester_phone ? ` · ${t.requester_phone}` : ''}
+          {t.requester_sector ? ` · ${t.requester_sector}` : ''}
+          {t.sector ? ` · 📍 ${t.sector}` : ''}
+          {t.category ? ` · ${t.category}` : ''}
         </p>
         <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(t.created_at)}{fotos > 0 ? ` · 📷 ${fotos} foto(s)` : ''}</p>
         {t.description && <p className="text-xs mt-1" style={{ color: '#374151' }}>{t.description}</p>}
       </div>
-      <div className="shrink-0">
-        <select
-          defaultValue=""
+      {/* Ações */}
+      <div className="flex flex-wrap items-end gap-2 pt-2" style={{ borderTop: '1px solid #fecaca' }}>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-semibold uppercase" style={{ color: '#b91c1c' }}>Criticidade</span>
+          <select
+            value={urgencia}
+            onChange={e => setUrgencia(e.target.value as DespachaUrgency)}
+            disabled={isPending}
+            className="rounded border text-xs px-2 py-1.5 outline-none font-bold disabled:opacity-50"
+            style={{ ...uc, borderColor: uc.border, minWidth: 100 }}
+          >
+            <option value="critica">🚨 Crítica</option>
+            <option value="alta">🔴 Alta</option>
+            <option value="media">🟡 Média</option>
+            <option value="baixa">🟢 Baixa</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-semibold uppercase" style={{ color: '#b91c1c' }}>Prestador</span>
+          <select
+            value={prestador}
+            onChange={e => setPrestador(e.target.value)}
+            disabled={isPending}
+            className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
+            style={{ borderColor: '#fca5a5', color: '#374151', minWidth: 160 }}
+          >
+            <option value="">Atribuir prestador…</option>
+            {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <button
+          onClick={() => aprovar(t.id, prestador || null, urgencia)}
           disabled={isPending}
-          onChange={e => { if (e.target.value) atribuir(t.id, e.target.value) }}
-          className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
-          style={{ borderColor: '#fca5a5', color: '#b91c1c' }}
+          className="rounded-lg text-sm px-4 py-1.5 font-bold disabled:opacity-50"
+          style={{ background: '#16a34a', color: '#fff', border: 'none', cursor: 'pointer' }}
         >
-          <option value="" disabled>Atribuir prestador…</option>
-          {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+          ✓ Aprovar
+        </button>
       </div>
     </div>
   )
@@ -71,10 +108,10 @@ export function AlertaTarefas({ urgentes, atrasadas, preview, novasSolicitacoes,
 
   if (!urgentes && !atrasadas && !lista.length) return null
 
-  function atribuir(taskId: string, providerId: string) {
+  function aprovar(taskId: string, providerId: string | null, urgency: DespachaUrgency) {
     setErro(null)
     startTransition(async () => {
-      const res = await updateDespachaTaskAssignee(taskId, providerId)
+      const res = await approveDespachaTask(taskId, providerId ?? undefined, urgency)
       if (res.error) setErro(res.error)
       else setLista(prev => prev.filter(t => t.id !== taskId))
     })
@@ -93,7 +130,7 @@ export function AlertaTarefas({ urgentes, atrasadas, preview, novasSolicitacoes,
           </div>
           <div className="p-4 space-y-3">
             {erro && <p className="text-xs px-3 py-2 rounded" style={{ background: '#fee2e2', color: '#b91c1c' }}>{erro}</p>}
-            {lista.map(t => <NovaSolicitacaoItem key={t.id} t={t} providers={providers} atribuir={atribuir} isPending={isPending} />)}
+            {lista.map(t => <NovaSolicitacaoItem key={t.id} t={t} providers={providers} aprovar={aprovar} isPending={isPending} />)}
           </div>
         </div>
       )}
