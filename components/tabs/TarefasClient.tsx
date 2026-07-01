@@ -21,16 +21,15 @@ export function TarefasClient() {
   const filtroStatus  = searchParams.get('status')  as DespachaStatus  | null
   const filtroUrgencia = searchParams.get('urgency') as DespachaUrgency | null
 
-  const [stats,     setStats]     = useState<DespachaStats | null>(null)
-  const [tasks,     setTasks]     = useState<DespachaTask[]>([])
-  const [total,     setTotal]     = useState(0)
-  const [providers, setProviders] = useState<DespachaProvider[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [stats,       setStats]       = useState<DespachaStats | null>(null)
+  const [tasks,       setTasks]       = useState<DespachaTask[]>([])
+  const [total,       setTotal]       = useState(0)
+  const [providers,   setProviders]   = useState<DespachaProvider[]>([])
+  const [initialized, setInitialized] = useState(false)
 
   const load = useCallback(async () => {
-    setLoading(true)
     const q = new URLSearchParams({ limit: '50' })
-    if (filtroStatus)  q.set('status',  filtroStatus)
+    if (filtroStatus)   q.set('status',  filtroStatus)
     if (filtroUrgencia) q.set('urgency', filtroUrgencia)
 
     const [s, t, p] = await Promise.all([
@@ -43,12 +42,12 @@ export function TarefasClient() {
     setTasks(t ?? [])
     setTotal(t?.length ?? 0)
     setProviders(p ?? [])
-    setLoading(false)
+    setInitialized(true)
   }, [filtroStatus, filtroUrgencia])
 
   useEffect(() => { load() }, [load])
 
-  if (loading) {
+  if (!initialized) {
     return (
       <div>
         <div className="mb-5">
@@ -66,6 +65,7 @@ export function TarefasClient() {
 
   return (
     <TarefasView
+      key={`${filtroStatus ?? ''}-${filtroUrgencia ?? ''}`}
       stats={stats}
       tasks={tasks}
       total={total}

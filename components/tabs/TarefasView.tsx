@@ -26,6 +26,16 @@ const urgencyColor: Record<DespachaUrgency, { bg: string; color: string; border:
   baixa:   { bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb' },
 }
 
+function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null
+  return (
+    <div className="flex gap-1">
+      <span style={{ color: '#9ca3af', minWidth: 70 }}>{label}:</span>
+      <span className="font-medium" style={{ color: '#374151' }}>{value}</span>
+    </div>
+  )
+}
+
 function Kpi({ label, value, cor }: { label: string; value: string | number; cor?: string }) {
   return (
     <div className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -154,25 +164,109 @@ export function TarefasView({
 
       {erro && <p className="text-xs px-3 py-2 rounded mb-3" style={{ background: '#fee2e2', color: '#b91c1c' }}>{erro}</p>}
 
+      {/* ── Solicitações aguardando aprovação ─────────────────────────── */}
+      {list.filter(t => t.needs_approval).length > 0 && (
+        <div className="mb-5">
+          <h2 className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: '#92400e' }}>
+            <span>⏳</span> Solicitações aguardando aprovação ({list.filter(t => t.needs_approval).length})
+          </h2>
+          <div className="space-y-3">
+            {list.filter(t => t.needs_approval).map(t => {
+              const urg = urgencias[t.id] ?? t.urgency
+              return (
+                <div key={t.id} className="rounded-xl p-4"
+                  style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', boxShadow: '0 2px 6px rgba(245,158,11,.15)' }}>
+                  {/* Cabeçalho */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: '#1a2a3a' }}>{t.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+                        Recebida {dataHora(t.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setModalTask(t)}
+                      className="text-xs px-2.5 py-1 rounded-lg font-semibold shrink-0"
+                      style={{ background: '#fff', color: '#374151', border: '1px solid #e5e7eb', cursor: 'pointer' }}
+                    >
+                      👁 Ver
+                    </button>
+                  </div>
+
+                  {/* Dados da solicitação */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3 text-xs">
+                    <InfoRow label="Solicitante" value={t.requester} />
+                    <InfoRow label="Telefone"    value={t.requester_phone} />
+                    <InfoRow label="Setor"       value={t.requester_sector} />
+                    <InfoRow label="Local"       value={t.sector} />
+                    <InfoRow label="Categoria"   value={t.category} />
+                  </div>
+                  {t.description && (
+                    <p className="text-xs px-3 py-2 rounded-lg mb-3" style={{ background: '#fff', color: '#374151', border: '1px solid #fde68a', whiteSpace: 'pre-wrap' }}>
+                      {t.description}
+                    </p>
+                  )}
+
+                  {/* Ações de aprovação */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2" style={{ borderTop: '1px solid #fde68a' }}>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-semibold uppercase" style={{ color: '#92400e' }}>Criticidade</span>
+                      <select
+                        value={urg}
+                        onChange={e => setUrgencias(prev => ({ ...prev, [t.id]: e.target.value as DespachaUrgency }))}
+                        disabled={isPending}
+                        className="rounded-lg border text-xs px-2 py-1.5 outline-none font-bold disabled:opacity-50"
+                        style={{ ...urgencyColor[urg], borderColor: urgencyColor[urg].border, minWidth: 100 }}
+                      >
+                        <option value="critica">🚨 Crítica</option>
+                        <option value="alta">🔴 Alta</option>
+                        <option value="media">🟡 Média</option>
+                        <option value="baixa">🟢 Baixa</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-semibold uppercase" style={{ color: '#92400e' }}>Prestador</span>
+                      <select
+                        value={prestadores[t.id] ?? t.assignee_id ?? ''}
+                        onChange={e => setPrestadores(prev => ({ ...prev, [t.id]: e.target.value }))}
+                        disabled={isPending}
+                        className="rounded-lg border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
+                        style={{ borderColor: '#d1d5db', color: '#374151', minWidth: 160 }}
+                      >
+                        <option value="">Atribuir prestador…</option>
+                        {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => aprovar(t.id, prestadores[t.id] ?? t.assignee_id, urg)}
+                      disabled={isPending}
+                      className="rounded-lg text-sm px-4 py-1.5 font-bold disabled:opacity-50 mt-auto"
+                      style={{ background: '#16a34a', color: '#fff', border: 'none', cursor: 'pointer' }}
+                    >
+                      ✓ Aprovar
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Lista de tarefas ────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        {list.length === 0 ? (
+        {list.filter(t => !t.needs_approval).length === 0 ? (
           <p className="text-sm text-center py-8" style={{ color: '#9ca3af' }}>Nenhuma tarefa encontrada</p>
         ) : (
           <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
-            {list.map(t => (
-              <div key={t.id} className="px-5 py-4 flex items-start justify-between gap-4 flex-wrap"
-                style={t.needs_approval ? { background: '#fffbeb', borderLeft: '3px solid #f59e0b' } : {}}>
+            {list.filter(t => !t.needs_approval).map(t => (
+              <div key={t.id} className="px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>{t.title}</p>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ ...urgencyColor[t.urgency], border: `1px solid ${urgencyColor[t.urgency].border}` }}>
                       {urgencyLabel[t.urgency]}
                     </span>
-                    {t.needs_approval && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
-                        ⏳ Aguardando aprovação
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
                     {t.requester}{t.requester_phone ? ` · ${t.requester_phone}` : ''}{t.sector ? ` · ${t.sector}` : ''} · prestador: {providerName(t.assignee_id)}
@@ -191,67 +285,28 @@ export function TarefasView({
                   >
                     👁 Ver
                   </button>
-                  {t.needs_approval ? (
-                    <>
-                      {/* Prioridade */}
-                      <select
-                        value={urgencias[t.id] ?? t.urgency}
-                        onChange={e => setUrgencias(prev => ({ ...prev, [t.id]: e.target.value as DespachaUrgency }))}
-                        disabled={isPending}
-                        className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
-                        style={{ ...urgencyColor[urgencias[t.id] ?? t.urgency], borderColor: urgencyColor[urgencias[t.id] ?? t.urgency].border }}
-                      >
-                        <option value="critica">Crítica</option>
-                        <option value="alta">Alta</option>
-                        <option value="media">Média</option>
-                        <option value="baixa">Baixa</option>
-                      </select>
-                      {/* Prestador — só atualiza estado local; salvo ao clicar Aprovar */}
-                      <select
-                        value={prestadores[t.id] ?? t.assignee_id ?? ''}
-                        onChange={e => setPrestadores(prev => ({ ...prev, [t.id]: e.target.value }))}
-                        disabled={isPending}
-                        className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
-                        style={{ borderColor: '#d1d5db', color: '#374151' }}
-                      >
-                        <option value="">Atribuir prestador…</option>
-                        {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                      <button
-                        onClick={() => aprovar(t.id, prestadores[t.id] ?? t.assignee_id, urgencias[t.id] ?? t.urgency)}
-                        disabled={isPending}
-                        className="rounded text-xs px-3 py-1.5 font-bold disabled:opacity-50"
-                        style={{ background: '#16a34a', color: '#fff', border: 'none', cursor: 'pointer' }}
-                      >
-                        ✓ Aprovar
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <select
-                        value={t.assignee_id ?? ''}
-                        onChange={e => { if (e.target.value) mudarPrestador(t.id, e.target.value) }}
-                        disabled={isPending}
-                        className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
-                        style={{ borderColor: '#d1d5db', color: '#374151' }}
-                      >
-                        <option value="" disabled>Prestador…</option>
-                        {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                      <select
-                        value={t.status}
-                        onChange={e => mudarStatus(t.id, e.target.value as DespachaStatus)}
-                        disabled={isPending}
-                        className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
-                        style={{ ...statusColor[t.status], borderColor: statusColor[t.status].border }}
-                      >
-                        <option value="pendente">Pendente</option>
-                        <option value="em_andamento">Em andamento</option>
-                        <option value="concluida">Concluída</option>
-                        <option value="cancelada">Cancelada</option>
-                      </select>
-                    </>
-                  )}
+                  <select
+                    value={t.assignee_id ?? ''}
+                    onChange={e => { if (e.target.value) mudarPrestador(t.id, e.target.value) }}
+                    disabled={isPending}
+                    className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
+                    style={{ borderColor: '#d1d5db', color: '#374151' }}
+                  >
+                    <option value="" disabled>Prestador…</option>
+                    {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <select
+                    value={t.status}
+                    onChange={e => mudarStatus(t.id, e.target.value as DespachaStatus)}
+                    disabled={isPending}
+                    className="rounded border text-xs px-2 py-1.5 outline-none font-semibold disabled:opacity-50"
+                    style={{ ...statusColor[t.status], borderColor: statusColor[t.status].border }}
+                  >
+                    <option value="pendente">Pendente</option>
+                    <option value="em_andamento">Em andamento</option>
+                    <option value="concluida">Concluída</option>
+                    <option value="cancelada">Cancelada</option>
+                  </select>
                 </div>
               </div>
             ))}
