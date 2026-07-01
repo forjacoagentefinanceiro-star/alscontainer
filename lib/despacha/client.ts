@@ -11,10 +11,12 @@ export async function despachaFetch<T>(path: string, init?: RequestInit): Promis
     return { success: false, error: 'not_configured' }
   }
 
+  const isRead = !init?.method || init.method === 'GET'
+
   try {
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
-      cache: 'no-store',
+      ...(isRead ? { next: { revalidate: 60 } } : { cache: 'no-store' }),
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json',
