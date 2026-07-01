@@ -364,24 +364,32 @@ export async function setMetaMes(ano: number, mes: number, valor: number) {
   return { error: null }
 }
 
-// ---- Meta de horas do ciclo de equipamentos (23→22) ----
-export async function getMetaHorasCiclo(): Promise<number> {
+// ---- Configuração do ciclo de equipamentos (dia de início, meta de horas) ----
+export type ConfigCiclo = { metaHoras: number; diaInicio: number }
+
+export async function getConfigCiclo(): Promise<ConfigCiclo> {
   const supabase = await createClient()
-  const { data } = await supabase.from('config_equipamentos').select('horas_meta_ciclo').eq('id', 1).single()
-  return Number((data as Record<string, unknown> | null)?.horas_meta_ciclo ?? 0)
+  const { data } = await supabase.from('config_equipamentos').select('horas_meta_ciclo, dia_inicio_ciclo').eq('id', 1).single()
+  const row = data as Record<string, unknown> | null
+  return {
+    metaHoras: Number(row?.horas_meta_ciclo ?? 0),
+    diaInicio: Number(row?.dia_inicio_ciclo ?? 23),
+  }
 }
 
-export async function setMetaHorasCiclo(valor: number) {
+export async function setConfigCiclo(metaHoras: number, diaInicio: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   const { data: prof } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
   const role = (prof as Record<string, unknown> | null)?.role as string | undefined
   if (role !== 'admin' && role !== 'editor') return { error: 'Sem permissão.' }
-  if (!Number.isFinite(valor) || valor < 0) return { error: 'Valor inválido.' }
-  const { error } = await supabase.from('config_equipamentos').upsert({ id: 1, horas_meta_ciclo: valor }, { onConflict: 'id' })
+  if (!Number.isFinite(metaHoras) || metaHoras < 0) return { error: 'Meta de horas inválida.' }
+  if (!Number.isInteger(diaInicio) || diaInicio < 1 || diaInicio > 28) return { error: 'Dia de início deve ser entre 1 e 28.' }
+  const { error } = await supabase.from('config_equipamentos').upsert({ id: 1, horas_meta_ciclo: metaHoras, dia_inicio_ciclo: diaInicio }, { onConflict: 'id' })
   if (error) return { error: error.message }
   revalidatePath('/equipamentos/indicadores')
+  revalidatePath('/equipamentos/relatorios')
   return { error: null }
 }
 
@@ -759,16 +767,17 @@ export async function getConsumoMensal(numMeses = 6): Promise<ConsumoMensal> {
 }
 
 // ciclo de faturamento: começa todo dia 23, fecha no dia 22 do mês seguinte (zera no dia 23)
-function cicloAtual(): { inicio: Date; fim: Date; mesLabel: string } {
+function cicloAtual(diaInicio = 23): { inicio: Date; fim: Date; mesLabel: string } {
+  const diaFim = diaInicio - 1  // fim = dia anterior ao início no mês seguinte
   const tz = 'America/Sao_Paulo'
   const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const [y, m, d] = ymd.split('-').map(Number)
   let anoIni = y, mesIni = m
-  if (d < 23) { mesIni -= 1; if (mesIni === 0) { mesIni = 12; anoIni -= 1 } }
-  const inicio = new Date(`${anoIni}-${String(mesIni).padStart(2, '0')}-23T00:00:00-03:00`)
+  if (d < diaInicio) { mesIni -= 1; if (mesIni === 0) { mesIni = 12; anoIni -= 1 } }
+  const inicio = new Date(`${anoIni}-${String(mesIni).padStart(2, '0')}-${String(diaInicio).padStart(2, '0')}T00:00:00-03:00`)
   let anoFim = anoIni, mesFim = mesIni + 1
   if (mesFim === 13) { mesFim = 1; anoFim += 1 }
-  const fim = new Date(`${anoFim}-${String(mesFim).padStart(2, '0')}-22T23:59:59-03:00`)
+  const fim = new Date(`${anoFim}-${String(mesFim).padStart(2, '0')}-${String(diaFim).padStart(2, '0')}T23:59:59-03:00`)
   const nomesMes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
   return { inicio, fim, mesLabel: `${nomesMes[mesFim - 1]}/${anoFim}` }
 }
@@ -777,7 +786,8 @@ export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasT
 
 export async function getHorasCicloAtual(): Promise<CicloHoras> {
   const { supabase, user } = await usuarioEPapel()
-  const { inicio, fim, mesLabel } = cicloAtual()
+  const cfg = await getConfigCiclo()
+  const { inicio, fim, mesLabel } = cicloAtual(cfg.diaInicio)
   if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
   const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final').gte('created_at', inicio.toISOString())
   const checklists = cks ?? []

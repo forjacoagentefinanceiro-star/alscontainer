@@ -1,4 +1,4 @@
-import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getMetaHorasCiclo } from '@/app/actions'
+import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
 import { IndicadoresCharts } from '@/components/IndicadoresCharts'
 import { ConsumoMensalChart, ConsumoMensalTabela } from '@/components/ConsumoMensal'
@@ -26,9 +26,10 @@ function Card({ label, value, cor, sub }: { label: string; value: string | numbe
   )
 }
 
-function CicloCard({ horasTrabalhadas, mesLabel, meta, gestor }: {
-  horasTrabalhadas: number; mesLabel: string; meta: number; gestor: boolean
+function CicloCard({ horasTrabalhadas, mesLabel, meta, diaInicio, gestor }: {
+  horasTrabalhadas: number; mesLabel: string; meta: number; diaInicio: number; gestor: boolean
 }) {
+  const diaFim = diaInicio - 1
   let cor = '#1B4F8A'
   let badge: string | null = null
   if (meta > 0) {
@@ -41,7 +42,7 @@ function CicloCard({ horasTrabalhadas, mesLabel, meta, gestor }: {
     <div className="bg-white rounded-xl p-4" style={{ border: `2px solid ${cor}` }}>
       <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6b7280' }}>Horas trabalhadas no ciclo</p>
       <p className="text-2xl font-bold mt-1" style={{ color: cor }}>{horasTrabalhadas}h</p>
-      <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{mesLabel} · 23 a 22, zera no dia 23</p>
+      <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{mesLabel} · dia {diaInicio} a {diaFim}, zera no dia {diaInicio}</p>
       {meta > 0 && badge && (
         <p className="text-xs font-semibold mt-1" style={{ color: cor }}>{badge}</p>
       )}
@@ -53,7 +54,7 @@ function CicloCard({ horasTrabalhadas, mesLabel, meta, gestor }: {
           }} />
         </div>
       )}
-      {gestor && <MetaHorasCicloEditor metaAtual={meta} />}
+      {gestor && <MetaHorasCicloEditor metaAtual={meta} diaInicioAtual={diaInicio} />}
     </div>
   )
 }
@@ -70,13 +71,14 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
   const fim = mes === mesAtual ? null : fimISO
   const mesLabel = `${NOMES_MES[mesN - 1]} ${ano}`
 
-  const [d, ciclo, consumoMensal, metaHoras, perfil] = await Promise.all([
+  const [d, ciclo, consumoMensal, cfgCiclo, perfil] = await Promise.all([
     getDashboardEquipamentos(inicio, fim),
     getHorasCicloAtual(),
     getConsumoMensal(6),
-    getMetaHorasCiclo(),
+    getConfigCiclo(),
     import('@/app/actions').then(m => m.getMyProfile()),
   ])
+  const { metaHoras, diaInicio } = cfgCiclo
   const t = d.totais
   const disponibilidadePct = t.utilizacaoPct != null ? Math.round((100 - t.utilizacaoPct) * 10) / 10 : null
   const pctSemChecklistCiclo = ciclo.horasTrabalhadas > 0 ? Math.round((ciclo.horasSemChecklist / ciclo.horasTrabalhadas) * 1000) / 10 : null
@@ -94,7 +96,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
       <IndicadoresFiltro />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-6xl mb-3">
-        <CicloCard horasTrabalhadas={ciclo.horasTrabalhadas} mesLabel={ciclo.mesLabel} meta={metaHoras} gestor={gestor} />
+        <CicloCard horasTrabalhadas={ciclo.horasTrabalhadas} mesLabel={ciclo.mesLabel} meta={metaHoras} diaInicio={diaInicio} gestor={gestor} />
         <Card label={`Horas trabalhadas — ${mesLabel}`} value={t.horasTrabalhadas} cor="#1B4F8A" sub="soma de todas as máquinas no mês" />
         <Card label="Consumo médio" value={t.consumoMedio != null ? `${t.consumoMedio} L/h` : '—'} cor="#9a3412" sub="litros ÷ horas trabalhadas" />
         <Card label="Litros abastecidos" value={`${t.litrosTotal} L`} cor="#9a3412" />
