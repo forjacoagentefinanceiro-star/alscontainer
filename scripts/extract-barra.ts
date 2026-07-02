@@ -45,46 +45,45 @@ async function main() {
     await page.goto(SITE, { waitUntil: "networkidle", timeout: 40000 });
     await page.waitForTimeout(2000); // JS tardio
 
-    // ── Estratégia 1: elementos com classe ou texto "barra/profundidade/canal" ──
+    // ── Estratégia 1 (principal): banner "Condições da Barra" ──
+    // O site mostra um banner amarelo com o texto estruturado:
+    // "Condições da Barra: / PRATICÁVEL / com restrições / Declarado pela Autoridade Marítima"
     profundidade = await page.evaluate(() => {
-      const candidates = Array.from(document.querySelectorAll("*")).filter(el => {
-        if (el.children.length > 5) return false; // só folhas / containers pequenos
-        const txt = (el.textContent ?? "").trim().toLowerCase();
-        return (
-          txt.includes("profundidade") ||
-          txt.includes("praticável") ||
-          txt.includes("condicionada") ||
-          txt.includes("fechada") ||
-          txt.includes("barra praticável")
-        ) && txt.length < 300;
-      });
-      // Preferir elementos que contenham um número (metro)
-      const comNumero = candidates.find(el => /\d+[.,]\d+/.test(el.textContent ?? ""));
-      return (comNumero ?? candidates[0])?.textContent?.trim().replace(/\s+/g, " ") ?? "";
+      // Encontra o elemento que contém "Condições da Barra" (label do banner)
+      const all = Array.from(document.querySelectorAll("*"));
+      const labelEl = all.find(el =>
+        el.children.length < 6 &&
+        (el.textContent ?? "").includes("Condições da Barra")
+      );
+      if (labelEl) {
+        // Pega o container do banner inteiro
+        const container = labelEl.closest("div, section, aside, article") ?? labelEl.parentElement;
+        const txt = container?.textContent?.trim().replace(/\s+/g, " ") ?? "";
+        // Extrai somente a parte relevante: status + qualificador
+        const match = txt.match(/Condi[çc][õo]es da Barra[:\s]*([\s\S]{3,120}?)(?:Declarado|$)/i);
+        return match ? match[1].trim().replace(/\s+/g, " ") : txt.slice(0, 200);
+      }
+      return "";
     });
 
-    // ── Estratégia 2: regex de profundidade no texto completo da página ──
+    // ── Estratégia 2: qualquer elemento com status portuário ──
+    if (!profundidade) {
+      profundidade = await page.evaluate(() => {
+        const STATUS_RE = /praticável|condicionad[ao]|fechad[ao]/i;
+        const el = Array.from(document.querySelectorAll("*")).find(e =>
+          e.children.length < 8 && STATUS_RE.test(e.textContent ?? "") && (e.textContent?.trim().length ?? 0) < 300
+        );
+        return el?.textContent?.trim().replace(/\s+/g, " ") ?? "";
+      });
+    }
+
+    // ── Estratégia 3: texto bruto da página ──
     if (!profundidade) {
       const bodyText = await page.evaluate(() => (document.body as HTMLElement).innerText);
       rawText = bodyText.slice(0, 3000);
       const linhas = bodyText.split(/\n/).map(l => l.trim()).filter(Boolean);
-      const relevantes = linhas.filter(l => {
-        const lower = l.toLowerCase();
-        return lower.includes("profundidade") || lower.includes("praticável") ||
-          lower.includes("condicionada") || lower.includes("fechada") ||
-          lower.includes("barra") && /\d/.test(l);
-      });
-      profundidade = relevantes.slice(0, 4).join(" | ").slice(0, 300);
-    }
-
-    // ── Estratégia 3: captura tudo em volta da imagem barra-praticavel ──
-    if (!profundidade) {
-      profundidade = await page.evaluate(() => {
-        const img = document.querySelector("img[src*='barra']");
-        if (!img) return "";
-        const section = img.closest("section, div, article") ?? img.parentElement;
-        return section?.textContent?.trim().replace(/\s+/g, " ").slice(0, 300) ?? "";
-      });
+      const relevantes = linhas.filter(l => /praticável|condicionad[ao]|fechad[ao]|barra/i.test(l) && l.length < 200);
+      profundidade = relevantes.slice(0, 3).join(" | ").slice(0, 300);
     }
 
     profundidade = profundidade.trim().slice(0, 300);
