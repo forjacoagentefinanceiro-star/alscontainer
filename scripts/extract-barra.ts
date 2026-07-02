@@ -27,6 +27,15 @@ function formatarStatus(item: CondBarra): string {
   return [desc, prof ? `Prof: ${prof}` : "", mare ? `Maré: ${mare}m` : ""].filter(Boolean).join(" · ");
 }
 
+function emojiStatus(status: string): string {
+  const s = status.toLowerCase();
+  if (s.includes("fechad")) return "🔴";
+  if (s.includes("restri")) return "🟡";
+  if (s.includes("praticáv") || s.includes("praticav")) return "🟢";
+  if (s.includes("condicion")) return "🟠";
+  return "⚓";
+}
+
 async function sendTelegram(msg: string) {
   if (!TG_TOKEN || !TG_CHAT) { console.log("[telegram] não configurado"); return; }
   await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -149,10 +158,12 @@ async function main() {
   if (changed) {
     const horaBrasilia = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const anterior = anteriorDB.includes("cond_barra") ? "(formato anterior)" : anteriorDB || "(sem registro)";
+    const emoji = emojiStatus(profundidade);
+    const emojiAnterior = anteriorDB && !anteriorDB.includes("cond_barra") ? emojiStatus(anteriorDB) : "⚓";
     const msg =
       `🚢 BARRA ITAJAÍ — condição atualizada\n\n` +
-      `Anterior: ${anterior}\n` +
-      `Atual: ${profundidade}\n\n` +
+      `${emojiAnterior} Anterior: ${anterior}\n` +
+      `${emoji} Atual: ${profundidade}\n\n` +
       `📅 ${horaBrasilia} BRT\n` +
       `🔗 ${SITE}`;
     await sendTelegram(msg);
