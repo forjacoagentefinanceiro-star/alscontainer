@@ -21,6 +21,7 @@ import {
   PanelLeftOpen,
   ListChecks,
   CalendarDays,
+  QrCode,
 } from 'lucide-react'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
@@ -49,7 +50,9 @@ const biItems: Item[] = [{ href: '/bi', label: 'BI Depot', icon: BarChart3 }]
 const indicadoresTarefasItem: Item = { href: '/tarefas', label: 'Indicadores Tarefas', icon: ListChecks }
 
 const gestaoTarefasItems: Item[] = [
-  { href: '/tarefas/agenda', label: 'Agenda', icon: CalendarDays },
+  { href: '/tarefas',        label: 'Tarefas', icon: ListChecks  },
+  { href: '/tarefas/agenda', label: 'Agenda',  icon: CalendarDays },
+  { href: '/tarefas/qrcode', label: 'QR Code', icon: QrCode      },
 ]
 
 function NavLink({ item, active, collapsed }: { item: Item; active: boolean; collapsed: boolean }) {
