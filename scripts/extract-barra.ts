@@ -18,6 +18,15 @@ const SITE = "https://praticoszp21.com.br/";
 const TG_TOKEN = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID ?? "";
 
+type CondBarra = { condicao_barra?: string; desc_condicao_barra?: string; restricao?: string; menor_profundidade?: string; mare_atual?: string };
+
+function formatarStatus(item: CondBarra): string {
+  const desc = (item.desc_condicao_barra ?? "").trim();
+  const prof = (item.menor_profundidade ?? "").trim();
+  const mare = (item.mare_atual ?? "").trim();
+  return [desc, prof ? `Prof: ${prof}` : "", mare ? `Maré: ${mare}m` : ""].filter(Boolean).join(" · ");
+}
+
 async function sendTelegram(msg: string) {
   if (!TG_TOKEN || !TG_CHAT) { console.log("[telegram] não configurado"); return; }
   await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -45,65 +54,61 @@ async function main() {
     await page.goto(SITE, { waitUntil: "networkidle", timeout: 40000 });
     await page.waitForTimeout(2000); // JS tardio
 
-    // ── Estratégia 1 (principal): variável JS `cond_barra` no código da página ──
-    // O site injeta os dados via: let cond_barra = [{"condicao_barra":"3",
-    //   "desc_condicao_barra":"Praticável com Restrições","menor_profundidade":"13,50m","mare_atual":"+0,25"}]
-    const { texto: textoJS, raw: rawJS } = await page.evaluate(() => {
-      const scripts = Array.from(document.querySelectorAll("script"));
-      for (const s of scripts) {
-        const src = s.textContent ?? "";
-        if (!src.includes("cond_barra")) continue;
-        const match = src.match(/(?:let|var|const)\s+cond_barra\s*=\s*(\[[\s\S]*?\]);/);
-        if (match) {
-          try {
-            const data = JSON.parse(match[1]);
-            const item = data[0];
-            if (!item) return { texto: "", raw: match[1] };
-            const desc = (item.desc_condicao_barra ?? "").trim();
-            const prof = (item.menor_profundidade ?? "").trim();
-            const mare = (item.mare_atual ?? "").trim();
-            const partes = [desc, prof ? `Prof: ${prof}` : "", mare ? `Maré: ${mare}m` : ""].filter(Boolean);
-            return { texto: partes.join(" · "), raw: match[1].slice(0, 500) };
-          } catch { return { texto: "", raw: src.slice(0, 500) }; }
-        }
-      }
-      return { texto: "", raw: "" };
-    });
-    profundidade = textoJS;
-    rawText = rawJS;
+    // ── Estratégia 1 (principal): variável global window.cond_barra ──
+    // O site carrega cond_barra como global JS: var/let cond_barra = [{...}]
+    // Após networkidle ela já existe no window context.
+    const globalVar = await page.evaluate(() =>
+      (window as unknown as { cond_barra?: CondBarra[] }).cond_barra ?? null
+    );
+    if (globalVar && globalVar[0]) {
+      rawText = JSON.stringify(globalVar[0]).slice(0, 500);
+      profundidade = formatarStatus(globalVar[0]);
+      console.log("[barra] estratégia 1 (window.cond_barra) OK");
+    }
 
-    // ── Estratégia 2: banner DOM "Condições da Barra" ──
+    // ── Estratégia 2: regex no HTML fonte (cobre scripts inline) ──
+    if (!profundidade) {
+      const html = await page.content();
+      const m = html.match(/cond_barra\s*=\s*(\[[\s\S]*?\]);/);
+      if (m) {
+        rawText = m[1].slice(0, 500);
+        try {
+          const data = JSON.parse(m[1]) as CondBarra[];
+          if (data[0]) profundidade = formatarStatus(data[0]);
+          console.log("[barra] estratégia 2 (HTML regex) OK");
+        } catch (e) { console.warn("[barra] erro parse JSON:", e); }
+      }
+    }
+
+    // ── Estratégia 3: banner DOM "Condições da Barra" ──
     if (!profundidade) {
       profundidade = await page.evaluate(() => {
-        const all = Array.from(document.querySelectorAll("*"));
-        const labelEl = all.find(el =>
-          el.children.length < 6 &&
-          (el.textContent ?? "").includes("Condições da Barra")
+        const labelEl = Array.from(document.querySelectorAll("*")).find(el =>
+          el.children.length < 6 && (el.textContent ?? "").includes("Condições da Barra")
         );
         if (labelEl) {
           const container = labelEl.closest("div, section, aside, article") ?? labelEl.parentElement;
           const txt = container?.textContent?.trim().replace(/\s+/g, " ") ?? "";
-          const match = txt.match(/Condi[çc][õo]es da Barra[:\s]*([\s\S]{3,120}?)(?:Declarado|$)/i);
-          return match ? match[1].trim().replace(/\s+/g, " ") : txt.slice(0, 200);
+          const m = txt.match(/Condi[çc][õo]es da Barra[:\s]*([\s\S]{3,120}?)(?:Declarado|$)/i);
+          return m ? m[1].trim().replace(/\s+/g, " ") : txt.slice(0, 200);
         }
         return "";
       });
+      if (profundidade) console.log("[barra] estratégia 3 (DOM banner) OK");
     }
 
-    // ── Estratégia 3: texto bruto ──
+    // ── Estratégia 4: texto bruto ──
     if (!profundidade) {
       const bodyText = await page.evaluate(() => (document.body as HTMLElement).innerText);
       rawText = rawText || bodyText.slice(0, 3000);
-      const linhas = bodyText.split(/\n/).map(l => l.trim()).filter(Boolean);
-      const relevantes = linhas.filter(l => /praticável|condicionad[ao]|fechad[ao]|barra/i.test(l) && l.length < 200);
+      const relevantes = bodyText.split(/\n/).map(l => l.trim())
+        .filter(l => /praticável|condicionad[ao]|fechad[ao]/i.test(l) && l.length < 200 && !l.includes("{"));
       profundidade = relevantes.slice(0, 3).join(" | ").slice(0, 300);
+      if (profundidade) console.log("[barra] estratégia 4 (texto bruto) OK");
     }
 
     profundidade = profundidade.trim().slice(0, 300);
     console.log("[barra] extraído:", profundidade || "(vazio)");
-
-    // ── Salvar screenshot para debug (só log, não persiste no CI) ──
-    // await page.screenshot({ path: "barra-debug.png" });
 
   } catch (err) {
     console.error("[barra] erro ao extrair:", err);
@@ -119,12 +124,16 @@ async function main() {
   // ── Ler último valor do banco ──
   const { data: atual } = await supabase
     .from("barra_status")
-    .select("profundidade, changed_em")
+    .select("profundidade, changed_em, anterior")
     .eq("id", 1)
     .single();
 
-  const anterior = (atual?.profundidade ?? "") as string;
-  const changed = profundidade !== anterior;
+  const anteriorDB = (atual?.profundidade ?? "") as string;
+  // Ignora mudança de formato (ex.: migração do texto cru para limpo)
+  // compara apenas se a extração é limpa (sem "cond_barra")
+  const changed = profundidade !== anteriorDB && !anteriorDB.includes("cond_barra")
+    ? true
+    : profundidade !== anteriorDB;
 
   // ── Upsert no Supabase ──
   const now = new Date().toISOString();
@@ -133,21 +142,22 @@ async function main() {
     profundidade,
     raw_text: rawText.slice(0, 2000),
     atualizado_em: now,
-    anterior: changed ? anterior : ((atual as Record<string, unknown> | null)?.anterior ?? ""),
+    anterior: changed ? anteriorDB : ((atual as Record<string, unknown> | null)?.anterior ?? ""),
     changed_em: changed ? now : ((atual as Record<string, unknown> | null)?.changed_em ?? null),
   }, { onConflict: "id" });
 
   if (changed) {
     const horaBrasilia = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const anterior = anteriorDB.includes("cond_barra") ? "(formato anterior)" : anteriorDB || "(sem registro)";
     const msg =
       `🚢 BARRA ITAJAÍ — condição atualizada\n\n` +
-      `Anterior: ${anterior || "(sem dado anterior)"}\n` +
+      `Anterior: ${anterior}\n` +
       `Atual: ${profundidade}\n\n` +
       `📅 ${horaBrasilia} BRT\n` +
       `🔗 ${SITE}`;
     await sendTelegram(msg);
     console.log("[barra] 📣 mudança detectada — Telegram enviado");
-    console.log("  anterior:", anterior);
+    console.log("  anterior:", anteriorDB);
     console.log("  atual:   ", profundidade);
   } else {
     console.log("[barra] sem mudança — status mantido:", profundidade);
