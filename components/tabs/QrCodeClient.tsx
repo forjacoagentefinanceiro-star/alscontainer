@@ -141,9 +141,20 @@ export function QrCodeClient() {
         <style>{`
           @media print {
             @page { size: A4 portrait; margin: 10mm; }
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background: white !important; }
+            body * { visibility: hidden !important; }
+            .print-only,
+            .print-only * { visibility: visible !important; }
+            .print-only {
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              display: block !important;
+              padding: 10mm !important;
+              box-sizing: border-box !important;
+              background: white !important;
+            }
           }
           .print-only { display: none; }
         `}</style>
