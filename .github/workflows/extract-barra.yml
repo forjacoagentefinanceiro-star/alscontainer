@@ -2,8 +2,8 @@ name: Monitorar condição da barra (Itajaí)
 
 on:
   schedule:
-    # a cada 2 horas (ciclo de maré): 00, 02, 04, 06, 08, 10, 12, 14, 16, 18, 20, 22 UTC
-    - cron: "0 */2 * * *"
+    # a cada hora
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
