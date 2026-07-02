@@ -36,6 +36,22 @@ export function QrCodeClient() {
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
   }
 
+  async function baixarQrCode() {
+    if (!info) return
+    try {
+      const res  = await fetch(qrUrl(portalUrl, 600))
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = 'qrcode-solicitar-servico.png'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      window.open(qrUrl(portalUrl, 600), '_blank')
+    }
+  }
+
   function imprimir() {
     window.print()
   }
@@ -97,14 +113,27 @@ export function QrCodeClient() {
               </div>
             </div>
 
-            {/* WhatsApp */}
-            <button onClick={compartilharWhatsApp}
+            {/* Baixar QR Code */}
+            <button onClick={baixarQrCode}
               className="w-full rounded-xl p-4 flex items-center gap-3 text-left font-semibold"
               style={{ background: '#dcfce7', border: '1.5px solid #86efac', color: '#15803d', cursor: 'pointer' }}>
+              <span style={{ fontSize: '1.5rem' }}>⬇️</span>
+              <div>
+                <div className="text-sm font-bold">Baixar imagem do QR Code</div>
+                <div className="text-xs font-normal" style={{ color: '#16a34a' }}>Salva o PNG para enviar no WhatsApp ou imprimir</div>
+              </div>
+            </button>
+
+            {/* WhatsApp — envia só o link */}
+            <button onClick={compartilharWhatsApp}
+              className="w-full rounded-xl p-4 flex items-center gap-3 text-left font-semibold"
+              style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', color: '#15803d', cursor: 'pointer' }}>
               <span style={{ fontSize: '1.5rem' }}>📲</span>
               <div>
-                <div className="text-sm font-bold">Compartilhar via WhatsApp</div>
-                <div className="text-xs font-normal" style={{ color: '#16a34a' }}>Envia o link do portal para qualquer contato</div>
+                <div className="text-sm font-bold">Compartilhar link via WhatsApp</div>
+                <div className="text-xs font-normal" style={{ color: '#16a34a' }}>
+                  Envia o link do portal — anexe o QR Code baixado acima separadamente
+                </div>
               </div>
             </button>
 
