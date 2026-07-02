@@ -7,8 +7,9 @@ import { AlertaDesacordos } from '@/components/AlertaDesacordos'
 import { AlertaUsoSemChecklist } from '@/components/AlertaUsoSemChecklist'
 import { AlertaProblemas } from '@/components/AlertaProblemas'
 import { AlertaTarefas } from '@/components/AlertaTarefas'
+import { AlertaBarra } from '@/components/AlertaBarra'
 import { LiveRefresh } from '@/components/LiveRefresh'
-import { getDesacordosAtivos, getUsosSemChecklist, getProblemasAtivos } from '@/app/actions'
+import { getDesacordosAtivos, getUsosSemChecklist, getProblemasAtivos, getBarraStatus } from '@/app/actions'
 import { getDespachaAlertCounts } from '@/lib/despacha/load'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -25,9 +26,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const role = profile?.role as string | undefined
   const podeGerenciar = role === 'admin' || role === 'editor'
   const isAdmin = role === 'admin'
-  const [desacordos, usosSemChecklist, problemas] = podeGerenciar
-    ? await Promise.all([getDesacordosAtivos(), getUsosSemChecklist(), getProblemasAtivos()])
-    : [[], [], []]
+  const [desacordos, usosSemChecklist, problemas, barra] = podeGerenciar
+    ? await Promise.all([getDesacordosAtivos(), getUsosSemChecklist(), getProblemasAtivos(), getBarraStatus()])
+    : [[], [], [], null]
   const tarefasAlerta = isAdmin ? await getDespachaAlertCounts() : null
 
   return (
@@ -37,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <TopBar email={user.email!} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           {podeGerenciar && <LiveRefresh seconds={30} />}
+          <AlertaBarra barra={barra} />
           {podeGerenciar && <AlertaDesacordos checklists={desacordos} />}
           {podeGerenciar && <AlertaUsoSemChecklist usos={usosSemChecklist} />}
           {podeGerenciar && <AlertaProblemas problemas={problemas} />}
