@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays } from 'lucide-react'
 
 const baseItems = [
   { href: '/dashboard',    label: 'Dashboard',  icon: LayoutDashboard },
@@ -26,7 +26,8 @@ export function BottomNav({ role }: { role?: string }) {
         ...(podeCadastrar ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
         ...(role === 'admin' ? [
           { href: '/usuarios', label: 'Usuários', icon: Users },
-          { href: '/tarefas', label: 'Tarefas', icon: ListChecks },
+          { href: '/tarefas', label: 'Indicadores', icon: ListChecks },
+          { href: '/tarefas/agenda', label: 'Agenda', icon: CalendarDays },
         ] : []),
       ]
   return (
@@ -40,7 +41,7 @@ export function BottomNav({ role }: { role?: string }) {
       }}
     >
       {items.map(item => {
-        const active = pathname === item.href || pathname.startsWith(item.href + '/')
+        const active = pathname === item.href || (item.href !== '/tarefas' && pathname.startsWith(item.href + '/'))
         return (
           <Link
             key={item.href}

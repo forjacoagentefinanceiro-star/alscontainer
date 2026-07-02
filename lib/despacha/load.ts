@@ -32,34 +32,55 @@ export async function getDespachaProviders(): Promise<DespachaProvider[]> {
 }
 
 export type DespachaAlertCounts = {
-  urgentes: number
-  atrasadas: number
-  preview: DespachaTask[]
-  novasSolicitacoes: DespachaTask[]
-  providers: DespachaProvider[]
+  novas: number
+  titulos: string[]
 }
 
-// Usado pelo banner na layout — mantém o custo baixo (roda em toda navegação):
-// 1 chamada de tarefas pendentes serve tanto o alerta de "urgentes" quanto o
-// de "novas solicitações via QR Code" (source === 'publico').
+// Usado pelo banner na layout (só aviso): conta as novas solicitações públicas
+// (QR Code) ainda aguardando tratativa, com alguns títulos para preview.
 export async function getDespachaAlertCounts(): Promise<DespachaAlertCounts | null> {
-  const [stats, pendentes, providers] = await Promise.all([
+  const res = await despachaFetch<DespachaTask[]>('/tasks?status=pendente&limit=50')
+  if (!res.success) return null
+
+  const novasSolicitacoes = res.data.filter(t => t.source === 'publico' && t.needs_approval)
+  return {
+    novas: novasSolicitacoes.length,
+    titulos: novasSolicitacoes.slice(0, 5).map(t => t.title),
+  }
+}
+
+export type DespachaBreakdown = { label: string; total: number }
+export type DespachaIndicadores = {
+  stats: DespachaStats
+  porSetor: DespachaBreakdown[]
+  porPrestador: DespachaBreakdown[]
+}
+
+// Painel de indicadores (read-only): KPIs do /stats + quebras por setor e por
+// prestador calculadas a partir da lista de tarefas (até 100 mais recentes).
+export async function getDespachaIndicadores(): Promise<DespachaIndicadores | null> {
+  const [stats, tarefas, providers] = await Promise.all([
     despachaFetch<DespachaStats>('/stats'),
-    despachaFetch<DespachaTask[]>('/tasks?status=pendente&limit=50'),
+    despachaFetch<DespachaTask[]>('/tasks?limit=100'),
     getDespachaProviders(),
   ])
 
   if (!stats.success) return null
 
-  const tasks = pendentes.success ? pendentes.data : []
-  const urgentesTasks = tasks.filter(t => t.urgency === 'critica' || t.urgency === 'alta')
-  const novasSolicitacoes = tasks.filter(t => t.source === 'publico' && t.needs_approval)
+  const tasks = tarefas.success ? tarefas.data : []
+  const nomePrestador = new Map(providers.map(p => [String(p.id), p.name]))
 
-  return {
-    urgentes: urgentesTasks.length,
-    atrasadas: stats.data.atrasadas,
-    preview: urgentesTasks.slice(0, 5),
-    novasSolicitacoes,
-    providers,
+  const setorMap = new Map<string, number>()
+  const prestadorMap = new Map<string, number>()
+  for (const t of tasks) {
+    const setor = t.sector?.trim() || '— sem setor'
+    setorMap.set(setor, (setorMap.get(setor) ?? 0) + 1)
+    const prestador = t.assignee_id ? (nomePrestador.get(String(t.assignee_id)) ?? 'Outro') : '— sem prestador'
+    prestadorMap.set(prestador, (prestadorMap.get(prestador) ?? 0) + 1)
   }
+
+  const ordenar = (m: Map<string, number>): DespachaBreakdown[] =>
+    [...m.entries()].map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total)
+
+  return { stats: stats.data, porSetor: ordenar(setorMap), porPrestador: ordenar(prestadorMap) }
 }

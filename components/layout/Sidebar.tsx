@@ -46,10 +46,10 @@ const equipamentosItems: Item[] = [
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
 const usuariosItem: Item = { href: '/usuarios', label: 'Usuários', icon: Users }
 const biItems: Item[] = [{ href: '/bi', label: 'BI Depot', icon: BarChart3 }]
+const indicadoresTarefasItem: Item = { href: '/tarefas', label: 'Indicadores Tarefas', icon: ListChecks }
 
 const gestaoTarefasItems: Item[] = [
-  { href: '/tarefas',        label: 'Tarefas', icon: ListChecks   },
-  { href: '/tarefas/agenda', label: 'Agenda',  icon: CalendarDays },
+  { href: '/tarefas/agenda', label: 'Agenda', icon: CalendarDays },
 ]
 
 function NavLink({ item, active, collapsed }: { item: Item; active: boolean; collapsed: boolean }) {
@@ -102,7 +102,7 @@ export function Sidebar({ role }: { role?: string }) {
         ...(podeCadastrar ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
         ...(role === 'admin' ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
         ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
-        { label: 'Análise', items: biItems },
+        { label: 'Análise', items: role === 'admin' ? [...biItems, indicadoresTarefasItem] : biItems },
       ]
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
