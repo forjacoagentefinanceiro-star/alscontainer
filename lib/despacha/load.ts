@@ -72,9 +72,11 @@ function monthLabel(key: string): string {
 }
 
 function isOverdue(t: DespachaTask): boolean {
-  if (t.status === 'concluida' || t.status === 'cancelada') return false
+  // pendente = SLA ainda não começou (aprovação pendente), nunca é "atrasada"
+  if (t.status === 'concluida' || t.status === 'cancelada' || t.status === 'pendente') return false
   const now = Date.now()
-  const due = t.due_date ? new Date(t.due_date).getTime() : null
+  // T23:59:59 evita que o parse UTC desloque a data -3h (Brazil), gerando falso atraso
+  const due = t.due_date ? new Date(t.due_date + 'T23:59:59').getTime() : null
   const sla = t.sla_deadline ? new Date(t.sla_deadline).getTime() : null
   return (due !== null && due < now) || (sla !== null && sla < now)
 }
@@ -107,7 +109,10 @@ export async function getDespachaIndicadores(mesParam?: string): Promise<Despach
   ])
   if (!tarefas.success) return null
 
-  const tasks = tarefas.data
+  // Recorrentes futuras não contam — só entram no dia de uso
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+  const tasks = tarefas.data.filter(t => !t.recurrence_id || !t.due_date || t.due_date <= today)
+
   const nomePrestador = new Map(providers.map(p => [String(p.id), p.name]))
 
   // meses disponíveis (por data de criação), mais recente primeiro

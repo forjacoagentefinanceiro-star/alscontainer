@@ -21,6 +21,7 @@ export type DespachaTask = {
   task_type: string | null
   client_id: string | null
   source: string | null
+  recurrence_id: number | null
   requester_phone: string | null
   requester_sector: string | null
   category: string | null
