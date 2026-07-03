@@ -38,10 +38,17 @@ async function sendTelegram(token: string, chats: string[], msg: string) {
 }
 
 export async function GET(req: Request) {
-  // Vercel Cron envia o header Authorization: Bearer CRON_SECRET
+  // Aceita autenticação via header (Vercel Cron) OU query param ?secret= (cron-job.org)
   const authHeader = req.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const { searchParams } = new URL(req.url)
+  const querySecret = searchParams.get('secret')
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret) {
+    const validHeader = authHeader === `Bearer ${cronSecret}`
+    const validQuery = querySecret === cronSecret
+    if (!validHeader && !validQuery) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    }
   }
 
   try {
