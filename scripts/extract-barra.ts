@@ -38,11 +38,15 @@ function emojiStatus(status: string): string {
 
 async function sendTelegram(msg: string) {
   if (!TG_TOKEN || !TG_CHAT) { console.log("[telegram] não configurado"); return; }
-  await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: TG_CHAT, text: msg }),
-  }).catch(e => console.warn("[telegram] erro:", e));
+  // TELEGRAM_CHAT_ID pode ter múltiplos IDs separados por vírgula: "111,222,333"
+  const chats = TG_CHAT.split(",").map(s => s.trim()).filter(Boolean);
+  for (const chat of chats) {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chat, text: msg }),
+    }).catch(e => console.warn(`[telegram] erro ao enviar para ${chat}:`, e));
+  }
 }
 
 async function main() {
