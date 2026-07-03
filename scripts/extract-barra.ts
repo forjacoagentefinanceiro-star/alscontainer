@@ -16,6 +16,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const SITE = "https://praticoszp21.com.br/";
 const TG_TOKEN = process.env.TELEGRAM_TOKEN ?? "";
+// TELEGRAM_BARRA_CHAT_IDS: destinatários da notificação de mudança da barra (vírgula separados).
+// Fallback para TELEGRAM_CHAT_ID se não configurado.
+const TG_CHATS_BARRA = (process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
+  .split(",").map(s => s.trim()).filter(Boolean);
+// TELEGRAM_CHAT_ID continua sendo usado apenas para notificação de falha no workflow
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID ?? "";
 
 type CondBarra = { condicao_barra?: string; desc_condicao_barra?: string; restricao?: string; menor_profundidade?: string; mare_atual?: string };
@@ -37,10 +42,8 @@ function emojiStatus(status: string): string {
 }
 
 async function sendTelegram(msg: string) {
-  if (!TG_TOKEN || !TG_CHAT) { console.log("[telegram] não configurado"); return; }
-  // TELEGRAM_CHAT_ID pode ter múltiplos IDs separados por vírgula: "111,222,333"
-  const chats = TG_CHAT.split(",").map(s => s.trim()).filter(Boolean);
-  for (const chat of chats) {
+  if (!TG_TOKEN || TG_CHATS_BARRA.length === 0) { console.log("[telegram] não configurado"); return; }
+  for (const chat of TG_CHATS_BARRA) {
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
