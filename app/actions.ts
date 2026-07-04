@@ -1065,6 +1065,41 @@ export async function updateEventoHorimetro(eventoId: string, valor: number | nu
   return { error: null }
 }
 
+// corrige os litros abastecidos e recalcula consumo_lh — gestor only
+export async function setEventoLitros(eventoId: string, litros: number | null) {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem corrigir lançamentos.', consumo_lh: null }
+  const supabase = await createClient()
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id, horimetro, created_at').eq('id', eventoId).single()
+  if (!ev?.checklist_id) return { error: 'Evento não encontrado', consumo_lh: null }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
+  const equip = ck?.equipamento as string | undefined
+  // horímetro do abastecimento anterior a este evento (para recalcular consumo)
+  let consumo_lh: number | null = null
+  if (litros != null && litros > 0 && ev.horimetro != null && equip) {
+    const { data: cks } = await supabase.from('checklists').select('id').eq('equipamento', equip)
+    const ids = (cks ?? []).map(c => c.id as string)
+    if (ids.length) {
+      const { data: prev } = await supabase.from('operacao_eventos')
+        .select('horimetro').in('checklist_id', ids).not('litros', 'is', null)
+        .neq('id', eventoId).lt('created_at', ev.created_at)
+        .order('created_at', { ascending: false }).limit(1)
+      const prevH = (prev?.[0]?.horimetro as number | null) ?? null
+      if (prevH != null && (ev.horimetro as number) > prevH)
+        consumo_lh = Math.round((litros / ((ev.horimetro as number) - prevH)) * 100) / 100
+    }
+  }
+  const { data: upd, error } = await supabase.from('operacao_eventos')
+    .update({ litros, consumo_lh, editado_em: new Date().toISOString() })
+    .eq('id', eventoId).select('id')
+  if (error) return { error: error.message, consumo_lh: null }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).', consumo_lh: null }
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null, consumo_lh }
+}
+
 // corrige o horário (data/hora) de um lançamento — fica marcado como "editado"
 export async function updateEventoHorario(eventoId: string, novoHorarioISO: string) {
   const { gestor } = await usuarioEPapel()

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { OperacaoEvento } from '@/app/actions'
-import { updateEventoHorimetro, updateEventoHorario, excluirEvento } from '@/app/actions'
+import { updateEventoHorimetro, updateEventoHorario, excluirEvento, setEventoLitros } from '@/app/actions'
 import { HorimetroInput } from '@/components/HorimetroInput'
 
 function toDatetimeLocal(iso: string): string {
@@ -15,7 +15,6 @@ function toDatetimeLocal(iso: string): string {
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }
 
-// o <input type="datetime-local"> não tem fuso — tratamos sempre como horário de Brasília
 function fromDatetimeLocal(value: string): string {
   return new Date(`${value}:00-03:00`).toISOString()
 }
@@ -33,6 +32,7 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
   const [modo, setModo] = useState<'ver' | 'editar' | 'excluir'>('ver')
   const [horimVal, setHorimVal] = useState<number | null>(evento.horimetro ?? null)
   const [horarioVal, setHorarioVal] = useState(() => toDatetimeLocal(evento.created_at))
+  const [litrosVal, setLitrosVal] = useState<string>(evento.litros != null ? String(evento.litros) : '')
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -40,6 +40,7 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
   function abrirEditar() {
     setHorimVal(e.horimetro ?? null)
     setHorarioVal(toDatetimeLocal(e.created_at))
+    setLitrosVal(e.litros != null ? String(e.litros) : '')
     setErro(null)
     setModo('editar')
   }
@@ -55,6 +56,18 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
       if (horimVal !== e.horimetro) {
         const resV = await updateEventoHorimetro(e.id, horimVal)
         if (resV.error) { setErro(resV.error); return }
+      }
+      // edição de litros (só quando o evento tem abastecimento)
+      if (e.litros != null) {
+        const novoLitros = litrosVal.trim() === '' ? null : parseFloat(litrosVal.replace(',', '.'))
+        if (novoLitros !== e.litros) {
+          if (novoLitros !== null && (isNaN(novoLitros) || novoLitros < 0)) {
+            setErro('Litros inválido.'); return
+          }
+          const resL = await setEventoLitros(e.id, novoLitros)
+          if (resL.error) { setErro(resL.error); return }
+          setE(prev => ({ ...prev, litros: novoLitros, consumo_lh: resL.consumo_lh ?? null }))
+        }
       }
       setE(prev => ({ ...prev, horimetro: horimVal, created_at: novoHorarioISO, editado_em: new Date().toISOString() }))
       setModo('ver')
@@ -84,6 +97,20 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
           <input type="datetime-local" value={horarioVal} onChange={ev => setHorarioVal(ev.target.value)}
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a' }} />
+          {e.litros != null && (
+            <span className="inline-flex items-center gap-1">
+              <span className="text-xs" style={{ color: '#9a3412' }}>⛽</span>
+              <input
+                type="number" min="0" step="0.1"
+                value={litrosVal}
+                onChange={ev => setLitrosVal(ev.target.value)}
+                placeholder="Litros"
+                className="rounded border px-2 py-1 text-xs outline-none"
+                style={{ borderColor: '#c2410c', color: '#1a2a3a', width: 80 }}
+              />
+              <span className="text-xs" style={{ color: '#9a3412' }}>L</span>
+            </span>
+          )}
           <button onClick={salvar} disabled={isPending} className={`${btnBase} text-white disabled:opacity-50`} style={{ background: '#047857', borderColor: '#047857' }}>
             Salvar
           </button>
