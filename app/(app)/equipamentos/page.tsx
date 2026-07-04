@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { getResumoEquipamentos } from '@/app/actions'
+import { getResumoEquipamentos, getDesacordosAtivos } from '@/app/actions'
 import { LiveRefresh } from '@/components/LiveRefresh'
+import { DesacordosSection } from '@/components/DesacordosSection'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ function Card({ label, value, cor, sub }: { label: string; value: number | strin
 }
 
 export default async function EquipamentosPage() {
-  const r = await getResumoEquipamentos()
+  const [r, desacordos] = await Promise.all([getResumoEquipamentos(), getDesacordosAtivos()])
   if (!r) return <p className="text-sm" style={{ color: '#9ca3af' }}>Sem dados.</p>
 
   return (
@@ -42,7 +43,7 @@ export default async function EquipamentosPage() {
         <Card label="Em operação" value={r.emOperacao} cor="#047857" sub="checklists abertos" />
         <Card label="Ociosas" value={r.ociosos.length} cor="#6b7280" sub={`de ${r.totalEquip} cadastradas`} />
         <Card label="Checklists hoje" value={r.checklistsHoje} cor="#1B4F8A" />
-        <Card label="Itens em desacordo" value={r.desacordos} cor={r.desacordos ? '#b91c1c' : '#047857'} sub="não resolvidos" />
+        <DesacordosSection initial={desacordos} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-4xl">
