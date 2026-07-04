@@ -148,6 +148,7 @@ export type Checklist = {
   horimetro_final: number | null
   encerrada_em: string | null
   pendencia_resolvida: boolean
+  excluir_indicadores?: boolean | null
   created_at: string
 }
 
@@ -633,7 +634,7 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
   if (!user) return vazio
 
   const { data: emp } = await supabase.from('empilhadeiras').select('nome, horimetro_atual')
-  let q = supabase.from('checklists').select('id, equipamento, horimetro, horimetro_final, tem_pendencia, created_at')
+  let q = supabase.from('checklists').select('id, equipamento, horimetro, horimetro_final, tem_pendencia, excluir_indicadores, created_at')
   if (inicio) q = q.gte('created_at', inicio)
   if (fim) q = q.lt('created_at', fim)
   const { data: cksData } = await q
@@ -655,10 +656,12 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
 
   const maquinas: IndicadorMaquina[] = nomes.map(nome => {
     const cksM = checklists.filter(c => c.equipamento === nome)
-    const idsM = new Set(cksM.map(c => c.id))
+    // checklists excluídos dos indicadores (ex.: máquina ainda não entregue) não entram nos cálculos de horas/litros/problemas
+    const cksMIndic = cksM.filter(c => !c.excluir_indicadores)
+    const idsM = new Set(cksMIndic.map(c => c.id))
     const evsM = eventos.filter(e => idsM.has(e.checklist_id))
 
-    const horasChecklist = cksM.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
+    const horasChecklist = cksMIndic.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
     // horas confirmadas pelo admin como uso real da máquina sem checklist (gap entre operações) — entram no total de horas trabalhadas
     const horasSemChecklist = evsM.filter(e => e.gap_confirmado === true).reduce((acc, e) => acc + Number(e.horas_gap ?? 0), 0)
     const horasTrabalhadas = horasChecklist + horasSemChecklist
@@ -814,8 +817,8 @@ export async function getHorasCicloAtual(): Promise<CicloHoras> {
   const cfg = await getConfigCiclo()
   const { inicio, fim, mesLabel } = cicloAtual(cfg.diaInicio)
   if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
-  const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final').gte('created_at', inicio.toISOString())
-  const checklists = cks ?? []
+  const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final, excluir_indicadores').gte('created_at', inicio.toISOString())
+  const checklists = (cks ?? []).filter(c => !c.excluir_indicadores)
   const horasChecklist = checklists.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
   // horas sem checklist confirmadas pelo admin dentro do ciclo (já entram no total de horas trabalhadas)
   let horasSemChecklist = 0
@@ -845,11 +848,11 @@ export type RelatorioOperador = {
 export async function getRelatorioOperadores(inicio: string | null, fim: string | null = null): Promise<RelatorioOperador[]> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return []
-  let q = supabase.from('checklists').select('id, operador, horimetro, horimetro_final, tem_pendencia, created_at')
+  let q = supabase.from('checklists').select('id, operador, horimetro, horimetro_final, tem_pendencia, excluir_indicadores, created_at')
   if (inicio) q = q.gte('created_at', inicio)
   if (fim) q = q.lt('created_at', fim)
   const { data: cksData } = await q
-  const checklists = cksData ?? []
+  const checklists = (cksData ?? []).filter((c: { excluir_indicadores?: boolean | null }) => !c.excluir_indicadores)
   const ids = checklists.map(c => c.id)
 
   let eventos: { checklist_id: string; tipo: string; litros: number | null; consumo_lh: number | null }[] = []
@@ -1281,6 +1284,21 @@ export async function setExcluirIndicadores(eventoId: string, excluir: boolean) 
   revalidatePath('/historico')
   revalidatePath('/equipamentos/indicadores')
   revalidatePath('/equipamentos/relatorios')
+  return { error: null }
+}
+
+// marca/desmarca um checklist inteiro para ser ignorado nos totais (ex.: máquina não entregue ainda)
+export async function setChecklistExcluirIndicadores(checklistId: string, excluir: boolean) {
+  const { supabase, gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Sem permissão.' }
+  const { data: upd, error } = await supabase.from('checklists').update({ excluir_indicadores: excluir }).eq('id', checklistId).select('id')
+  if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
+  revalidatePath('/historico')
+  revalidatePath('/equipamentos/indicadores')
+  revalidatePath('/equipamentos/relatorios')
+  revalidatePath('/')
+  revalidatePath('/dashboard')
   return { error: null }
 }
 
