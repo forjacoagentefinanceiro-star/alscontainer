@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento, ChecklistItem } from '@/app/actions'
-import { updateChecklistItens, updateChecklistHorimetro, setChecklistExcluirIndicadores } from '@/app/actions'
+import { updateChecklistItens, updateChecklistHorimetro } from '@/app/actions'
 import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 import { HorimetroInput } from '@/components/HorimetroInput'
 import { EventoEditor } from '@/components/EventoEditor'
@@ -27,20 +27,9 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   const [itensEdit, setItensEdit] = useState<ChecklistItem[]>(checklist.itens || [])
   const [editHorim, setEditHorim] = useState<EditAlvo | null>(null)
   const [editVal, setEditVal] = useState<number | null>(null)
-  const [excluido, setExcluido] = useState(!!checklist.excluir_indicadores)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
-
-  function toggleExcluir() {
-    const novoValor = !excluido
-    startTransition(async () => {
-      const res = await setChecklistExcluirIndicadores(c.id, novoValor)
-      if (res.error) { setErro(res.error); return }
-      setExcluido(novoValor)
-      router.refresh()
-    })
-  }
 
   // re-sincroniza com o servidor (LiveRefresh) — sem sobrescrever uma edição em andamento
   useEffect(() => { if (!editandoItens) { setC(checklist); setEvs(eventos) } }, [checklist, eventos, editandoItens])
@@ -98,30 +87,9 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
           </p>
           <p className="text-xs" style={{ color: '#9ca3af' }}>{dataHora(c.created_at)} · {c.turno}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={encerrada ? { background: '#eef2ff', color: '#4338ca' } : { background: '#ecfdf5', color: '#047857' }}>
-            {encerrada ? 'encerrada' : 'aberta'}
-          </span>
-          {excluido && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
-              ⛔ fora dos indicadores
-            </span>
-          )}
-          {podeEditar && (
-            <button
-              onClick={toggleExcluir}
-              disabled={isPending}
-              title={excluido ? 'Reincluir nas métricas' : 'Excluir das métricas (horas/mês/ciclo)'}
-              className="text-xs px-2 py-1 rounded-lg border disabled:opacity-50"
-              style={excluido
-                ? { color: '#047857', borderColor: '#a7f3d0', background: '#ecfdf5' }
-                : { color: '#92400e', borderColor: '#fde68a', background: '#fef9c3' }
-              }
-            >
-              {excluido ? '↩ incluir' : '⛔ não contar'}
-            </button>
-          )}
-        </div>
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={encerrada ? { background: '#eef2ff', color: '#4338ca' } : { background: '#ecfdf5', color: '#047857' }}>
+          {encerrada ? 'encerrada' : 'aberta'}
+        </span>
       </div>
 
       {erro && <p className="text-xs mt-2 px-3 py-2 rounded" style={{ background: '#fef2f2', color: '#b91c1c' }}>{erro}</p>}
