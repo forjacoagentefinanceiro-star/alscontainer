@@ -526,11 +526,13 @@ export type BarragemPonto = {
 }
 
 export async function getBarragensMonitoramento(): Promise<BarragemPonto[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
     .from('barragens_monitoramento')
     .select('*')
     .order('nome')
+  if (error) console.error('[getBarragensMonitoramento]', error.message)
   return (data ?? []) as BarragemPonto[]
 }
 
