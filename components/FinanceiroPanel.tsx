@@ -8,6 +8,10 @@ import { updateContainerStatus, addLancamento, deleteLancamento } from '@/app/ac
 type ResumoItem = {
   container: Container
   receitas: number
+  receitasLanc: number
+  receitaLocacao: number
+  diasLocacao: number
+  valorDiario: number
   despesas: number
   custoAquisicao: number
   breakeven: number
@@ -209,7 +213,7 @@ function LancamentoForm({ containerId, onSaved }: { containerId: string; onSaved
 }
 
 function ContainerCard({ item }: { item: ResumoItem }) {
-  const { container: c, receitas, despesas, custoAquisicao, breakeven, saldo, breakevenPct, lancamentos } = item
+  const { container: c, receitas, receitasLanc, receitaLocacao, diasLocacao, valorDiario, despesas, custoAquisicao, breakeven, saldo, breakevenPct, lancamentos } = item
   const [aberto, setAberto] = useState(false)
   const [editandoStatus, setEditandoStatus] = useState(false)
   const [addingLanc, setAddingLanc] = useState(false)
@@ -274,6 +278,20 @@ function ContainerCard({ item }: { item: ResumoItem }) {
               </div>
             ))}
           </div>
+
+          {/* Receita de locação acumulada automaticamente */}
+          {receitaLocacao > 0 && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+              style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+              <span className="font-semibold" style={{ color: '#15803d' }}>+ {fmtBRL(receitaLocacao)}</span>
+              <span style={{ color: '#16a34a' }}>receita de locação automática</span>
+              <span style={{ color: '#6b7280' }}>({diasLocacao} dias × {fmtBRL(valorDiario)}/dia)</span>
+              {receitasLanc > 0 && (
+                <span style={{ color: '#9ca3af' }}>· + {fmtBRL(receitasLanc)} lançamentos manuais</span>
+              )}
+            </div>
+          )}
+
           {faltaBE > 0 && (
             <p className="text-xs mt-2 font-medium" style={{ color: '#92400e' }}>
               Falta {fmtBRL(faltaBE)} ({breakevenPct != null ? `${Math.round(100 - breakevenPct)}% restante` : ''}) para atingir o break-even

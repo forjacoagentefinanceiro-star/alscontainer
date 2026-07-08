@@ -261,15 +261,50 @@ export async function getResumoFinanceiro() {
   ])
   const todos = (containers ?? []) as Container[]
   const lancs = (lancamentos ?? []) as ContainerLancamento[]
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+
   return todos.map(c => {
     const cLancs = lancs.filter(l => l.container_id === c.id)
-    const receitas = cLancs.filter(l => l.tipo === 'receita').reduce((a, l) => a + Number(l.valor), 0)
+    const receitasLanc = cLancs.filter(l => l.tipo === 'receita').reduce((a, l) => a + Number(l.valor), 0)
     const despesas = cLancs.filter(l => l.tipo === 'despesa').reduce((a, l) => a + Number(l.valor), 0)
+
+    // receita acumulada da locação: valor_diário × dias decorridos desde o início até hoje (ou fim do contrato)
+    let receitaLocacao = 0
+    let diasLocacao = 0
+    let valorDiario = 0
+    if (c.status === 'locado' && c.valor_locacao_mensal && c.locacao_inicio) {
+      const inicio = new Date(c.locacao_inicio + 'T00:00:00')
+      const fimContrato = c.locacao_fim ? new Date(c.locacao_fim + 'T00:00:00') : null
+      // conta até hoje ou até o fim do contrato (o que vier primeiro)
+      const dataFim = fimContrato && fimContrato < hoje ? fimContrato : hoje
+      diasLocacao = Math.max(0, Math.floor((dataFim.getTime() - inicio.getTime()) / 86400000))
+      // divide pelo número real de dias do mês inicial para a taxa diária
+      const mesInicio = inicio.getMonth(), anoInicio = inicio.getFullYear()
+      const diasNoMes = new Date(anoInicio, mesInicio + 1, 0).getDate()
+      valorDiario = Math.round((c.valor_locacao_mensal / diasNoMes) * 100) / 100
+      receitaLocacao = Math.round(valorDiario * diasLocacao * 100) / 100
+    }
+
+    const receitas = receitasLanc + receitaLocacao
     const custoAquisicao = Number(c.valor_brl ?? 0)
     const breakeven = custoAquisicao + despesas
     const saldo = receitas - breakeven
     const breakevenPct = breakeven > 0 ? Math.round((receitas / breakeven) * 1000) / 10 : null
-    return { container: c, receitas, despesas, custoAquisicao, breakeven, saldo, breakevenPct, lancamentos: cLancs }
+    return {
+      container: c,
+      receitas,
+      receitasLanc,
+      receitaLocacao,
+      diasLocacao,
+      valorDiario,
+      despesas,
+      custoAquisicao,
+      breakeven,
+      saldo,
+      breakevenPct,
+      lancamentos: cLancs,
+    }
   })
 }
 
