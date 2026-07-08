@@ -64,15 +64,12 @@ function statusRio(nivelM: number | null): string {
   return "normal";
 }
 
-// Determina status da barragem pelo % capacidade e comportas
-function statusBarragem(pct: number | null, comportasAbertas: number | null): string {
+// Determina status da barragem pelo % de capacidade
+// < 70% → normal | 70–90% → atenção | > 90% → crítica
+function statusBarragem(pct: number | null, _comportasAbertas: number | null): string {
   if (pct === null) return "desconhecido";
-  // Comportas abertas = liberando água = atenção
-  if (comportasAbertas !== null && comportasAbertas > 0 && pct > 50) return "alerta";
-  if (comportasAbertas !== null && comportasAbertas > 0)              return "atencao";
-  if (pct >= 90) return "emergencia";
-  if (pct >= 75) return "alerta";
-  if (pct >= 60) return "atencao";
+  if (pct >= 90) return "emergencia"; // crítica
+  if (pct >= 70) return "atencao";
   return "normal";
 }
 
@@ -84,7 +81,7 @@ function emojiStatus(s: string): string {
   return "⚪";
 }
 function labelStatus(s: string): string {
-  if (s === "emergencia") return "EMERGÊNCIA";
+  if (s === "emergencia") return "CRÍTICA";
   if (s === "alerta")     return "ALERTA";
   if (s === "atencao")    return "ATENÇÃO";
   if (s === "normal")     return "Normal";

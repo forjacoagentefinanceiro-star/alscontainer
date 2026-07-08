@@ -30,7 +30,7 @@ const COR_STATUS: Record<string, { bg: string; border: string; dot: string; labe
   normal:      { bg: '#f0fdf4', border: '#86efac', dot: '#16a34a', label: 'Normal',      text: '#15803d' },
   atencao:     { bg: '#fefce8', border: '#fde68a', dot: '#d97706', label: 'Atenção',     text: '#92400e' },
   alerta:      { bg: '#fff7ed', border: '#fed7aa', dot: '#ea580c', label: 'Alerta',      text: '#c2410c' },
-  emergencia:  { bg: '#fef2f2', border: '#fecaca', dot: '#dc2626', label: 'Emergência',  text: '#b91c1c' },
+  emergencia:  { bg: '#fef2f2', border: '#fecaca', dot: '#dc2626', label: 'Crítica',     text: '#b91c1c' },
   praticavel:  { bg: '#f0fdf4', border: '#86efac', dot: '#16a34a', label: 'Praticável',  text: '#15803d' },
   restrito:    { bg: '#fefce8', border: '#fde68a', dot: '#d97706', label: 'Restrito',    text: '#92400e' },
   fechado:     { bg: '#fef2f2', border: '#fecaca', dot: '#dc2626', label: 'Fechado',     text: '#b91c1c' },
