@@ -87,7 +87,7 @@ function ContratoEditor({ container, onClose, onSaved }: {
   }
 
   const inp = 'w-full rounded border px-2 py-1.5 text-sm outline-none'
-  const inpStyle = { borderColor: '#d1d5db', background: '#fff' }
+  const inpStyle = { borderColor: '#d1d5db', background: '#fff', color: '#1a2a3a' }
 
   return (
     <div className="mt-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
@@ -162,7 +162,7 @@ function LancamentoForm({ containerId, onSaved }: { containerId: string; onSaved
 
   const cats = tipo === 'receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA
   const inp = 'rounded border px-2 py-1.5 text-xs outline-none'
-  const inpStyle = { borderColor: '#d1d5db', background: '#fff' }
+  const inpStyle = { borderColor: '#d1d5db', background: '#fff', color: '#1a2a3a' }
 
   return (
     <div className="mt-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
