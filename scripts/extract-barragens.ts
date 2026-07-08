@@ -13,10 +13,11 @@ import { chromium, type Response } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL = "https://monitoramento.defesacivil.sc.gov.br/barragens";
-const TG_TOKEN = process.env.TELEGRAM_TOKEN ?? "";
-const TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
-  .split(",").map(s => s.trim()).filter(Boolean);
+const TG_TOKEN    = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
+
+// chat_ids carregados do Supabase (tabela telegram_subscriptions) + fallback env
+let TG_CHATS: string[] = [];
 
 const DELTA_RIO_M   = 0.20;
 const DELTA_CAP_PCT = 0.50;
@@ -346,6 +347,21 @@ async function main() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
+
+  // Carrega assinantes do Supabase; fallback para env vars
+  const { data: subs } = await supabase
+    .from("telegram_subscriptions")
+    .select("chat_id")
+    .eq("ativo", true);
+  if (subs && subs.length > 0) {
+    TG_CHATS = subs.map((s: { chat_id: string }) => s.chat_id);
+    console.log(`[telegram] ${TG_CHATS.length} assinante(s) do Supabase`);
+  } else {
+    // fallback: variáveis de ambiente
+    TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
+      .split(",").map((s: string) => s.trim()).filter(Boolean);
+    console.log(`[telegram] ${TG_CHATS.length} chat(s) via env (sem assinantes no banco)`);
+  }
 
   let pontos: Ponto[] = [];
   try {
