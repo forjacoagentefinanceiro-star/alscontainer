@@ -234,74 +234,81 @@ async function extrair(): Promise<Ponto[]> {
 
     console.log("[barragens] nenhuma API JSON reconhecida — tentando extração DOM...");
 
-    // ── Tentativa 2: DOM extraction ───────────────────────────────────────────
+    // ── Tentativa 2: DOM → text extraction (formato Defesa Civil SC) ─────────
+    // Estrutura dos cards: "Barragem [Nome]\nAtualização: ...\nMontante\nNNN,NNm\n...\nde Utilização Atual\nN,N%\nComportas\nC1\nAberta\nC2\nFechada\n..."
     const resultado = await page.evaluate((): Ponto[] => {
       const pontos: Ponto[] = [];
+      const bodyText = (document.body.innerText ?? "").replace(/\r/g, "");
+      const rawLines = bodyText.split("\n").map(l => l.trim());
 
-      // Procura qualquer tabela que contenha colunas de barragem
-      const tabelas = Array.from(document.querySelectorAll("table"));
-      for (const tabela of tabelas) {
-        const ths = Array.from(tabela.querySelectorAll("th")).map(th => th.textContent?.trim().toLowerCase() ?? "");
-        if (ths.length < 2) continue;
+      // Divide o texto em seções por barragem
+      // Header: linha "Barragem [NomeComEspaço]" (pelo menos 2 palavras)
+      const sections: string[][] = [];
+      let cur: string[] = [];
 
-        const iNome     = ths.findIndex(h => /nome|barragem|esta[çc][aã]o/i.test(h));
-        const iNivel    = ths.findIndex(h => /n[íi]vel|cota/i.test(h));
-        const iCap      = ths.findIndex(h => /capacidade|volume|%/i.test(h));
-        const iAbertas  = ths.findIndex(h => /abertas?/i.test(h));
-        const iFechadas = ths.findIndex(h => /fechadas?/i.test(h));
-        const iHora     = ths.findIndex(h => /hora|data/i.test(h));
-
-        if (iNome < 0 && iNivel < 0 && iCap < 0) continue;
-
-        const rows = Array.from(tabela.querySelectorAll("tbody tr, tr:not(:first-child)"));
-        for (const row of rows) {
-          const cells = Array.from(row.querySelectorAll("td")).map(td => td.textContent?.trim() ?? "");
-          if (cells.length < 2) continue;
-
-          const nome = iNome >= 0 ? cells[iNome] : cells[0];
-          if (!nome) continue;
-
-          pontos.push({
-            id: "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_"),
-            nome,
-            nivel_m:           iNivel    >= 0 ? cells[iNivel]    || null : null,
-            capacidade_pct:    iCap      >= 0 ? cells[iCap]      || null : null,
-            comportas_abertas: iAbertas  >= 0 ? cells[iAbertas]  || null : null,
-            comportas_fechadas:iFechadas >= 0 ? cells[iFechadas] || null : null,
-            hora_leitura:      iHora     >= 0 ? cells[iHora]     || null : null,
-            tipo: "barragem",
-          });
+      for (const line of rawLines) {
+        if (/^Barragem\s+\S+/.test(line) && line !== "Barragem") {
+          if (cur.length > 2) sections.push(cur);
+          cur = [line];
+        } else if (cur.length > 0) {
+          cur.push(line);
         }
       }
+      if (cur.length > 2) sections.push(cur);
 
-      // Se não achou tabela, tenta cards com classes comuns
-      if (pontos.length === 0) {
-        const cards = Array.from(document.querySelectorAll("[class*='card'], [class*='barragem'], [class*='dam'], [class*='item']"));
-        for (const card of cards) {
-          const txt = card.textContent?.trim() ?? "";
-          if (txt.length < 10 || txt.length > 2000) continue;
+      for (const lines of sections) {
+        const nome = lines[0];
+        if (!nome) continue;
 
-          // Procura padrão "NomeBarragem ... XX,X m ... XX,X %"
-          const mNivel = txt.match(/(\d+[,.]\d+)\s*m/i);
-          const mCap   = txt.match(/(\d+[,.]\d+)\s*%/i);
-          if (!mNivel && !mCap) continue;
-
-          // Nome: primeiro texto não-numérico
-          const linhas = txt.split("\n").map(l => l.trim()).filter(l => l && !/^\d/.test(l));
-          const nome = linhas[0];
-          if (!nome) continue;
-
-          pontos.push({
-            id: "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_"),
-            nome,
-            nivel_m:            mNivel ? mNivel[1] : null,
-            capacidade_pct:     mCap   ? mCap[1]   : null,
-            comportas_abertas:  null,
-            comportas_fechadas: null,
-            hora_leitura:       null,
-            tipo: "barragem",
-          });
+        // Timestamp: "Atualização: DD/MM/YYYY HH:MM:SS"
+        let hora: string | null = null;
+        for (const l of lines) {
+          const m = l.match(/Atualiza[çc][aã]o:\s*(.+)/i);
+          if (m) { hora = m[1].trim(); break; }
         }
+
+        // Nível: linha "Montante" → próxima linha "NNN,NNm"
+        let nivel: string | null = null;
+        const iMont = lines.findIndex(l => l === "Montante");
+        if (iMont >= 0) {
+          for (let j = iMont + 1; j < Math.min(iMont + 4, lines.length); j++) {
+            const m = lines[j].match(/^(\d+[,.]\d+)\s*m$/);
+            if (m) { nivel = m[1]; break; }
+          }
+        }
+
+        // Capacidade: linha "de Utilização Atual" → próxima linha "N,N%"
+        let pct: string | null = null;
+        const iUtil = lines.findIndex(l => /utiliza[çc][aã]o/i.test(l));
+        if (iUtil >= 0) {
+          for (let j = iUtil + 1; j < Math.min(iUtil + 4, lines.length); j++) {
+            const m = lines[j].match(/^(\d+[,.]\d+)\s*%$/);
+            if (m) { pct = m[1]; break; }
+          }
+        }
+
+        // Comportas: tudo entre "Comportas" e "Reservação"
+        let abertas = 0, fechadas = 0;
+        const iComp  = lines.findIndex(l => l === "Comportas");
+        const iReserv = lines.findIndex(l => l === "Reservação");
+        if (iComp >= 0) {
+          const end = iReserv > iComp ? iReserv : lines.length;
+          for (let j = iComp + 1; j < end; j++) {
+            if (lines[j] === "Aberta")  abertas++;
+            else if (lines[j] === "Fechada") fechadas++;
+          }
+        }
+
+        const id = "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
+        pontos.push({
+          id, nome,
+          nivel_m:            nivel,
+          capacidade_pct:     pct,
+          comportas_abertas:  String(abertas),
+          comportas_fechadas: String(fechadas),
+          hora_leitura:       hora,
+          tipo:               "barragem",
+        });
       }
 
       return pontos;
