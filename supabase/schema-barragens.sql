@@ -1,18 +1,19 @@
 -- Execute no SQL Editor do Supabase
 
--- Tabela de monitoramento das barragens e nível do rio
--- Uma linha por ponto monitorado (rio, cada barragem)
 create table if not exists barragens_monitoramento (
-  id          text primary key,          -- ex: 'rio_blumenau', 'barragem_taio'
-  nome        text not null,
-  valor       text,                       -- valor atual (ex: "7.2")
-  unidade     text,                       -- "m", "%", "Mm³"
-  status      text,                       -- 'normal','atencao','alerta','emergencia'
-  raw_data    text,
-  atualizado_em timestamptz default now(),
-  changed_em    timestamptz,
-  anterior_valor  text,
-  anterior_status text
+  id                 text primary key,  -- 'barr_oeste_taio', 'barr_sul_ituporanga', 'rio_blumenau'
+  nome               text not null,
+  tipo               text,              -- 'barragem' | 'rio'
+  nivel_m            text,              -- nível em metros
+  capacidade_pct     text,              -- % de capacidade (barragens)
+  comportas_abertas  text,
+  comportas_fechadas text,
+  hora_leitura       text,
+  status             text,              -- 'normal','atencao','alerta','emergencia'
+  atualizado_em      timestamptz default now(),
+  changed_em         timestamptz,
+  anterior_nivel_m   text,
+  anterior_status    text
 );
 
--- Sem RLS — acesso apenas via service_role pelo workflow
+-- Sem RLS — acesso exclusivo via service_role do workflow
