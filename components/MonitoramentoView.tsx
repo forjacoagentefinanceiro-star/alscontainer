@@ -254,7 +254,7 @@ function BarragemCard({ ponto }: { ponto: BarragemPonto }) {
       )}
 
       {ponto.hora_leitura && (
-        <p className="text-[10px] mt-2" style={{ color: '#9ca3af' }}>Leitura: {ponto.hora_leitura}</p>
+        <p className="text-[10px] mt-2" style={{ color: '#9ca3af' }}>Leitura: {fmtHora(ponto.hora_leitura)}</p>
       )}
     </div>
   )

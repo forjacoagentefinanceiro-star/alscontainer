@@ -45,6 +45,15 @@ async function sendTelegram(msg: string) {
   }
 }
 
+// Converte "DD/MM/YYYY HH:MM:SS" (UTC da Defesa Civil SC) → ISO 8601
+function parseHoraDefesaCivil(raw: string | null): string | null {
+  if (!raw) return null;
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return raw;
+  const [, dd, mo, yyyy, hh, min, ss] = m;
+  return new Date(`${yyyy}-${mo}-${dd}T${hh}:${min}:${ss}Z`).toISOString();
+}
+
 function num(s: string | null): number | null {
   if (!s) return null;
   const n = parseFloat(s.replace(",", ".").replace(/[^0-9.-]/g, ""));
@@ -307,7 +316,7 @@ async function extrair(): Promise<Ponto[]> {
           capacidade_pct:     pct,
           comportas_abertas:  String(abertas),
           comportas_fechadas: String(fechadas),
-          hora_leitura:       hora,
+          hora_leitura:       hora, // convertido abaixo fora do evaluate
           tipo:               "barragem",
         });
       }
@@ -357,6 +366,9 @@ async function main() {
     console.warn("[barragens] nenhum ponto extraído — abortando");
     return;
   }
+
+  // Converte hora_leitura de "DD/MM/YYYY HH:MM:SS" (UTC) → ISO
+  pontos.forEach(p => { p.hora_leitura = parseHoraDefesaCivil(p.hora_leitura); });
 
   console.log(`[barragens] extraídos ${pontos.length} pontos:`);
   pontos.forEach(p => {
