@@ -22,17 +22,19 @@ import {
   ListChecks,
   CalendarDays,
   QrCode,
+  DollarSign,
 } from 'lucide-react'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
 type Section = { label: string; items: Item[] }
 
 const estoqueItems: Item[] = [
-  { href: '/dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/inventario', label: 'Inventário',  icon: Package2        },
-  { href: '/gerador',    label: 'Gerador ISO', icon: Hash            },
-  { href: '/importar',   label: 'Importar',    icon: Upload          },
-  { href: '/exportar',   label: 'Exportar',    icon: FileCode2       },
+  { href: '/dashboard',             label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/inventario',            label: 'Inventário',  icon: Package2        },
+  { href: '/inventario/financeiro', label: 'Financeiro',  icon: DollarSign      },
+  { href: '/gerador',               label: 'Gerador ISO', icon: Hash            },
+  { href: '/importar',              label: 'Importar',    icon: Upload          },
+  { href: '/exportar',              label: 'Exportar',    icon: FileCode2       },
 ]
 
 const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }

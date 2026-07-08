@@ -117,6 +117,25 @@ export type Container = {
   obs: string
   iso_valido: boolean
   created_at: string
+  // campos financeiros
+  status?: 'disponivel' | 'locado' | 'vendido'
+  locatario?: string | null
+  locacao_inicio?: string | null
+  locacao_fim?: string | null
+  valor_locacao_mensal?: number | null
+  valor_venda?: number | null
+  data_venda?: string | null
+}
+
+export type ContainerLancamento = {
+  id: string
+  container_id: string
+  tipo: 'receita' | 'despesa'
+  categoria: string
+  valor: number
+  data: string
+  descricao: string | null
+  created_at: string
 }
 
 export type UserProfile = {
@@ -216,6 +235,87 @@ export async function deleteContainer(id: string) {
   const { error } = await supabase.from('containers').delete().eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/')
+  return { error: null }
+}
+
+// ---- Financeiro por container ----
+export async function getContainerFinanceiro(containerId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const [{ data: container }, { data: lancamentos }] = await Promise.all([
+    supabase.from('containers').select('*').eq('id', containerId).single(),
+    supabase.from('container_lancamentos').select('*').eq('container_id', containerId).order('data', { ascending: false }),
+  ])
+  if (!container) return null
+  return { container: container as Container, lancamentos: (lancamentos ?? []) as ContainerLancamento[] }
+}
+
+export async function getResumoFinanceiro() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const [{ data: containers }, { data: lancamentos }] = await Promise.all([
+    supabase.from('containers').select('*').order('numero'),
+    supabase.from('container_lancamentos').select('*'),
+  ])
+  const todos = (containers ?? []) as Container[]
+  const lancs = (lancamentos ?? []) as ContainerLancamento[]
+  return todos.map(c => {
+    const cLancs = lancs.filter(l => l.container_id === c.id)
+    const receitas = cLancs.filter(l => l.tipo === 'receita').reduce((a, l) => a + Number(l.valor), 0)
+    const despesas = cLancs.filter(l => l.tipo === 'despesa').reduce((a, l) => a + Number(l.valor), 0)
+    const custoAquisicao = Number(c.valor_brl ?? 0)
+    const breakeven = custoAquisicao + despesas
+    const saldo = receitas - breakeven
+    const breakevenPct = breakeven > 0 ? Math.round((receitas / breakeven) * 1000) / 10 : null
+    return { container: c, receitas, despesas, custoAquisicao, breakeven, saldo, breakevenPct, lancamentos: cLancs }
+  })
+}
+
+export async function updateContainerStatus(id: string, payload: {
+  status: 'disponivel' | 'locado' | 'vendido'
+  locatario?: string | null
+  locacao_inicio?: string | null
+  locacao_fim?: string | null
+  valor_locacao_mensal?: number | null
+  valor_venda?: number | null
+  data_venda?: string | null
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('containers').update(payload).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/inventario/financeiro')
+  revalidatePath('/inventario')
+  return { error: null }
+}
+
+export async function addLancamento(payload: {
+  container_id: string
+  tipo: 'receita' | 'despesa'
+  categoria: string
+  valor: number
+  data: string
+  descricao?: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('container_lancamentos').insert({ ...payload, user_id: user.id })
+  if (error) return { error: error.message }
+  revalidatePath('/inventario/financeiro')
+  return { error: null }
+}
+
+export async function deleteLancamento(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { error } = await supabase.from('container_lancamentos').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/inventario/financeiro')
   return { error: null }
 }
 
