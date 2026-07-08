@@ -258,7 +258,8 @@ async function extrair(): Promise<Ponto[]> {
 
       for (const lines of sections) {
         const nome = lines[0];
-        if (!nome) continue;
+        // Ignora seções sem "Barragem" no nome (links de nav, tabs, etc.)
+        if (!nome || !nome.toLowerCase().startsWith("barragem")) continue;
 
         // Timestamp: "Atualização: DD/MM/YYYY HH:MM:SS"
         let hora: string | null = null;
@@ -400,7 +401,8 @@ async function main() {
 
     if (upsertErr) console.error(`[barragens] erro upsert ${p.id}:`, upsertErr.message);
 
-    if (mudou && (ant || primeiraLeitura)) {
+    // Notifica sempre que houve mudança (inclui novos pontos e primeira execução)
+    if (mudou) {
       alterados.push({ ponto: p, detalhes, statusAtual });
     }
   }
