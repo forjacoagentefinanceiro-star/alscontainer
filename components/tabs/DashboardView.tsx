@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import type { PurchaseGoal } from '@/app/actions'
 import { upsertGoal } from '@/app/actions'
 
 type Container = { valor_brl: number | null; data_compra: string | null; created_at: string }
+type ResumoFinanceiro = Awaited<ReturnType<typeof import('@/app/actions').getResumoFinanceiro>>
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -20,14 +22,97 @@ function ptMonth(key: string) {
   return `${months[parseInt(m) - 1]}/${y.slice(2)}`
 }
 
+function ResumoFinanceiroSection({ resumo }: { resumo: ResumoFinanceiro }) {
+  if (!resumo || resumo.length === 0) return null
+
+  const totReceita = resumo.reduce((a, r) => a + r.receitas, 0)
+  const totDespesas = resumo.reduce((a, r) => a + r.despesas, 0)
+  const totCusto = resumo.reduce((a, r) => a + r.custoAquisicao, 0)
+  const totSaldo = resumo.reduce((a, r) => a + r.saldo, 0)
+  const totBreakeven = resumo.reduce((a, r) => a + r.breakeven, 0)
+  const receitaLocacao = resumo.reduce((a, r) => a + r.receitaLocacao, 0)
+
+  const locados = resumo.filter(r => r.container.status === 'locado')
+  const disponiveis = resumo.filter(r => r.container.status === 'disponivel').length
+  const vendidos = resumo.filter(r => r.container.status === 'vendido').length
+  const receitaMensalTotal = locados.reduce((a, r) => a + (r.container.valor_locacao_mensal ?? 0), 0)
+
+  const breakevenPctGlobal = totBreakeven > 0 ? Math.round((totReceita / totBreakeven) * 100) : 0
+  const corSaldo = totSaldo >= 0 ? '#15803d' : '#b91c1c'
+
+  return (
+    <div className="bg-white rounded-xl p-5" style={{ border: '1px solid #e5e7eb' }}>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-semibold" style={{ color: '#1a2a3a' }}>Financeiro da frota</p>
+        <Link href="/inventario/financeiro" className="text-xs font-medium px-2.5 py-1 rounded-lg"
+          style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          Ver detalhes →
+        </Link>
+      </div>
+
+      {/* Status chips */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          {locados.length} locado{locados.length !== 1 ? 's' : ''}
+        </span>
+        <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: '#f9fafb', color: '#4b5563', border: '1px solid #e5e7eb' }}>
+          {disponiveis} disponível{disponiveis !== 1 ? 'is' : ''}
+        </span>
+        {vendidos > 0 && (
+          <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+            {vendidos} vendido{vendidos !== 1 ? 's' : ''}
+          </span>
+        )}
+        {receitaMensalTotal > 0 && (
+          <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: '#fefce8', color: '#92400e', border: '1px solid #fde68a' }}>
+            {fmtBRL(receitaMensalTotal)}/mês em locação
+          </span>
+        )}
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        {[
+          { label: 'Receita acumulada', value: fmtBRL(totReceita), cor: '#15803d', sub: receitaLocacao > 0 ? `${fmtBRL(receitaLocacao)} de locação` : undefined },
+          { label: 'Despesas totais', value: fmtBRL(totDespesas + totCusto), cor: '#b91c1c', sub: `${fmtBRL(totCusto)} aquisição + ${fmtBRL(totDespesas)} despesas` },
+          { label: 'Saldo da frota', value: (totSaldo >= 0 ? '+' : '') + fmtBRL(totSaldo), cor: corSaldo, sub: totSaldo >= 0 ? 'Break-even atingido' : `falta ${fmtBRL(-totSaldo)}` },
+          { label: 'Break-even global', value: `${breakevenPctGlobal}%`, cor: breakevenPctGlobal >= 100 ? '#15803d' : breakevenPctGlobal >= 60 ? '#d97706' : '#b91c1c', sub: `de ${fmtBRL(totBreakeven)}` },
+        ].map(k => (
+          <div key={k.label} className="rounded-xl p-3" style={{ background: '#f8fafc', border: '1px solid #f0f0f0' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>{k.label}</p>
+            <p className="text-base font-bold mt-0.5" style={{ color: k.cor }}>{k.value}</p>
+            {k.sub && <p className="text-[10px] mt-0.5" style={{ color: '#9ca3af' }}>{k.sub}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* Barra de progresso break-even */}
+      {totBreakeven > 0 && (
+        <div>
+          <div className="flex justify-between text-xs mb-1" style={{ color: '#9ca3af' }}>
+            <span>Progresso break-even da frota</span>
+            <span>{breakevenPctGlobal}%</span>
+          </div>
+          <div className="h-2 rounded-full" style={{ background: '#f3f4f6' }}>
+            <div className="h-2 rounded-full transition-all"
+              style={{ width: `${Math.min(100, breakevenPctGlobal)}%`, background: breakevenPctGlobal >= 100 ? '#15803d' : breakevenPctGlobal >= 60 ? '#d97706' : '#b91c1c' }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function DashboardView({
   containers,
   goal: initialGoal,
   isAdmin,
+  resumoFinanceiro,
 }: {
   containers: Container[]
   goal: PurchaseGoal | null
   isAdmin: boolean
+  resumoFinanceiro: ResumoFinanceiro
 }) {
   const [goal, setGoal] = useState(initialGoal)
   const [form, setForm] = useState({
@@ -275,6 +360,9 @@ export function DashboardView({
           )}
         </div>
       </div>
+
+      {/* Resumo financeiro da frota */}
+      <ResumoFinanceiroSection resumo={resumoFinanceiro} />
 
       {/* Formulário de meta — só admin */}
       {isAdmin && (
