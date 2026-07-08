@@ -219,8 +219,9 @@ async function extrair(): Promise<Ponto[]> {
 
   try {
     console.log("[barragens] acessando", DASHBOARD_URL);
-    await page.goto(DASHBOARD_URL, { waitUntil: "networkidle", timeout: 60000 });
-    await page.waitForTimeout(3000);
+    await page.goto(DASHBOARD_URL, { waitUntil: "load", timeout: 60000 });
+    // Aguarda renderização JS (site faz polling contínuo, nunca atinge networkidle)
+    await page.waitForTimeout(8000);
 
     // ── Tentativa 1: parse das respostas de API capturadas ────────────────────
     for (const { url, data } of apiCaptures) {
