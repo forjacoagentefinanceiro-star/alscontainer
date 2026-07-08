@@ -1,29 +1,25 @@
 /**
- * Monitoramento de barragens e nível do rio — Defesa Civil Blumenau
+ * Monitoramento de barragens — Defesa Civil SC
  *
- * Extrai:
- *  - Tabela "Informações das Barragens" (Nível m, % capacidade, comportas)
- *  - Nível do Rio Itajaí em Blumenau (painel de texto/stat)
+ * Extrai dados de https://monitoramento.defesacivil.sc.gov.br/barragens
+ *
+ * Estratégia:
+ *  1. Intercepção de rede: captura qualquer resposta JSON com dados de barragens
+ *  2. Fallback DOM: lê tabela HTML se não encontrou via API
  *
  * Salva em `barragens_monitoramento` e notifica via Telegram quando muda.
- *
- * Secrets necessários:
- *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- *   TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
- *   TELEGRAM_BARRAGENS_CHAT_IDS  (opcional — fallback para TELEGRAM_CHAT_ID)
  */
-import { chromium } from "playwright";
+import { chromium, type Response } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
-const DASHBOARD_URL = "https://defesacivil.blumenau.sc.gov.br/d/barragens";
+const DASHBOARD_URL = "https://monitoramento.defesacivil.sc.gov.br/barragens";
 const TG_TOKEN = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
   .split(",").map(s => s.trim()).filter(Boolean);
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
-// Limiares mínimos para disparar notificação
-const DELTA_RIO_M   = 0.20;   // 20 cm
-const DELTA_CAP_PCT = 0.50;   // 0.5 pp na % de capacidade
+const DELTA_RIO_M   = 0.20;
+const DELTA_CAP_PCT = 0.50;
 
 type Ponto = {
   id: string;
@@ -55,7 +51,6 @@ function num(s: string | null): number | null {
   return isNaN(n) ? null : n;
 }
 
-// Determina status pelo nível do rio Blumenau (cotas conhecidas)
 function statusRio(nivelM: number | null): string {
   if (nivelM === null) return "desconhecido";
   if (nivelM >= 9.0) return "emergencia";
@@ -64,11 +59,9 @@ function statusRio(nivelM: number | null): string {
   return "normal";
 }
 
-// Determina status da barragem pelo % de capacidade
-// < 70% → normal | 70–90% → atenção | > 90% → crítica
-function statusBarragem(pct: number | null, _comportasAbertas: number | null): string {
+function statusBarragem(pct: number | null): string {
   if (pct === null) return "desconhecido";
-  if (pct >= 90) return "emergencia"; // crítica
+  if (pct >= 90) return "emergencia";
   if (pct >= 70) return "atencao";
   return "normal";
 }
@@ -80,6 +73,7 @@ function emojiStatus(s: string): string {
   if (s === "normal")     return "🟢";
   return "⚪";
 }
+
 function labelStatus(s: string): string {
   if (s === "emergencia") return "CRÍTICA";
   if (s === "alerta")     return "ALERTA";
@@ -111,132 +105,215 @@ function mudancaSignificativa(ant: Record<string, string | null>, atual: Ponto):
       detalhes.push(`comportas fechadas: ${ant.comportas_fechadas ?? "?"} → ${atual.comportas_fechadas ?? "?"}`);
 
     const stAnt = ant.status ?? "desconhecido";
-    const stAt  = statusBarragem(num(atual.capacidade_pct), num(atual.comportas_abertas));
+    const stAt  = statusBarragem(num(atual.capacidade_pct));
     if (stAnt !== stAt) detalhes.push(`status: ${labelStatus(stAnt)} → ${labelStatus(stAt)}`);
   }
 
   return { mudou: detalhes.length > 0, detalhes };
 }
 
+// ── parsers da resposta JSON da API ───────────────────────────────────────────
+
+// Campos possíveis para nível (vários nomes usados pelo governo)
+const CAMPOS_NIVEL    = ["nivel", "nivel_m", "nivel_atual", "cota", "cota_atual", "height", "level"];
+const CAMPOS_CAP      = ["capacidade", "capacidade_pct", "volume_pct", "volume_percentual", "percent", "enchimento"];
+const CAMPOS_ABERTAS  = ["comportas_abertas", "comportas_abertas_qtd", "gates_open", "abertas"];
+const CAMPOS_FECHADAS = ["comportas_fechadas", "comportas_fechadas_qtd", "gates_closed", "fechadas"];
+const CAMPOS_NOME     = ["nome", "name", "estacao", "barragem", "identificacao", "descricao", "municipio"];
+const CAMPOS_HORA     = ["hora", "data_hora", "datetime", "timestamp", "hora_leitura", "data_medicao", "data_coleta"];
+
+function getField(obj: Record<string, unknown>, campos: string[]): string | null {
+  for (const c of campos) {
+    const v = obj[c];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+  }
+  return null;
+}
+
+function looksLikeBarragem(obj: Record<string, unknown>): boolean {
+  const keys = Object.keys(obj).map(k => k.toLowerCase());
+  const hasName  = CAMPOS_NOME.some(c => keys.includes(c));
+  const hasData  = [...CAMPOS_NIVEL, ...CAMPOS_CAP].some(c => keys.includes(c));
+  return hasName && hasData;
+}
+
+function parseApiItem(item: Record<string, unknown>, idx: number): Ponto | null {
+  const nome = getField(item, CAMPOS_NOME);
+  if (!nome) return null;
+
+  const nivel       = getField(item, CAMPOS_NIVEL);
+  const capacidade  = getField(item, CAMPOS_CAP);
+  const abertas     = getField(item, CAMPOS_ABERTAS);
+  const fechadas    = getField(item, CAMPOS_FECHADAS);
+  const hora        = getField(item, CAMPOS_HORA);
+
+  const id = "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
+
+  return { id, nome, nivel_m: nivel, capacidade_pct: capacidade, comportas_abertas: abertas, comportas_fechadas: fechadas, hora_leitura: hora, tipo: "barragem" };
+}
+
+function tryParseApiResponse(data: unknown, url: string): Ponto[] {
+  if (!data || typeof data !== "object") return [];
+
+  // Array direto
+  if (Array.isArray(data)) {
+    const pontos: Ponto[] = [];
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      if (typeof item === "object" && item !== null && looksLikeBarragem(item as Record<string, unknown>)) {
+        const p = parseApiItem(item as Record<string, unknown>, i);
+        if (p) pontos.push(p);
+      }
+    }
+    if (pontos.length > 0) {
+      console.log(`[api] ✅ ${pontos.length} barragens extraídas de array em ${url}`);
+      return pontos;
+    }
+  }
+
+  // Objeto com propriedade que contém array
+  const obj = data as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (Array.isArray(val) && val.length > 0) {
+      const sample = val[0];
+      if (typeof sample === "object" && sample !== null && looksLikeBarragem(sample as Record<string, unknown>)) {
+        const pontos: Ponto[] = [];
+        for (let i = 0; i < val.length; i++) {
+          const p = parseApiItem(val[i] as Record<string, unknown>, i);
+          if (p) pontos.push(p);
+        }
+        if (pontos.length > 0) {
+          console.log(`[api] ✅ ${pontos.length} barragens extraídas de obj.${key} em ${url}`);
+          return pontos;
+        }
+      }
+    }
+  }
+
+  return [];
+}
+
 // ── extração Playwright ───────────────────────────────────────────────────────
 
 async function extrair(): Promise<Ponto[]> {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const page    = await browser.newPage();
   page.setDefaultTimeout(45000);
+
+  // Coleta respostas JSON em paralelo com o carregamento da página
+  const apiCaptures: { url: string; data: unknown }[] = [];
+
+  page.on("response", async (res: Response) => {
+    try {
+      const ct = res.headers()["content-type"] ?? "";
+      if (!ct.includes("json")) return;
+      const url  = res.url();
+      const data = await res.json().catch(() => null);
+      if (!data) return;
+      const raw = JSON.stringify(data).slice(0, 300);
+      console.log(`[network] JSON ${res.status()} ${url} → ${raw}`);
+      apiCaptures.push({ url, data });
+    } catch { /* silencioso */ }
+  });
 
   try {
     console.log("[barragens] acessando", DASHBOARD_URL);
-    await page.goto(DASHBOARD_URL, { waitUntil: "networkidle", timeout: 55000 });
+    await page.goto(DASHBOARD_URL, { waitUntil: "networkidle", timeout: 60000 });
+    await page.waitForTimeout(3000);
 
-    // Aguardar a tabela das barragens carregar
-    await page.waitForSelector("table", { timeout: 25000 });
-    await page.waitForTimeout(2000);
+    // ── Tentativa 1: parse das respostas de API capturadas ────────────────────
+    for (const { url, data } of apiCaptures) {
+      const pontos = tryParseApiResponse(data, url);
+      if (pontos.length > 0) {
+        await browser.close();
+        return pontos;
+      }
+    }
 
+    console.log("[barragens] nenhuma API JSON reconhecida — tentando extração DOM...");
+
+    // ── Tentativa 2: DOM extraction ───────────────────────────────────────────
     const resultado = await page.evaluate((): Ponto[] => {
       const pontos: Ponto[] = [];
 
-      // ── 1. Tabela "Informações das Barragens" ──────────────────────────────
-      // Procura o cabeçalho que contenha "Nível" e "Capacidade"
+      // Procura qualquer tabela que contenha colunas de barragem
       const tabelas = Array.from(document.querySelectorAll("table"));
-      const tabelaBarragens = tabelas.find(t => {
-        const header = t.querySelector("thead, tr")?.textContent ?? "";
-        return /nível|nivel|capacidade/i.test(header);
-      });
+      for (const tabela of tabelas) {
+        const ths = Array.from(tabela.querySelectorAll("th")).map(th => th.textContent?.trim().toLowerCase() ?? "");
+        if (ths.length < 2) continue;
 
-      if (tabelaBarragens) {
-        // Descobre índices das colunas pelo cabeçalho
-        const ths = Array.from(tabelaBarragens.querySelectorAll("th")).map(th => th.textContent?.trim().toLowerCase() ?? "");
-        const iEstacao   = ths.findIndex(h => /esta[çc][aã]o|nome/i.test(h));
-        const iHora      = ths.findIndex(h => /hora|leitura/i.test(h));
-        const iNivel     = ths.findIndex(h => /n[íi]vel/i.test(h));
-        const iCap       = ths.findIndex(h => /capacidade|%/i.test(h));
-        const iAbertas   = ths.findIndex(h => /abertas/i.test(h));
-        const iFechadas  = ths.findIndex(h => /fechadas/i.test(h));
+        const iNome     = ths.findIndex(h => /nome|barragem|esta[çc][aã]o/i.test(h));
+        const iNivel    = ths.findIndex(h => /n[íi]vel|cota/i.test(h));
+        const iCap      = ths.findIndex(h => /capacidade|volume|%/i.test(h));
+        const iAbertas  = ths.findIndex(h => /abertas?/i.test(h));
+        const iFechadas = ths.findIndex(h => /fechadas?/i.test(h));
+        const iHora     = ths.findIndex(h => /hora|data/i.test(h));
 
-        const rows = Array.from(tabelaBarragens.querySelectorAll("tbody tr, tr:not(:first-child)"));
-        rows.forEach(row => {
+        if (iNome < 0 && iNivel < 0 && iCap < 0) continue;
+
+        const rows = Array.from(tabela.querySelectorAll("tbody tr, tr:not(:first-child)"));
+        for (const row of rows) {
           const cells = Array.from(row.querySelectorAll("td")).map(td => td.textContent?.trim() ?? "");
-          if (cells.length < 3) return;
+          if (cells.length < 2) continue;
 
-          const nome = iEstacao >= 0 ? cells[iEstacao] : cells[0];
-          if (!nome) return;
+          const nome = iNome >= 0 ? cells[iNome] : cells[0];
+          if (!nome) continue;
 
           pontos.push({
             id: "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_"),
             nome,
-            nivel_m:           iNivel    >= 0 ? cells[iNivel]    : null,
-            capacidade_pct:    iCap      >= 0 ? cells[iCap]      : null,
-            comportas_abertas: iAbertas  >= 0 ? cells[iAbertas]  : null,
-            comportas_fechadas:iFechadas >= 0 ? cells[iFechadas] : null,
-            hora_leitura:      iHora     >= 0 ? cells[iHora]     : null,
+            nivel_m:           iNivel    >= 0 ? cells[iNivel]    || null : null,
+            capacidade_pct:    iCap      >= 0 ? cells[iCap]      || null : null,
+            comportas_abertas: iAbertas  >= 0 ? cells[iAbertas]  || null : null,
+            comportas_fechadas:iFechadas >= 0 ? cells[iFechadas] || null : null,
+            hora_leitura:      iHora     >= 0 ? cells[iHora]     || null : null,
             tipo: "barragem",
           });
-        });
-      }
-
-      // ── 2. Nível do Rio Itajaí em Blumenau ────────────────────────────────
-      // Busca em painéis stat, gauge ou tabela com "blumenau" / "rio"
-      const bodyText = document.body.innerText;
-
-      // Padrão direto no texto: "Blumenau ... X.XX m" ou "Rio Itajaí ... X.XX"
-      const rioPatterns = [
-        /blumenau[^\d]{0,60}?(\d+[,.]\d+)\s*m/i,
-        /rio[^\d]{0,40}?(\d+[,.]\d+)\s*m/i,
-        /n[íi]vel[^\d]{0,40}?blumenau[^\d]{0,20}?(\d+[,.]\d+)/i,
-        /blumenau[^\d]{0,20}?(\d+[,.]\d+)/i,
-      ];
-
-      let nivelRio: string | null = null;
-      let horaRio: string | null = null;
-
-      for (const pat of rioPatterns) {
-        const m = bodyText.match(pat);
-        if (m) {
-          nivelRio = m[1];
-          // Tenta capturar hora próxima
-          const horaM = bodyText.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/);
-          horaRio = horaM ? horaM[1] : null;
-          break;
         }
       }
 
-      // Também tenta achar um painel de stat com "rio" ou "blumenau" no título
-      if (!nivelRio) {
-        const allEls = Array.from(document.querySelectorAll("*"));
-        for (const el of allEls) {
-          if (el.children.length > 4) continue;
-          const txt = el.textContent?.trim() ?? "";
-          if (/blumenau/i.test(txt) && /\d+[,.]\d+/.test(txt) && txt.length < 150) {
-            const m = txt.match(/(\d+[,.]\d+)/);
-            if (m) { nivelRio = m[1]; break; }
-          }
-        }
-      }
+      // Se não achou tabela, tenta cards com classes comuns
+      if (pontos.length === 0) {
+        const cards = Array.from(document.querySelectorAll("[class*='card'], [class*='barragem'], [class*='dam'], [class*='item']"));
+        for (const card of cards) {
+          const txt = card.textContent?.trim() ?? "";
+          if (txt.length < 10 || txt.length > 2000) continue;
 
-      if (nivelRio) {
-        pontos.push({
-          id: "rio_blumenau",
-          nome: "Rio Itajaí em Blumenau",
-          nivel_m: nivelRio,
-          capacidade_pct: null,
-          comportas_abertas: null,
-          comportas_fechadas: null,
-          hora_leitura: horaRio,
-          tipo: "rio",
-        });
+          // Procura padrão "NomeBarragem ... XX,X m ... XX,X %"
+          const mNivel = txt.match(/(\d+[,.]\d+)\s*m/i);
+          const mCap   = txt.match(/(\d+[,.]\d+)\s*%/i);
+          if (!mNivel && !mCap) continue;
+
+          // Nome: primeiro texto não-numérico
+          const linhas = txt.split("\n").map(l => l.trim()).filter(l => l && !/^\d/.test(l));
+          const nome = linhas[0];
+          if (!nome) continue;
+
+          pontos.push({
+            id: "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_"),
+            nome,
+            nivel_m:            mNivel ? mNivel[1] : null,
+            capacidade_pct:     mCap   ? mCap[1]   : null,
+            comportas_abertas:  null,
+            comportas_fechadas: null,
+            hora_leitura:       null,
+            tipo: "barragem",
+          });
+        }
       }
 
       return pontos;
     });
 
-    console.log(`[barragens] extraídos ${resultado.length} pontos:`);
-    resultado.forEach(p => {
-      if (p.tipo === "rio")
-        console.log(`  [rio] ${p.nome}: ${p.nivel_m} m @ ${p.hora_leitura}`);
-      else
-        console.log(`  [barr] ${p.nome}: ${p.nivel_m} m | ${p.capacidade_pct}% | abertas=${p.comportas_abertas} | ${p.hora_leitura}`);
-    });
+    if (resultado.length > 0) {
+      console.log(`[barragens] DOM: ${resultado.length} pontos extraídos`);
+    } else {
+      // Diagnóstico: mostra o texto da página para análise manual
+      const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 2000));
+      console.warn("[barragens] ⚠️  nenhum dado extraído. Texto da página:");
+      console.warn(bodyText);
+    }
 
     return resultado;
   } finally {
@@ -261,7 +338,7 @@ async function main() {
       await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: TG_CHAT_FAIL, text: `⚠️ Barragens Blumenau — falha na extração: ${String(err).slice(0, 200)}` }),
+        body: JSON.stringify({ chat_id: TG_CHAT_FAIL, text: `⚠️ Barragens SC — falha na extração: ${String(err).slice(0, 200)}` }),
       }).catch(() => {});
     }
     process.exit(1);
@@ -272,7 +349,14 @@ async function main() {
     return;
   }
 
-  // Ler registros atuais do banco
+  console.log(`[barragens] extraídos ${pontos.length} pontos:`);
+  pontos.forEach(p => {
+    if (p.tipo === "rio")
+      console.log(`  [rio] ${p.nome}: ${p.nivel_m} m @ ${p.hora_leitura}`);
+    else
+      console.log(`  [barr] ${p.nome}: ${p.nivel_m} m | ${p.capacidade_pct}% | ab=${p.comportas_abertas} fe=${p.comportas_fechadas} | ${p.hora_leitura}`);
+  });
+
   const { data: existentes } = await supabase.from("barragens_monitoramento").select("*");
   const mapa = Object.fromEntries((existentes ?? []).map((r: Record<string, unknown>) => [r.id as string, r]));
 
@@ -284,7 +368,7 @@ async function main() {
     const ant = mapa[p.id] as Record<string, string | null> | undefined;
     const statusAtual = p.tipo === "rio"
       ? statusRio(num(p.nivel_m))
-      : statusBarragem(num(p.capacidade_pct), num(p.comportas_abertas));
+      : statusBarragem(num(p.capacidade_pct));
 
     const { mudou, detalhes } = ant
       ? mudancaSignificativa(ant, p)
@@ -308,7 +392,6 @@ async function main() {
 
     if (upsertErr) console.error(`[barragens] erro upsert ${p.id}:`, upsertErr.message);
 
-    // Notifica em mudanças reais OU na primeira leitura de cada ponto
     if (mudou && (ant || primeiraLeitura)) {
       alterados.push({ ponto: p, detalhes, statusAtual });
     }
@@ -319,15 +402,14 @@ async function main() {
     return;
   }
 
-  // ── Montar mensagem Telegram ───────────────────────────────────────────────
   const horaBR = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const temAlerta = alterados.some(a => a.statusAtual === "alerta" || a.statusAtual === "emergencia");
 
   let msg = temAlerta
-    ? `🚨 <b>BARRAGENS / RIO BLUMENAU — ALERTA</b>\n\n`
+    ? `🚨 <b>BARRAGENS SC — ALERTA</b>\n\n`
     : primeiraLeitura
-      ? `🆕 <b>Barragens / Rio Blumenau — monitoramento iniciado</b>\n\n`
-      : `🌊 <b>Barragens / Rio Blumenau — atualização</b>\n\n`;
+      ? `🆕 <b>Barragens SC — monitoramento iniciado</b>\n\n`
+      : `🌊 <b>Barragens SC — atualização</b>\n\n`;
 
   for (const { ponto: p, detalhes, statusAtual } of alterados) {
     msg += `${emojiStatus(statusAtual)} <b>${p.nome}</b> — ${labelStatus(statusAtual)}\n`;
@@ -347,7 +429,7 @@ async function main() {
   msg += `📅 ${horaBR} BRT\n🔗 ${DASHBOARD_URL}`;
 
   await sendTelegram(msg);
-  console.log(`[barragens] 📣 ${alterados.length} mudança(s) detectada(s) — Telegram enviado`);
+  console.log(`[barragens] 📣 ${alterados.length} mudança(s) — Telegram enviado`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

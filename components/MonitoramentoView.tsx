@@ -4,7 +4,7 @@ import { useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BarraStatus, BarragemPonto } from '@/app/actions'
 
-const GRAFANA_URL = 'https://defesacivil.blumenau.sc.gov.br/d/barragens'
+const GRAFANA_URL = 'https://monitoramento.defesacivil.sc.gov.br/barragens'
 const PRATICOS_URL = 'https://praticoszp21.com.br/'
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ export function MonitoramentoView({
         <a href={GRAFANA_URL} target="_blank" rel="noreferrer"
           className="text-xs px-3 py-1.5 rounded-lg"
           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-          Defesa Civil Blumenau →
+          Defesa Civil SC →
         </a>
         <a href={PRATICOS_URL} target="_blank" rel="noreferrer"
           className="text-xs px-3 py-1.5 rounded-lg"
