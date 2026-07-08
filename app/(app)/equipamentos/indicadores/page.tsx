@@ -1,4 +1,4 @@
-import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo } from '@/app/actions'
+import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo, getIndicadoresPorPrestador } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
 import { IndicadoresCharts } from '@/components/IndicadoresCharts'
 import { ConsumoMensalChart, ConsumoMensalTabela } from '@/components/ConsumoMensal'
@@ -71,12 +71,13 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
   const fim = mes === mesAtual ? null : fimISO
   const mesLabel = `${NOMES_MES[mesN - 1]} ${ano}`
 
-  const [d, ciclo, consumoMensal, cfgCiclo, perfil] = await Promise.all([
+  const [d, ciclo, consumoMensal, cfgCiclo, perfil, prestadores] = await Promise.all([
     getDashboardEquipamentos(inicio, fim),
     getHorasCicloAtual(),
     getConsumoMensal(6),
     getConfigCiclo(),
     import('@/app/actions').then(m => m.getMyProfile()),
+    getIndicadoresPorPrestador(inicio, fim),
   ])
   const { metaHoras, diaInicio } = cfgCiclo
   const t = d.totais
@@ -159,6 +160,42 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
           </div>
         )}
       </div>
+
+      {prestadores.length > 0 && (
+        <div className="mt-6 bg-white rounded-xl overflow-hidden max-w-full" style={{ border: '1px solid #e5e7eb' }}>
+          <div className="px-4 py-3" style={{ background: '#fef9f0', borderBottom: '1px solid #fed7aa' }}>
+            <span className="text-sm font-bold" style={{ color: '#9a3412' }}>Por prestador — tempo parado e resposta</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" style={{ color: '#374151' }}>
+              <thead>
+                <tr style={{ background: '#fef9f0' }}>
+                  {['Prestador', 'Acionamentos', 'C/ máq. parada', 'Tempo parado total', 'Tempo parado médio', 'Tempo resposta médio', 'Equipamentos'].map(h => (
+                    <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap" style={{ color: '#9a3412' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {prestadores.map(p => (
+                  <tr key={p.prestador} className="border-t" style={{ borderColor: '#fed7aa' }}>
+                    <td className="px-3 py-2 font-semibold whitespace-nowrap" style={{ color: '#1a2a3a' }}>{p.prestador}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{p.acionamentos}</td>
+                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: p.comParada ? '#b91c1c' : 'inherit' }}>
+                      {p.comParada || '—'}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: p.tempoParadoTotalMin > 0 ? '#b91c1c' : 'inherit' }}>
+                      {fmtMin(p.tempoParadoTotalMin)}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMin(p.tempoParadoMedioMin)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: '#1d4ed8' }}>{fmtMin(p.tempoRespostaMedioMin)}</td>
+                    <td className="px-3 py-2" style={{ color: '#6b7280' }}>{p.maquinas.join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {d.maquinas.length > 0 && (
         <>

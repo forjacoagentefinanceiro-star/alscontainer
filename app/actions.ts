@@ -890,6 +890,75 @@ export async function getRelatorioOperadores(inicio: string | null, fim: string 
   return relatorio.sort((a, b) => b.horasTrabalhadas - a.horasTrabalhadas)
 }
 
+// ---- Indicadores por prestador (tempo parado + resposta, agrupados por quem atendeu) ----
+export type IndicadorPrestador = {
+  prestador: string
+  acionamentos: number
+  comParada: number
+  tempoParadoTotalMin: number
+  tempoParadoMedioMin: number | null
+  tempoRespostaMedioMin: number | null
+  maquinas: string[]
+}
+
+export async function getIndicadoresPorPrestador(inicio: string | null, fim: string | null = null): Promise<IndicadorPrestador[]> {
+  const { supabase, user } = await usuarioEPapel()
+  if (!user) return []
+
+  let q = supabase.from('checklists').select('id, excluir_indicadores')
+  if (inicio) q = q.gte('created_at', inicio)
+  if (fim) q = q.lt('created_at', fim)
+  const { data: cks } = await q
+  const ids = (cks ?? []).filter((c: { excluir_indicadores?: boolean | null }) => !c.excluir_indicadores).map((c: { id: string }) => c.id)
+  if (!ids.length) return []
+
+  const { data: evs } = await supabase.from('operacao_eventos')
+    .select('checklist_id, parado, prestador, acionado_em, chegada_em, liberado_em, created_at, excluir_indicadores, checklists(equipamento)')
+    .in('checklist_id', ids)
+    .eq('tipo', 'problema')
+    .not('prestador', 'is', null)
+  const eventos = (evs ?? []).filter((e: { excluir_indicadores?: boolean | null }) => !e.excluir_indicadores)
+
+  const porPrestador = new Map<string, typeof eventos>()
+  for (const e of eventos) {
+    const p = e.prestador as string
+    if (!porPrestador.has(p)) porPrestador.set(p, [])
+    porPrestador.get(p)!.push(e)
+  }
+
+  return [...porPrestador.entries()].map(([prestador, evsPrest]) => {
+    const comParada = evsPrest.filter((e: { parado?: boolean | null }) => e.parado).length
+
+    let tempoParadoTotal = 0
+    let paradasResolvidas = 0
+    for (const p of evsPrest) {
+      if (!p.liberado_em) continue
+      const from = p.parado ? p.created_at : (p.chegada_em ?? p.created_at)
+      const min = (new Date(p.liberado_em as string).getTime() - new Date(from as string).getTime()) / 60000
+      if (min > 0) { tempoParadoTotal += min; paradasResolvidas++ }
+    }
+
+    const respostas = evsPrest
+      .filter((e: { acionado_em?: string | null; chegada_em?: string | null }) => e.acionado_em && e.chegada_em)
+      .map((e: { acionado_em: string; chegada_em: string }) => (new Date(e.chegada_em).getTime() - new Date(e.acionado_em).getTime()) / 60000)
+
+    const maquinas = [...new Set(evsPrest.map((e: { checklists?: unknown }) => {
+      const ck = Array.isArray(e.checklists) ? e.checklists[0] : e.checklists
+      return (ck as { equipamento?: string } | undefined)?.equipamento ?? ''
+    }).filter(Boolean))].sort() as string[]
+
+    return {
+      prestador,
+      acionamentos: evsPrest.length,
+      comParada,
+      tempoParadoTotalMin: Math.round(tempoParadoTotal),
+      tempoParadoMedioMin: paradasResolvidas > 0 ? Math.round(tempoParadoTotal / paradasResolvidas) : null,
+      tempoRespostaMedioMin: respostas.length > 0 ? Math.round(respostas.reduce((a: number, b: number) => a + b, 0) / respostas.length) : null,
+      maquinas,
+    }
+  }).sort((a, b) => b.tempoParadoTotalMin - a.tempoParadoTotalMin)
+}
+
 // ---- Relatório detalhado de problemas (linha do tempo completa, não só os ativos) ----
 export type RelatorioProblema = {
   id: string
