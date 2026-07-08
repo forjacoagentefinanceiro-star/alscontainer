@@ -281,6 +281,7 @@ async function main() {
 
   const now = new Date().toISOString();
   const alterados: { ponto: Ponto; detalhes: string[]; statusAtual: string }[] = [];
+  const primeiraLeitura = Object.keys(mapa).length === 0;
 
   for (const p of pontos) {
     const ant = mapa[p.id] as Record<string, string | null> | undefined;
@@ -292,7 +293,7 @@ async function main() {
       ? mudancaSignificativa(ant, p)
       : { mudou: true, detalhes: ["primeira leitura"] };
 
-    await supabase.from("barragens_monitoramento").upsert({
+    const { error: upsertErr } = await supabase.from("barragens_monitoramento").upsert({
       id: p.id,
       nome: p.nome,
       nivel_m: p.nivel_m,
@@ -308,7 +309,10 @@ async function main() {
       anterior_status:  mudou ? (ant?.status  ?? null) : (ant?.anterior_status  ?? null),
     }, { onConflict: "id" });
 
-    if (mudou && ant && !detalhes.includes("primeira leitura")) {
+    if (upsertErr) console.error(`[barragens] erro upsert ${p.id}:`, upsertErr.message);
+
+    // Notifica em mudanças reais OU na primeira leitura de cada ponto
+    if (mudou && (ant || primeiraLeitura)) {
       alterados.push({ ponto: p, detalhes, statusAtual });
     }
   }
@@ -324,7 +328,9 @@ async function main() {
 
   let msg = temAlerta
     ? `🚨 <b>BARRAGENS / RIO BLUMENAU — ALERTA</b>\n\n`
-    : `🌊 <b>Barragens / Rio Blumenau — atualização</b>\n\n`;
+    : primeiraLeitura
+      ? `🆕 <b>Barragens / Rio Blumenau — monitoramento iniciado</b>\n\n`
+      : `🌊 <b>Barragens / Rio Blumenau — atualização</b>\n\n`;
 
   for (const { ponto: p, detalhes, statusAtual } of alterados) {
     msg += `${emojiStatus(statusAtual)} <b>${p.nome}</b> — ${labelStatus(statusAtual)}\n`;
