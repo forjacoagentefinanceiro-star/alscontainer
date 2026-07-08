@@ -329,9 +329,11 @@ async function main() {
   for (const { ponto: p, detalhes, statusAtual } of alterados) {
     msg += `${emojiStatus(statusAtual)} <b>${p.nome}</b> — ${labelStatus(statusAtual)}\n`;
     if (p.tipo === "barragem") {
-      if (p.nivel_m)           msg += `  Nível: ${p.nivel_m} m\n`;
-      if (p.capacidade_pct)    msg += `  Capacidade: ${p.capacidade_pct}%\n`;
-      if (p.comportas_abertas) msg += `  Comportas abertas: ${p.comportas_abertas}\n`;
+      if (p.nivel_m)        msg += `  Nível: ${p.nivel_m} m\n`;
+      if (p.capacidade_pct) msg += `  Capacidade: ${p.capacidade_pct}%\n`;
+      const ca = p.comportas_abertas ?? "—";
+      const cf = p.comportas_fechadas ?? "—";
+      msg += `  Comportas: ${ca} abertas / ${cf} fechadas\n`;
     } else {
       if (p.nivel_m) msg += `  Nível: ${p.nivel_m} m\n`;
     }
