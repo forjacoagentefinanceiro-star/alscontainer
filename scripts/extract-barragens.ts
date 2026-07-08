@@ -17,7 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL = "https://defesacivil.blumenau.sc.gov.br/d/barragens";
 const TG_TOKEN = process.env.TELEGRAM_TOKEN ?? "";
-const TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
+const TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
   .split(",").map(s => s.trim()).filter(Boolean);
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
