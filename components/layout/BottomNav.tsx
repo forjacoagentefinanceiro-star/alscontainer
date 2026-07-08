@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain } from 'lucide-react'
 
 const baseItems = [
   { href: '/dashboard',             label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/bi',                    label: 'BI',         icon: BarChart3 },
+  { href: '/monitoramento',         label: 'Clima',      icon: CloudRain },
   { href: '/inventario',            label: 'Inventário', icon: Package2 },
   { href: '/inventario/financeiro', label: 'Financeiro', icon: DollarSign },
   { href: '/gerador',               label: 'Gerador',    icon: Hash },

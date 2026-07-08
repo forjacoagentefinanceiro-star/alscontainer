@@ -508,6 +508,32 @@ export async function getBarraStatus(): Promise<BarraStatus | null> {
   }
 }
 
+// ---- Monitoramento de barragens / rio Blumenau ----
+export type BarragemPonto = {
+  id: string
+  nome: string
+  tipo: 'barragem' | 'rio' | null
+  nivel_m: string | null
+  capacidade_pct: string | null
+  comportas_abertas: string | null
+  comportas_fechadas: string | null
+  hora_leitura: string | null
+  status: string | null
+  atualizado_em: string | null
+  changed_em: string | null
+  anterior_nivel_m: string | null
+  anterior_status: string | null
+}
+
+export async function getBarragensMonitoramento(): Promise<BarragemPonto[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('barragens_monitoramento')
+    .select('*')
+    .order('nome')
+  return (data ?? []) as BarragemPonto[]
+}
+
 // ---- Meta de faturamento do mês (BI) ----
 // define a meta de um mês específico (qualquer mês, não só o atual — útil para navegar e ajustar meses anteriores)
 export async function setMetaMes(ano: number, mes: number, valor: number) {

@@ -23,6 +23,7 @@ import {
   CalendarDays,
   QrCode,
   DollarSign,
+  CloudRain,
 } from 'lucide-react'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
@@ -48,7 +49,10 @@ const equipamentosItems: Item[] = [
 
 const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
 const usuariosItem: Item = { href: '/usuarios', label: 'Usuários', icon: Users }
-const biItems: Item[] = [{ href: '/bi', label: 'BI Depot', icon: BarChart3 }]
+const biItems: Item[] = [
+  { href: '/bi',            label: 'BI Depot',      icon: BarChart3  },
+  { href: '/monitoramento', label: 'Monitoramento', icon: CloudRain  },
+]
 const indicadoresTarefasItem: Item = { href: '/tarefas', label: 'Indicadores Tarefas', icon: ListChecks }
 
 const gestaoTarefasItems: Item[] = [
