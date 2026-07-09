@@ -340,7 +340,10 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
     return () => clearInterval(t)
   }, [slide, totalSlides])
 
-  const destaques = categorias.map(c => c.grupos[0]).filter(Boolean).slice(0, 4)
+  // TV: mostra só os gráficos de Movimentação (entrada/saída por armador e por tipo)
+  // Indicadores de tempo (Vistorias, Reparos, Permanência) não aparecem na TV
+  const movCat = categorias.find(c => c.key === 'movimentacao')
+  const destaques = movCat ? movCat.grupos : categorias.map(c => c.grupos[0]).filter(Boolean).slice(0, 4)
 
   return (
     <main style={{ minHeight: '100vh', background: '#0d1b2e', color: '#e6eef7', padding: 'clamp(14px,1.8vw,28px)', fontFamily: 'inherit' }}>
