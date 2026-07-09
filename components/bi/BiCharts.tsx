@@ -43,7 +43,6 @@ const tooltipStyle = {
 export type Serie = string
 export type Ponto = { eixo: string } & Record<string, number | string>
 
-/** Barras empilhadas: uma barra por série, ao longo do eixo (meses). */
 /** Formata rótulos de classe de tempo: até 60 → minutos; acima → horas. */
 function fmtTempo(s: unknown): string {
   const t = String(s)
@@ -59,8 +58,21 @@ function fmtTempo(s: unknown): string {
   return t
 }
 
+// shape customizado para Bar: usa style={{ fill }} em vez de atributo SVG
+// (atributos SVG têm especificidade menor que CSS — o preflight do Tailwind v4 os sobrescreve)
+function makeBarShape(color: string, rounded: boolean) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function BarShape(props: any) {
+    const { x, y, width, height } = props as { x: number; y: number; width: number; height: number }
+    if (!width || height <= 0) return null
+    const h = Math.max(0, height)
+    const r = rounded ? Math.min(3, h / 2, width / 2) : 0
+    return <rect x={x} y={y} width={width} height={h} rx={r} ry={r} style={{ fill: color }} />
+  }
+}
+
+/** Barras empilhadas: uma barra por série, ao longo do eixo (meses). */
 export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] }) {
-  // total por barra (mês) para rotular em cima
   const dataT = data.map(p => ({ ...p, __total: series.reduce((s, k) => s + (Number(p[k]) || 0), 0) }))
   return (
     <ResponsiveContainer width="100%" height={258}>
@@ -71,13 +83,17 @@ export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] 
         <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => compactNf.format(v)} />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} formatter={(value, name) => [value as number, fmtTempo(name)]} />
         {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#8ca5c8', paddingTop: 6 }} formatter={(value) => fmtTempo(value)} />}
-        {series.map((s, i) => (
-          <Bar key={s} dataKey={s} stackId="a" fill={corSerie(s, i)} radius={i === series.length - 1 ? [3, 3, 0, 0] : undefined}>
-            {i === series.length - 1 && (
-              <LabelList dataKey="__total" position="top" formatter={(v) => compactNf.format(Number(v) || 0)} style={{ fill: '#cfe0f2', fontSize: 11, fontWeight: 600 }} />
-            )}
-          </Bar>
-        ))}
+        {series.map((s, i) => {
+          const color = corSerie(s, i)
+          const isTop = i === series.length - 1
+          return (
+            <Bar key={s} dataKey={s} stackId="a" fill={color} isAnimationActive={false} shape={makeBarShape(color, isTop)}>
+              {isTop && (
+                <LabelList dataKey="__total" position="top" formatter={(v) => compactNf.format(Number(v) || 0)} style={{ fill: '#cfe0f2', fontSize: 11, fontWeight: 600 }} />
+              )}
+            </Bar>
+          )
+        })}
       </BarChart>
     </ResponsiveContainer>
   )
