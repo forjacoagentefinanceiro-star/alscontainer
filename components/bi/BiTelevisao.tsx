@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
 import type { Categoria, KpiT } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
-import type { DashboardEquipamentos, CicloHoras, ConfigCiclo } from '@/app/actions'
+import type { DashboardEquipamentos, CicloHoras, ConfigCiclo, BarraStatus, BarragemPonto } from '@/app/actions'
 
 // ─── Utilitários ────────────────────────────────────────────────────────────
 
@@ -45,6 +45,166 @@ function Card({ titulo, sub, children }: { titulo: string; sub?: string; childre
       <h3 style={{ fontSize: 'clamp(13px,1.1vw,17px)', fontWeight: 600, color: '#cfe0f2', marginBottom: sub ? 2 : 10 }}>{titulo}</h3>
       {sub && <div style={{ fontSize: 'clamp(11px,0.9vw,13px)', color: '#5f7da0', marginBottom: 10 }}>{sub}</div>}
       {children}
+    </div>
+  )
+}
+
+// ─── Slide Clima ────────────────────────────────────────────────────────────
+
+const COR_CLIMA = {
+  normal:       { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', dot: '#22c55e', label: 'Normal',     text: '#4ade80' },
+  atencao:      { bg: 'rgba(217,119,6,0.15)',   border: '#d97706', dot: '#f59e0b', label: 'Atenção',    text: '#fbbf24' },
+  alerta:       { bg: 'rgba(234,88,12,0.15)',   border: '#ea580c', dot: '#f97316', label: 'Alerta',     text: '#fb923c' },
+  emergencia:   { bg: 'rgba(220,38,38,0.15)',   border: '#dc2626', dot: '#ef4444', label: 'Crítica',    text: '#f87171' },
+  praticavel:   { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', dot: '#22c55e', label: 'Praticável', text: '#4ade80' },
+  restrito:     { bg: 'rgba(217,119,6,0.15)',   border: '#d97706', dot: '#f59e0b', label: 'Restrito',   text: '#fbbf24' },
+  fechado:      { bg: 'rgba(220,38,38,0.15)',   border: '#dc2626', dot: '#ef4444', label: 'Fechado',    text: '#f87171' },
+  desconhecido: { bg: 'rgba(156,163,175,0.1)', border: '#374151', dot: '#6b7280', label: 'Sem dados',  text: '#9ca3af' },
+} as const
+
+type CorClimaKey = keyof typeof COR_CLIMA
+function corClima(s: string | null): typeof COR_CLIMA[CorClimaKey] {
+  return COR_CLIMA[(s ?? 'desconhecido') as CorClimaKey] ?? COR_CLIMA.desconhecido
+}
+
+function statusBarraClima(profundidade: string): string {
+  const s = profundidade.toLowerCase()
+  if (s.includes('fechad')) return 'fechado'
+  if (s.includes('restri') || s.includes('condicion')) return 'restrito'
+  if (s.includes('praticáv') || s.includes('praticav')) return 'praticavel'
+  return 'desconhecido'
+}
+
+function fmtHoraClima(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function SlideClima({ barra, barragens }: { barra: BarraStatus | null; barragens: BarragemPonto[] }) {
+  const rio = barragens.find(p => p.tipo === 'rio')
+  const barragensLista = barragens.filter(p => p.tipo === 'barragem')
+
+  const statusBarraChan = barra ? statusBarraClima(barra.profundidade) : 'desconhecido'
+  const todosStatus = [
+    statusBarraChan,
+    ...(rio ? [rio.status ?? 'desconhecido'] : []),
+    ...barragensLista.map(p => p.status ?? 'desconhecido'),
+  ]
+  const ordem = ['emergencia', 'alerta', 'atencao', 'normal', 'desconhecido']
+  const piorStatus = ordem.find(s => todosStatus.includes(s)) ?? 'desconhecido'
+  const cGeral = corClima(piorStatus)
+  const temAlerta = piorStatus === 'alerta' || piorStatus === 'emergencia'
+
+  const cBarra = corClima(statusBarraChan)
+  const barraCondicao = barra?.profundidade?.split('·')[0]?.trim() ?? '—'
+
+  const cRio = corClima(rio?.status ?? null)
+  const nivelRio = rio?.nivel_m ?? '—'
+  const pctRio = rio?.nivel_m
+    ? Math.min(100, Math.round((parseFloat(rio.nivel_m.replace(',', '.')) / 9.0) * 100))
+    : null
+
+  return (
+    <div>
+      {temAlerta && (
+        <div style={{
+          background: cGeral.bg, border: `2px solid ${cGeral.border}`, color: cGeral.text,
+          borderRadius: 14, padding: '10px 20px', marginBottom: 'clamp(10px,1.2vw,18px)',
+          display: 'flex', alignItems: 'center', gap: 12, fontWeight: 700,
+          fontSize: 'clamp(13px,1.1vw,18px)',
+        }}>
+          <span style={{ fontSize: 24 }}>{piorStatus === 'emergencia' ? '🚨' : '⚠️'}</span>
+          {piorStatus === 'emergencia' ? 'SITUAÇÃO DE EMERGÊNCIA ATIVA' : 'ALERTA ATIVO — MONITORAR DE PERTO'}
+        </div>
+      )}
+
+      {/* Barra + Rio lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(10px,1.2vw,18px)' }}>
+        <div style={{ background: cBarra.bg, border: `2px solid ${cBarra.border}`, borderRadius: 16, padding: 'clamp(12px,1.4vw,20px)' }}>
+          <div style={{ fontSize: 'clamp(10px,0.85vw,13px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>Barra do Itajaí</div>
+          <div style={{ fontSize: 'clamp(20px,2.4vw,34px)', fontWeight: 700, color: cBarra.text }}>{barraCondicao}</div>
+          <span style={{ display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 999, border: `1px solid ${cBarra.border}`, color: cBarra.text, fontWeight: 700, fontSize: 'clamp(10px,0.8vw,12px)' }}>
+            {cBarra.label}
+          </span>
+          {barra?.atualizado_em && (
+            <div style={{ fontSize: 'clamp(9px,0.75vw,11px)', color: '#5f7da0', marginTop: 6 }}>
+              {fmtHoraClima(barra.atualizado_em)}
+            </div>
+          )}
+        </div>
+
+        {rio && (
+          <div style={{ background: cRio.bg, border: `2px solid ${cRio.border}`, borderRadius: 16, padding: 'clamp(12px,1.4vw,20px)' }}>
+            <div style={{ fontSize: 'clamp(10px,0.85vw,13px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>Rio Itajaí · Blumenau</div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+              <div style={{ fontSize: 'clamp(32px,4vw,60px)', fontWeight: 900, color: cRio.text, lineHeight: 1 }}>{nivelRio}</div>
+              <div style={{ fontSize: 'clamp(16px,1.8vw,24px)', fontWeight: 700, color: cRio.text, marginBottom: 3 }}>m</div>
+            </div>
+            {pctRio !== null && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                  <div style={{ height: 6, borderRadius: 999, background: cRio.dot, width: `${pctRio}%` }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 'clamp(9px,0.7vw,11px)' }}>
+                  <span style={{ color: '#d97706' }}>5.5m atenção</span>
+                  <span style={{ color: '#ea580c' }}>7.0m alerta</span>
+                  <span style={{ color: '#dc2626' }}>9.0m emergência</span>
+                </div>
+              </div>
+            )}
+            <span style={{ display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 999, border: `1px solid ${cRio.border}`, color: cRio.text, fontWeight: 700, fontSize: 'clamp(10px,0.8vw,12px)' }}>
+              {cRio.label}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Barragens */}
+      {barragensLista.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 'clamp(8px,1vw,14px)' }}>
+          {barragensLista.map(p => {
+            const cB = corClima(p.status)
+            const pct = p.capacidade_pct ? parseFloat(p.capacidade_pct.replace(',', '.')) : null
+            const abertas = p.comportas_abertas ? parseInt(p.comportas_abertas) : 0
+            const fechadas = p.comportas_fechadas ? parseInt(p.comportas_fechadas) : 0
+            return (
+              <div key={p.id} style={{ background: cB.bg, border: `1px solid ${cB.border}`, borderRadius: 14, padding: 'clamp(10px,1.1vw,16px)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 'clamp(12px,1vw,15px)', color: '#e6eef7' }}>{p.nome}</div>
+                  <span style={{ padding: '2px 8px', borderRadius: 999, border: `1px solid ${cB.border}`, color: cB.text, fontWeight: 700, fontSize: 'clamp(9px,0.75vw,11px)', marginLeft: 6, whiteSpace: 'nowrap' }}>
+                    {cB.label}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 'clamp(9px,0.65vw,10px)', textTransform: 'uppercase', color: '#5f7da0' }}>Nível</div>
+                    <div style={{ fontSize: 'clamp(14px,1.4vw,20px)', fontWeight: 700, color: cB.text }}>{p.nivel_m ?? '—'}<span style={{ fontSize: '0.6em' }}>m</span></div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'clamp(9px,0.65vw,10px)', textTransform: 'uppercase', color: '#5f7da0' }}>Cap.</div>
+                    <div style={{ fontSize: 'clamp(14px,1.4vw,20px)', fontWeight: 700, color: cB.text }}>{p.capacidade_pct ?? '—'}<span style={{ fontSize: '0.6em' }}>%</span></div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'clamp(9px,0.65vw,10px)', textTransform: 'uppercase', color: '#5f7da0' }}>Comportas</div>
+                    <div style={{ fontSize: 'clamp(13px,1.2vw,18px)', fontWeight: 700, color: abertas > 0 ? '#f97316' : '#5f7da0' }}>{abertas}A/{fechadas}F</div>
+                  </div>
+                </div>
+                {pct !== null && (
+                  <div style={{ marginTop: 6, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                    <div style={{ height: 4, borderRadius: 999, background: cB.dot, width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!barra && barragens.length === 0 && (
+        <div style={{ color: '#5f7da0', fontSize: 14 }}>Sem dados de monitoramento. Aguardando extração.</div>
+      )}
     </div>
   )
 }
@@ -137,9 +297,10 @@ function SlideEquipamentos({ dash, ciclo, cfg }: { dash: DashboardEquipamentos; 
 
 const SLIDE_DURATION = 20 // segundos por slide
 
-export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipamentos, ciclo, configCiclo }: {
+export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipamentos, ciclo, configCiclo, barra, barragens }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]
   equipamentos?: DashboardEquipamentos; ciclo?: CicloHoras; configCiclo?: ConfigCiclo
+  barra?: BarraStatus | null; barragens?: BarragemPonto[]
 }) {
   const [hora, setHora] = useState('')
   const [telaCheia, setTelaCheia] = useState(false)
@@ -148,8 +309,9 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
   const progressoRef = useRef(0)
 
   const temEquipamentos = !!(equipamentos && ciclo && configCiclo)
-  const totalSlides = temEquipamentos ? 2 : 1
-  const SLIDES = ['BI Depot', 'Equipamentos']
+  const temClima = barra !== undefined || (barragens && barragens.length > 0)
+  const SLIDES = ['BI Depot', ...(temEquipamentos ? ['Equipamentos'] : []), ...(temClima ? ['Clima'] : [])]
+  const totalSlides = SLIDES.length
 
   useEffect(() => {
     const tick = () => setHora(new Date().toLocaleTimeString('pt-BR'))
@@ -199,7 +361,9 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
             </span>
           </div>
           <div style={{ color: '#5f7da0', fontSize: 'clamp(11px,0.9vw,14px)', marginTop: 2 }}>
-            {slide === 0 ? `e-Professional (websag) · ano ${ano} · atualizado ${atualizado}` : 'Indicadores de frota · mês atual'}
+            {SLIDES[slide] === 'BI Depot' ? `e-Professional (websag) · ano ${ano} · atualizado ${atualizado}`
+              : SLIDES[slide] === 'Equipamentos' ? 'Indicadores de frota · mês atual'
+              : 'Barra do Itajaí · Barragens SC · Rio Itajaí em Blumenau'}
           </div>
         </div>
 
@@ -228,7 +392,7 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
       </div>
 
       {/* Conteúdo do slide */}
-      {slide === 0 ? (
+      {SLIDES[slide] === 'BI Depot' ? (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(12px,1.4vw,20px)' }}>
             {kpis.map(k => <Tile key={k.label} label={k.label} value={k.value} sub={k.sub} accent={k.accent} />)}
@@ -248,11 +412,11 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
             ))}
           </div>
         </>
-      ) : (
-        temEquipamentos && (
-          <SlideEquipamentos dash={equipamentos!} ciclo={ciclo!} cfg={configCiclo!} />
-        )
-      )}
+      ) : SLIDES[slide] === 'Equipamentos' && temEquipamentos ? (
+        <SlideEquipamentos dash={equipamentos!} ciclo={ciclo!} cfg={configCiclo!} />
+      ) : SLIDES[slide] === 'Clima' ? (
+        <SlideClima barra={barra ?? null} barragens={barragens ?? []} />
+      ) : null}
     </main>
   )
 }
