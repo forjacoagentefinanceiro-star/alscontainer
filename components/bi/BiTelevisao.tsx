@@ -354,16 +354,18 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 'clamp(14px,1.8vw,24px)' }}>
-        <div>
-          <div style={{ fontSize: 'clamp(20px,2.4vw,38px)', fontWeight: 700 }}>
-            ALS · <span style={{ color: '#7DC242' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px,1.2vw,18px)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="ALS Logística" style={{ height: 'clamp(40px,4.5vw,60px)', width: 'auto', objectFit: 'contain' }} />
+          <div>
+            <div style={{ fontSize: 'clamp(18px,2.2vw,34px)', fontWeight: 700, color: '#7DC242' }}>
               {totalSlides > 1 ? SLIDES[slide] : 'BI Depot'}
-            </span>
-          </div>
-          <div style={{ color: '#5f7da0', fontSize: 'clamp(11px,0.9vw,14px)', marginTop: 2 }}>
-            {SLIDES[slide] === 'BI Depot' ? `e-Professional (websag) · ano ${ano} · atualizado ${atualizado}`
-              : SLIDES[slide] === 'Equipamentos' ? 'Indicadores de frota · mês atual'
-              : 'Barra do Itajaí · Barragens SC · Rio Itajaí em Blumenau'}
+            </div>
+            <div style={{ color: '#5f7da0', fontSize: 'clamp(11px,0.9vw,14px)', marginTop: 2 }}>
+              {SLIDES[slide] === 'BI Depot' ? `e-Professional (websag) · ano ${ano} · atualizado ${atualizado}`
+                : SLIDES[slide] === 'Equipamentos' ? 'Indicadores de frota · mês atual'
+                : 'Barra do Itajaí · Barragens SC · Rio Itajaí em Blumenau'}
+            </div>
           </div>
         </div>
 

@@ -107,18 +107,22 @@ export function MonitoramentoTv({ barra, barragens }: {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 'clamp(14px,1.8vw,24px)' }}>
-        <div>
-          <div style={{ fontSize: 'clamp(20px,2.4vw,38px)', fontWeight: 700 }}>
-            ALS · <span style={{ color: '#60a5fa' }}>Monitoramento Climático</span>
-          </div>
-          <div style={{ color: '#5f7da0', fontSize: 'clamp(11px,0.9vw,14px)', marginTop: 2 }}>
-            Barra do Itajaí · Barragens SC · Rio Itajaí em Blumenau
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(10px,1.2vw,18px)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="ALS Logística" style={{ height: 'clamp(40px,4.5vw,60px)', width: 'auto', objectFit: 'contain' }} />
+          <div>
+            <div style={{ fontSize: 'clamp(18px,2.2vw,34px)', fontWeight: 700, color: '#7DC242' }}>
+              Monitoramento Climático
+            </div>
+            <div style={{ color: '#5f7da0', fontSize: 'clamp(11px,0.9vw,14px)', marginTop: 2 }}>
+              Barra do Itajaí · Barragens SC · Rio Itajaí em Blumenau
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ fontSize: 'clamp(24px,2.8vw,44px)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#cfe0f2' }}>{hora}</div>
           {!telaCheia ? (
-            <button onClick={entrarTelaCheia} style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#60a5fa', padding: '7px 14px', borderRadius: 999, border: 'none', cursor: 'pointer' }}>
+            <button onClick={entrarTelaCheia} style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '7px 14px', borderRadius: 999, border: 'none', cursor: 'pointer' }}>
               🖥️ Modo TV
             </button>
           ) : (
