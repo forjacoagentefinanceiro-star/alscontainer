@@ -115,7 +115,7 @@ export function Sidebar({ role, modulos }: { role?: string; modulos?: string[] |
         ...(isAdmin && podeVer('tarefas') ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
         ...(isAdmin ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
         ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
-        ...(podeVer('monitoramento') ? [{ label: 'Monitoramento', items: [monitoramentoItem] }] : []),
+        ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
       ]
 
   const pathname = usePathname()

@@ -6,7 +6,7 @@ export const MODULOS: { key: string; label: string; descricao: string }[] = [
   { key: 'cadastros',     label: 'Cadastros',         descricao: 'Cadastro de empilhadeiras e operadores' },
   { key: 'tarefas',       label: 'Gestão de Tarefas', descricao: 'Tarefas, Agenda, QR Code' },
   { key: 'bi',            label: 'BI Depot',          descricao: 'Dashboard analítico e faturamento' },
-  { key: 'monitoramento', label: 'Monitoramento',     descricao: 'Barragens SC, Rio Itajaí, Barra do Itajaí' },
+  { key: 'monitoramento', label: 'Clima',              descricao: 'Barragens SC, Rio Itajaí, Barra do Itajaí' },
 ]
 
 export const MODULOS_KEYS = MODULOS.map(m => m.key)
