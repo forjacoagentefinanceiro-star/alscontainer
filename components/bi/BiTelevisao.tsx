@@ -340,10 +340,12 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
     return () => clearInterval(t)
   }, [slide, totalSlides])
 
-  // TV: mostra só os gráficos de Movimentação (entrada/saída por armador e por tipo)
-  // Indicadores de tempo (Vistorias, Reparos, Permanência) não aparecem na TV
+  // TV: só movimentação por tipo 20'/40' (entrada e saída em QTD containers)
+  // Remove TEUs (por armador) e indicadores de tempo
   const movCat = categorias.find(c => c.key === 'movimentacao')
-  const destaques = movCat ? movCat.grupos : categorias.map(c => c.grupos[0]).filter(Boolean).slice(0, 4)
+  const destaques = movCat
+    ? movCat.grupos.filter(g => !g.medida.startsWith('TEUs'))
+    : categorias.map(c => c.grupos[0]).filter(Boolean).slice(0, 4)
 
   return (
     <main style={{ minHeight: '100vh', background: '#0d1b2e', color: '#e6eef7', padding: 'clamp(14px,1.8vw,28px)', fontFamily: 'inherit' }}>
