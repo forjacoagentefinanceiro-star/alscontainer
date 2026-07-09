@@ -414,8 +414,8 @@ async function main() {
     TG_CHATS = subs.map((s: { chat_id: string }) => s.chat_id);
     console.log(`[telegram] ${TG_CHATS.length} assinante(s) do Supabase`);
   } else {
-    // fallback: variáveis de ambiente
-    TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
+    // fallback: variáveis de ambiente (grupo de monitoramento — nunca usa TELEGRAM_CHAT_ID pessoal)
+    TG_CHATS = (process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_BARRA_CHAT_IDS || "")
       .split(",").map((s: string) => s.trim()).filter(Boolean);
     console.log(`[telegram] ${TG_CHATS.length} chat(s) via env (sem assinantes no banco)`);
   }
