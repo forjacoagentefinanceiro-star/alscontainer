@@ -14,14 +14,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL = "https://monitoramento.defesacivil.sc.gov.br/barragens";
 const RIO_URL       = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
-const TG_TOKEN    = process.env.TELEGRAM_TOKEN ?? "";
+const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
-// chat_ids carregados do Supabase (tabela telegram_subscriptions) + fallback env
-let TG_CHATS: string[] = [];
-
-const DELTA_RIO_M   = 0.20;
-const DELTA_CAP_PCT = 0.50;
+// Deltas adaptativos: verde → pouco ruído; amarelo/vermelho → máxima sensibilidade
+const DELTA_RIO_NORMAL  = 0.40;  // 40 cm — mudança considerável quando verde
+const DELTA_RIO_ALERTA  = 0.05;  // 5 cm  — qualquer variação quando amarelo/vermelho
+const DELTA_CAP_NORMAL  = 2.00;  // 2%    — mudança considerável quando verde
+const DELTA_CAP_ALERTA  = 0.10;  // 0.1%  — qualquer variação quando amarelo/vermelho
 
 type Ponto = {
   id: string;
@@ -105,15 +105,24 @@ function mudancaSignificativa(ant: Record<string, string | null>, atual: Ponto):
 
   if (atual.tipo === "rio") {
     const a = num(ant.nivel_m), b = num(atual.nivel_m);
-    if (a !== null && b !== null && Math.abs(b - a) >= DELTA_RIO_M)
+    const stAt   = statusRio(b);
+    const emAlerta = stAt !== "normal";
+    const delta  = emAlerta ? DELTA_RIO_ALERTA : DELTA_RIO_NORMAL;
+
+    if (a !== null && b !== null && Math.abs(b - a) >= delta)
       detalhes.push(`nível: ${ant.nivel_m} → ${atual.nivel_m} m`);
-    if (ant.status !== statusRio(b))
-      detalhes.push(`status: ${labelStatus(ant.status ?? "")} → ${labelStatus(statusRio(b))}`);
+    if (ant.status !== stAt)
+      detalhes.push(`status: ${labelStatus(ant.status ?? "")} → ${labelStatus(stAt)}`);
   } else {
     const a = num(ant.capacidade_pct), b = num(atual.capacidade_pct);
-    if (a !== null && b !== null && Math.abs(b - a) >= DELTA_CAP_PCT)
+    const stAt   = statusBarragem(b);
+    const emAlerta = stAt !== "normal";
+    const delta  = emAlerta ? DELTA_CAP_ALERTA : DELTA_CAP_NORMAL;
+
+    if (a !== null && b !== null && Math.abs(b - a) >= delta)
       detalhes.push(`capacidade: ${ant.capacidade_pct} → ${atual.capacidade_pct} %`);
 
+    // Comportas: sempre notifica independente do status (mudança operacional)
     const ca = num(ant.comportas_abertas), cb = num(atual.comportas_abertas);
     if (ca !== cb)
       detalhes.push(`comportas abertas: ${ant.comportas_abertas ?? "?"} → ${atual.comportas_abertas ?? "?"}`);
@@ -123,7 +132,6 @@ function mudancaSignificativa(ant: Record<string, string | null>, atual: Ponto):
       detalhes.push(`comportas fechadas: ${ant.comportas_fechadas ?? "?"} → ${atual.comportas_fechadas ?? "?"}`);
 
     const stAnt = ant.status ?? "desconhecido";
-    const stAt  = statusBarragem(num(atual.capacidade_pct));
     if (stAnt !== stAt) detalhes.push(`status: ${labelStatus(stAnt)} → ${labelStatus(stAt)}`);
   }
 
