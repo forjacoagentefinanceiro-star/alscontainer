@@ -3,7 +3,7 @@
 import {
   ResponsiveContainer,
   BarChart, Bar,
-  LineChart, Line,
+  AreaChart, Area,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend, LabelList,
 } from 'recharts'
 
@@ -87,16 +87,34 @@ export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] 
 export function TendenciaLinha({ data, series }: { data: Ponto[]; series: Serie[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+        <defs>
+          {series.map((s, i) => (
+            <linearGradient key={`grad-${i}`} id={`trend-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={PALETTE[i % PALETTE.length]} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={PALETTE[i % PALETTE.length]} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis dataKey="eixo" tick={axisStyle} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
         <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => new Intl.NumberFormat('pt-BR', { notation: 'compact' }).format(v)} />
         <Tooltip contentStyle={tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 12, color: '#8ca5c8' }} />
         {series.map((s, i) => (
-          <Line key={s} type="monotone" dataKey={s} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2.5} dot={{ r: 3 }} />
+          <Area
+            key={s}
+            type="monotone"
+            dataKey={s}
+            stroke={PALETTE[i % PALETTE.length]}
+            strokeWidth={2.5}
+            fill={`url(#trend-grad-${i})`}
+            dot={{ r: 3, fill: PALETTE[i % PALETTE.length], strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            isAnimationActive={false}
+          />
         ))}
-      </LineChart>
+      </AreaChart>
     </ResponsiveContainer>
   )
 }

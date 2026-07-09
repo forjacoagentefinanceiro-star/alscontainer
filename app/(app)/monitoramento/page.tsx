@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Tv2 } from 'lucide-react'
 import { getBarraStatus, getBarragensMonitoramento } from '@/app/actions'
 import { MonitoramentoView } from '@/components/MonitoramentoView'
 
@@ -23,11 +22,9 @@ export default async function MonitoramentoPage() {
         <Link
           href="/tv/monitoramento"
           target="_blank"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shrink-0"
-          style={{ background: '#0d1b2e', color: '#60a5fa', textDecoration: 'none' }}
+          style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '7px 14px', borderRadius: 999, textDecoration: 'none' }}
         >
-          <Tv2 size={16} />
-          Televisão
+          Televisão ↗
         </Link>
       </div>
       <MonitoramentoView barra={barra} barragens={barragens} />
