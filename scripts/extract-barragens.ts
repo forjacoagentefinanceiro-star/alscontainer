@@ -17,11 +17,14 @@ const RIO_URL       = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
 const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
-// Deltas adaptativos: verde → pouco ruído; amarelo/vermelho → máxima sensibilidade
-const DELTA_RIO_NORMAL  = 0.40;  // 40 cm — mudança considerável quando verde
-const DELTA_RIO_ALERTA  = 0.05;  // 5 cm  — qualquer variação quando amarelo/vermelho
-const DELTA_CAP_NORMAL  = 2.00;  // 2%    — mudança considerável quando verde
-const DELTA_CAP_ALERTA  = 0.10;  // 0.1%  — qualquer variação quando amarelo/vermelho
+// Deltas adaptativos por nível de alerta
+const DELTA_RIO_NORMAL  = 0.40;  // 40 cm — mudança considerável (verde)
+const DELTA_RIO_ATENCAO = 0.05;  // 5 cm  — variação pequena (amarelo)
+// laranja/vermelho: delta 0 → qualquer diferença dispara
+
+const DELTA_CAP_NORMAL  = 2.00;  // 2%    — mudança considerável (verde)
+const DELTA_CAP_ATENCAO = 0.10;  // 0.1%  — variação pequena (amarelo)
+// laranja/vermelho: delta 0 → qualquer diferença dispara
 
 type Ponto = {
   id: string;
@@ -105,21 +108,23 @@ function mudancaSignificativa(ant: Record<string, string | null>, atual: Ponto):
 
   if (atual.tipo === "rio") {
     const a = num(ant.nivel_m), b = num(atual.nivel_m);
-    const stAt   = statusRio(b);
-    const emAlerta = stAt !== "normal";
-    const delta  = emAlerta ? DELTA_RIO_ALERTA : DELTA_RIO_NORMAL;
+    const stAt = statusRio(b);
+    const delta = stAt === "normal"   ? DELTA_RIO_NORMAL
+                : stAt === "atencao"  ? DELTA_RIO_ATENCAO
+                : 0; // alerta/emergencia: qualquer diferença dispara
 
-    if (a !== null && b !== null && Math.abs(b - a) >= delta)
+    if (a !== null && b !== null && (delta === 0 ? b !== a : Math.abs(b - a) >= delta))
       detalhes.push(`nível: ${ant.nivel_m} → ${atual.nivel_m} m`);
     if (ant.status !== stAt)
       detalhes.push(`status: ${labelStatus(ant.status ?? "")} → ${labelStatus(stAt)}`);
   } else {
     const a = num(ant.capacidade_pct), b = num(atual.capacidade_pct);
-    const stAt   = statusBarragem(b);
-    const emAlerta = stAt !== "normal";
-    const delta  = emAlerta ? DELTA_CAP_ALERTA : DELTA_CAP_NORMAL;
+    const stAt  = statusBarragem(b);
+    const delta = stAt === "normal"   ? DELTA_CAP_NORMAL
+                : stAt === "atencao"  ? DELTA_CAP_ATENCAO
+                : 0; // alerta/emergencia: qualquer diferença dispara
 
-    if (a !== null && b !== null && Math.abs(b - a) >= delta)
+    if (a !== null && b !== null && (delta === 0 ? b !== a : Math.abs(b - a) >= delta))
       detalhes.push(`capacidade: ${ant.capacidade_pct} → ${atual.capacidade_pct} %`);
 
     // Comportas: sempre notifica independente do status (mudança operacional)
