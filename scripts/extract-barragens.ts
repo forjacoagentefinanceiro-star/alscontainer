@@ -9,10 +9,11 @@
  *
  * Salva em `barragens_monitoramento` e notifica via Telegram quando muda.
  */
-import { chromium, type Response } from "playwright";
+import { chromium, type Response, type Browser } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL = "https://monitoramento.defesacivil.sc.gov.br/barragens";
+const RIO_URL       = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
 const TG_TOKEN    = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
@@ -46,13 +47,20 @@ async function sendTelegram(msg: string) {
   }
 }
 
-// Converte "DD/MM/YYYY HH:MM:SS" (UTC da Defesa Civil SC) → ISO 8601
+// Converte "DD/MM/YYYY HH:MM:SS" ou "DD/MM/YYYY HH:MM" (UTC) → ISO 8601
 function parseHoraDefesaCivil(raw: string | null): string | null {
   if (!raw) return null;
-  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
-  if (!m) return raw;
-  const [, dd, mo, yyyy, hh, min, ss] = m;
-  return new Date(`${yyyy}-${mo}-${dd}T${hh}:${min}:${ss}Z`).toISOString();
+  const m1 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (m1) {
+    const [, dd, mo, yyyy, hh, min, ss] = m1;
+    return new Date(`${yyyy}-${mo}-${dd}T${hh}:${min}:${ss}Z`).toISOString();
+  }
+  const m2 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+  if (m2) {
+    const [, dd, mo, yyyy, hh, min] = m2;
+    return new Date(`${yyyy}-${mo}-${dd}T${hh}:${min}:00Z`).toISOString();
+  }
+  return raw;
 }
 
 function num(s: string | null): number | null {
@@ -206,14 +214,12 @@ function tryParseApiResponse(data: unknown, url: string): Ponto[] {
 
 // ── extração Playwright ───────────────────────────────────────────────────────
 
-async function extrair(): Promise<Ponto[]> {
-  const browser = await chromium.launch({ headless: true });
-  const page    = await browser.newPage();
+// Extrai as 3 barragens do site Defesa Civil SC
+async function extrairBarragensDCSC(browser: Browser): Promise<Ponto[]> {
+  const page = await browser.newPage();
   page.setDefaultTimeout(45000);
 
-  // Coleta respostas JSON em paralelo com o carregamento da página
   const apiCaptures: { url: string; data: unknown }[] = [];
-
   page.on("response", async (res: Response) => {
     try {
       const ct = res.headers()["content-type"] ?? "";
@@ -221,8 +227,7 @@ async function extrair(): Promise<Ponto[]> {
       const url  = res.url();
       const data = await res.json().catch(() => null);
       if (!data) return;
-      const raw = JSON.stringify(data).slice(0, 300);
-      console.log(`[network] JSON ${res.status()} ${url} → ${raw}`);
+      console.log(`[network] JSON ${res.status()} ${url} → ${JSON.stringify(data).slice(0, 200)}`);
       apiCaptures.push({ url, data });
     } catch { /* silencioso */ }
   });
@@ -230,32 +235,23 @@ async function extrair(): Promise<Ponto[]> {
   try {
     console.log("[barragens] acessando", DASHBOARD_URL);
     await page.goto(DASHBOARD_URL, { waitUntil: "load", timeout: 60000 });
-    // Aguarda renderização JS (site faz polling contínuo, nunca atinge networkidle)
     await page.waitForTimeout(8000);
 
-    // ── Tentativa 1: parse das respostas de API capturadas ────────────────────
+    // Tentativa 1: API JSON interceptada
     for (const { url, data } of apiCaptures) {
       const pontos = tryParseApiResponse(data, url);
-      if (pontos.length > 0) {
-        await browser.close();
-        return pontos;
-      }
+      if (pontos.length > 0) return pontos;
     }
 
-    console.log("[barragens] nenhuma API JSON reconhecida — tentando extração DOM...");
+    console.log("[barragens] nenhuma API JSON — tentando DOM...");
 
-    // ── Tentativa 2: DOM → text extraction (formato Defesa Civil SC) ─────────
-    // Estrutura dos cards: "Barragem [Nome]\nAtualização: ...\nMontante\nNNN,NNm\n...\nde Utilização Atual\nN,N%\nComportas\nC1\nAberta\nC2\nFechada\n..."
+    // Tentativa 2: DOM text (formato Defesa Civil SC)
     const resultado = await page.evaluate((): Ponto[] => {
       const pontos: Ponto[] = [];
-      const bodyText = (document.body.innerText ?? "").replace(/\r/g, "");
-      const rawLines = bodyText.split("\n").map(l => l.trim());
+      const rawLines = (document.body.innerText ?? "").replace(/\r/g, "").split("\n").map(l => l.trim());
 
-      // Divide o texto em seções por barragem
-      // Header: linha "Barragem [NomeComEspaço]" (pelo menos 2 palavras)
       const sections: string[][] = [];
       let cur: string[] = [];
-
       for (const line of rawLines) {
         if (/^Barragem\s+\S+/.test(line) && line !== "Barragem") {
           if (cur.length > 2) sections.push(cur);
@@ -268,17 +264,14 @@ async function extrair(): Promise<Ponto[]> {
 
       for (const lines of sections) {
         const nome = lines[0];
-        // Ignora seções sem "Barragem" no nome (links de nav, tabs, etc.)
         if (!nome || !nome.toLowerCase().startsWith("barragem")) continue;
 
-        // Timestamp: "Atualização: DD/MM/YYYY HH:MM:SS"
         let hora: string | null = null;
         for (const l of lines) {
           const m = l.match(/Atualiza[çc][aã]o:\s*(.+)/i);
           if (m) { hora = m[1].trim(); break; }
         }
 
-        // Nível: linha "Montante" → próxima linha "NNN,NNm"
         let nivel: string | null = null;
         const iMont = lines.findIndex(l => l === "Montante");
         if (iMont >= 0) {
@@ -288,7 +281,6 @@ async function extrair(): Promise<Ponto[]> {
           }
         }
 
-        // Capacidade: linha "de Utilização Atual" → próxima linha "N,N%"
         let pct: string | null = null;
         const iUtil = lines.findIndex(l => /utiliza[çc][aã]o/i.test(l));
         if (iUtil >= 0) {
@@ -298,9 +290,8 @@ async function extrair(): Promise<Ponto[]> {
           }
         }
 
-        // Comportas: tudo entre "Comportas" e "Reservação"
         let abertas = 0, fechadas = 0;
-        const iComp  = lines.findIndex(l => l === "Comportas");
+        const iComp   = lines.findIndex(l => l === "Comportas");
         const iReserv = lines.findIndex(l => l === "Reservação");
         if (iComp >= 0) {
           const end = iReserv > iComp ? iReserv : lines.length;
@@ -311,30 +302,96 @@ async function extrair(): Promise<Ponto[]> {
         }
 
         const id = "barr_" + nome.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
-        pontos.push({
-          id, nome,
-          nivel_m:            nivel,
-          capacidade_pct:     pct,
-          comportas_abertas:  String(abertas),
-          comportas_fechadas: String(fechadas),
-          hora_leitura:       hora, // convertido abaixo fora do evaluate
-          tipo:               "barragem",
-        });
+        pontos.push({ id, nome, nivel_m: nivel, capacidade_pct: pct,
+          comportas_abertas: String(abertas), comportas_fechadas: String(fechadas),
+          hora_leitura: hora, tipo: "barragem" });
       }
-
       return pontos;
     });
 
     if (resultado.length > 0) {
-      console.log(`[barragens] DOM: ${resultado.length} pontos extraídos`);
+      console.log(`[barragens] DOM: ${resultado.length} barragens`);
     } else {
-      // Diagnóstico: mostra o texto da página para análise manual
-      const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 2000));
-      console.warn("[barragens] ⚠️  nenhum dado extraído. Texto da página:");
-      console.warn(bodyText);
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 2000));
+      console.warn("[barragens] ⚠️ nenhum dado. Texto:\n", txt);
+    }
+    return resultado;
+  } finally {
+    await page.close();
+  }
+}
+
+// Extrai o nível do Rio Itajaí em Blumenau (Grafana Defesa Civil Blumenau)
+async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
+  // Blumenau usa certificado autoassinado — ignora SSL
+  const ctx  = await browser.newContext({ ignoreHTTPSErrors: true });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(45000);
+
+  try {
+    console.log("[rio] acessando", RIO_URL);
+    await page.goto(RIO_URL, { waitUntil: "load", timeout: 60000 });
+    await page.waitForTimeout(8000);
+
+    const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
+      const txt = document.body.innerText ?? "";
+
+      // Grafana stat: o nível é o número mais proeminente na página (< 20 m)
+      let nivel: string | null = null;
+      const pats = [
+        /(\d{1,2}[,.]\d{2})\s*m\b/i,
+        /nível[^\d]{0,30}(\d{1,2}[,.]\d+)/i,
+        /rio[^\d]{0,30}(\d{1,2}[,.]\d+)/i,
+        /(\d{1,2}[,.]\d+)/,
+      ];
+      for (const pat of pats) {
+        const m = txt.match(pat);
+        if (m) {
+          const n = parseFloat(m[1].replace(",", "."));
+          if (n > 0 && n < 20) { nivel = m[1]; break; }
+        }
+      }
+
+      // Timestamp: "DD/MM/YYYY HH:MM" ou "DD/MM/YYYY HH:MM:SS"
+      let hora: string | null = null;
+      const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
+      if (mH) hora = mH[1];
+
+      return { nivel, hora };
+    });
+
+    if (!dados.nivel) {
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+      console.warn("[rio] ⚠️ nenhum nível. Texto:\n", txt);
+      return [];
     }
 
-    return resultado;
+    console.log(`[rio] nivel=${dados.nivel}m @ ${dados.hora}`);
+    return [{
+      id:                 "rio_blumenau",
+      nome:               "Rio Itajaí em Blumenau",
+      nivel_m:            dados.nivel,
+      capacidade_pct:     null,
+      comportas_abertas:  null,
+      comportas_fechadas: null,
+      hora_leitura:       parseHoraDefesaCivil(dados.hora),
+      tipo:               "rio",
+    }];
+  } catch (err) {
+    console.error("[rio] erro:", err);
+    return [];
+  } finally {
+    await ctx.close();
+  }
+}
+
+// Orquestra as duas extrações no mesmo browser
+async function extrair(): Promise<Ponto[]> {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const barragens = await extrairBarragensDCSC(browser);
+    const rio       = await extrairRioBlumenau(browser);
+    return [...barragens, ...rio];
   } finally {
     await browser.close();
   }
