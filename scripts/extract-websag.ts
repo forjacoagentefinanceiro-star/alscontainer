@@ -21,6 +21,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const BASE = (process.env.WEBSAG_URL || "http://websag.transportesals.com.br/bi").replace(/\/$/, "");
 const ANO = parseInt(process.env.ANO || String(new Date().getFullYear()), 10);
+const DATA_REF = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }); // "2026-07-09"
 
 // Endpoints que retornam JSON agregado sem precisar de parâmetro.
 // (os "...CNTR" foram omitidos: exigem informar um nº de container)
@@ -52,7 +53,7 @@ const ENDPOINTS = [
 type Chart = { label?: string | number; code?: string | number; xAxisData?: number[]; data?: number[] };
 type Content = { code?: string; title?: string; xAxisColumns?: string[]; charts?: Chart[] };
 type ApiResp = { Success?: boolean; Error?: string | null; Content?: Content };
-type Row = { fonte: string; code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null };
+type Row = { fonte: string; code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null; data_ref: string };
 
 function requireEnv(name: string): string {
   const v = process.env[name];
@@ -77,6 +78,7 @@ function flatten(name: string, resp: ApiResp): Row[] {
         eixo,
         ano: ANO,
         valor: typeof data[i] === "number" ? data[i] : null,
+        data_ref: DATA_REF,
       });
     });
   }
@@ -99,6 +101,7 @@ async function coletaEstimativas(page: Page): Promise<Row[]> {
     eixo: "Atual",
     ano: ANO,
     valor,
+    data_ref: DATA_REF,
   });
   try {
     await page.goto(`${BASE}/Dashboard/Television`, { waitUntil: "domcontentloaded" });
@@ -243,7 +246,7 @@ async function main() {
       const lote = all.slice(i, i + 500).map((r) => ({ ...r, captured_at: agora }));
       const { error } = await supabase
         .from("bi_indicadores")
-        .upsert(lote, { onConflict: "code,serie,eixo,ano" });
+        .upsert(lote, { onConflict: "code,serie,eixo,ano,data_ref" });
       if (error) throw new Error(`Erro no upsert: ${error.message}`);
     }
     console.log(`\nConcluído: ${all.length} indicadores gravados (ano ${ANO}).`);

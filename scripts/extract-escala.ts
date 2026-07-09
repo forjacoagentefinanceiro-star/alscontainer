@@ -21,8 +21,9 @@ import { createClient } from "@supabase/supabase-js";
 const LOGIN_URL = process.env.ESCALA_LOGIN_URL || "https://escala.alslog.com.br:9000/view/estrutura/login.php";
 const PAINEL_URL = process.env.ESCALA_PAINEL_URL || "https://escala.alslog.com.br:9000/view/inteligencianegocio/visualizarpainel.php?236";
 const ANO = parseInt(process.env.ANO || String(new Date().getFullYear()), 10);
+const DATA_REF = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" }); // "2026-07-09"
 
-type Row = { fonte: string; code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null };
+type Row = { fonte: string; code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null; data_ref: string };
 type Tabela = { h: string; rows: string[][] };
 
 function requireEnv(name: string): string {
@@ -209,7 +210,7 @@ async function main() {
     const mensalDepot = linhasMensais(idx(/faturamento anual depot/));
 
     const mk = (code: string, titulo: string, valor: number | null): Row =>
-      ({ fonte: "escala", code, titulo, serie: "Total", eixo: "Atual", ano: ANO, valor });
+      ({ fonte: "escala", code, titulo, serie: "Total", eixo: "Atual", ano: ANO, valor, data_ref: DATA_REF });
 
     const rows: Row[] = [
       mk("FATURAMENTO_ANUAL_TERMINAL", "Faturamento anual Terminal", anualTerminal),
@@ -219,19 +220,19 @@ async function main() {
       mk("FATURAMENTO_TERMINAL_AFATURAR", "Terminal a faturar", aFaturar),
     ];
     for (const m of mensalTerminal)
-      rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Terminal", eixo: m.mes, ano: ANO, valor: m.valor });
+      rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Terminal", eixo: m.mes, ano: ANO, valor: m.valor, data_ref: DATA_REF });
     for (const m of mensalDepot)
-      rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Depot", eixo: m.mes, ano: ANO, valor: m.valor });
+      rows.push({ fonte: "escala", code: "FATURAMENTO_MENSAL", titulo: "Faturamento por mês", serie: "Depot", eixo: m.mes, ano: ANO, valor: m.valor, data_ref: DATA_REF });
 
     // faturamento por ANO (linha Total das tabelas anuais — todas as colunas de ano: 2023..ano corrente)
     const anos = (() => { const i = idx(/faturamento anual depot/); return i >= 0 ? (tabelas[i].rows[0] || []).slice(1) : []; })();
     anos.forEach((y, k) => {
-      if (rDepot) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Depot", eixo: String(y), ano: ANO, valor: num(rDepot[k + 1]) });
-      if (rTerminal) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Terminal", eixo: String(y), ano: ANO, valor: num(rTerminal[k + 1]) });
+      if (rDepot) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Depot", eixo: String(y), ano: ANO, valor: num(rDepot[k + 1]), data_ref: DATA_REF });
+      if (rTerminal) rows.push({ fonte: "escala", code: "FATURAMENTO_ANO", titulo: "Faturamento por ano", serie: "Terminal", eixo: String(y), ano: ANO, valor: num(rTerminal[k + 1]), data_ref: DATA_REF });
     });
 
-    rows.push({ fonte: "escala", code: "TERMINAL_ENTRADA", titulo: "Terminal — entradas", serie: "Total", eixo: "Atual", ano: ANO, valor: terminalEntrada });
-    rows.push({ fonte: "escala", code: "TERMINAL_SAIDA", titulo: "Terminal — saídas", serie: "Total", eixo: "Atual", ano: ANO, valor: terminalSaida });
+    rows.push({ fonte: "escala", code: "TERMINAL_ENTRADA", titulo: "Terminal — entradas", serie: "Total", eixo: "Atual", ano: ANO, valor: terminalEntrada, data_ref: DATA_REF });
+    rows.push({ fonte: "escala", code: "TERMINAL_SAIDA", titulo: "Terminal — saídas", serie: "Total", eixo: "Atual", ano: ANO, valor: terminalSaida, data_ref: DATA_REF });
 
     console.log("[debug] valores extraídos:", JSON.stringify(rows).slice(0, 2000));
 
@@ -240,7 +241,7 @@ async function main() {
 
     const agora = new Date().toISOString();
     const lote = rows.map((r) => ({ ...r, captured_at: agora }));
-    const { error } = await supabase.from("bi_indicadores").upsert(lote, { onConflict: "code,serie,eixo,ano" });
+    const { error } = await supabase.from("bi_indicadores").upsert(lote, { onConflict: "code,serie,eixo,ano,data_ref" });
     if (error) throw new Error(`Erro no upsert: ${error.message}`);
     console.log(`Concluído: ${validas.length}/${rows.length} valores de faturamento gravados (ano ${ANO}).`);
   } finally {

@@ -7,6 +7,7 @@ import { IndicadorBar, TendenciaLinha } from './BiCharts'
 import type { Categoria, KpiT, Conferencia, Grupo, FaturamentoResumo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
 import { setMetaMes } from '@/app/actions'
+import type { ComparacaoDia, ComparacaoMetrica } from '@/lib/bi/load'
 
 const nf = new Intl.NumberFormat('pt-BR')
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -117,6 +118,37 @@ function MetaEditor({ ano, mes, metaMes, podeGerenciar }: { ano: number; mes: nu
   )
 }
 
+function ComparacaoCard({ label, metrica, formato }: { label: string; metrica: ComparacaoMetrica; formato: 'numero' | 'brl' }) {
+  const fmt = formato === 'brl' ? brl.format : nf.format
+  const corDelta = metrica.delta == null ? '#5f7da0' : metrica.delta > 0 ? '#7DC242' : metrica.delta < 0 ? '#f87171' : '#5f7da0'
+  const setaIcon = metrica.delta == null ? '—' : metrica.delta > 0 ? '▲' : metrica.delta < 0 ? '▼' : '='
+  return (
+    <div style={{ background: '#0f2138', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16, minWidth: 0 }}>
+      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>{label}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 2 }}>Mês atual (MTD)</div>
+          <div style={{ fontSize: 'clamp(16px,3vw,22px)', fontWeight: 700, color: '#e6eef7' }}>{metrica.hoje != null ? fmt(metrica.hoje) : '—'}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 2 }}>Mês passado (mesmo dia)</div>
+          <div style={{ fontSize: 'clamp(16px,3vw,22px)', fontWeight: 700, color: '#8ca5c8' }}>{metrica.mesPassado != null ? fmt(metrica.mesPassado) : '—'}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+        <span style={{ fontSize: 16, color: corDelta }}>{setaIcon}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: corDelta }}>
+          {metrica.delta != null ? fmt(Math.abs(metrica.delta)) : '—'}
+        </span>
+        {metrica.pct != null && (
+          <span style={{ fontSize: 12, color: corDelta }}>({metrica.pct > 0 ? '+' : ''}{metrica.pct}%)</span>
+        )}
+        {metrica.delta == null && <span style={{ fontSize: 12, color: '#5f7da0' }}>sem dados do mês passado ainda</span>}
+      </div>
+    </div>
+  )
+}
+
 function ConfCard({ c }: { c: Conferencia }) {
   const th: React.CSSProperties = { padding: '6px 8px', textAlign: 'right', color: '#8ca5c8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }
   const td: React.CSSProperties = { padding: '6px 8px', textAlign: 'right', color: '#cfe0f2', fontVariantNumeric: 'tabular-nums' }
@@ -144,9 +176,9 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar, metasPorMes }: {
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar, metasPorMes, comparacaoDia }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamentoResumo: FaturamentoResumo | null; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
-  podeGerenciar: boolean; metasPorMes: Record<string, number>
+  podeGerenciar: boolean; metasPorMes: Record<string, number>; comparacaoDia: ComparacaoDia | null
 }) {
   // navegação por mês na aba Faturamento (dentro do ano corrente, que é o que o robô extrai)
   // comparação por mês normalizado: os dados de faturamento (escala) e de movimentação (websag) podem vir com capitalização/acentos diferentes
@@ -228,10 +260,35 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
       {tabs.length === 0 ? (
         <p style={{ color: '#8ca5c8', fontSize: 13 }}>Você não tem abas liberadas no BI. Fale com o administrador.</p>
       ) : current === 'visao-geral' ? (
-        <Card titulo="Entradas × Saídas por mês">
-          {trend.length ? <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
-            : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
-        </Card>
+        <div style={{ display: 'grid', gap: 14 }}>
+          {/* Cards de comparação hoje vs mesmo dia mês passado */}
+          {comparacaoDia && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: '#cfe0f2', margin: 0 }}>Comparação dia a dia</h3>
+                <span style={{ fontSize: 11, color: '#5f7da0' }}>
+                  {comparacaoDia.dataHoje} vs {comparacaoDia.dataMesPassado}
+                </span>
+                {!comparacaoDia.temDados && (
+                  <span style={{ fontSize: 11, color: '#F2C200', background: 'rgba(242,194,0,0.1)', padding: '2px 8px', borderRadius: 999 }}>
+                    acumulando histórico — disponível após 1 mês
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 12 }}>
+                <ComparacaoCard label="Depot · Entradas (MTD)" metrica={comparacaoDia.movEntrada} formato="numero" />
+                <ComparacaoCard label="Depot · Saídas (MTD)" metrica={comparacaoDia.movSaida} formato="numero" />
+                {faturamentoResumo && (
+                  <ComparacaoCard label="Faturamento (MTD)" metrica={comparacaoDia.faturamento} formato="brl" />
+                )}
+              </div>
+            </div>
+          )}
+          <Card titulo="Entradas × Saídas por mês">
+            {trend.length ? <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
+              : <p style={{ color: '#5f7da0', fontSize: 13 }}>Sem dados de movimentação.</p>}
+          </Card>
+        </div>
       ) : current === 'faturamento' && faturamentoResumo ? (
         <div style={{ display: 'grid', gap: 20 }}>
           {/* Navegação entre meses */}

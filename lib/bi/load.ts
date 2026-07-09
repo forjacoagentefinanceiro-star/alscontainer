@@ -21,6 +21,22 @@ export type FaturamentoResumo = {
   anualDepot: number | null
   anualTotal: number | null
 }
+
+export type ComparacaoMetrica = {
+  hoje: number | null
+  mesPassado: number | null
+  delta: number | null
+  pct: number | null // % de variação
+}
+export type ComparacaoDia = {
+  dataHoje: string        // "2026-07-09"
+  dataMesPassado: string  // "2026-06-09"
+  temDados: boolean       // false = ainda sem histórico do mês passado
+  movEntrada: ComparacaoMetrica
+  movSaida: ComparacaoMetrica
+  faturamento: ComparacaoMetrica
+}
+
 export type BiData = {
   empty: boolean
   ano: number
@@ -33,6 +49,7 @@ export type BiData = {
   faturamentoMensal: Grupo | null
   faturamentoAnual: Grupo | null
   metasPorMes: Record<string, number>
+  comparacaoDia: ComparacaoDia | null
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -40,7 +57,7 @@ const MESES = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 const mesIdx = (s: string) => { const i = MESES.indexOf(norm(s)); return i < 0 ? 99 : i }
 
-type Linha = { code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null; captured_at: string }
+type Linha = { code: string; titulo: string | null; serie: string; eixo: string; ano: number; valor: number | null; captured_at: string; data_ref: string | null }
 
 function categoria(code: string): { key: string; label: string; ord: number } {
   if (/MOVIMENTACAO/.test(code)) return { key: 'movimentacao', label: 'Movimentação', ord: 1 }
@@ -79,24 +96,55 @@ function somaPorMes(g?: Grupo): Map<string, number> {
   return m
 }
 
+// Retorna "2026-07-09" no fuso Brasília
+function dataHojeBrasilia(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+}
+// Mesmo dia do mês passado: "2026-07-09" → "2026-06-09"
+function mesmoDiaMesPassado(hoje: string): string {
+  const [y, m, d] = hoje.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 2, d)) // m-2 porque meses em JS são 0-indexed e queremos o mês anterior
+  return dt.toLocaleDateString('sv-SE', { timeZone: 'UTC' })
+}
+// Nome do mês em português (minúsculo, normalizado) a partir de uma data ISO "YYYY-MM-DD"
+function nomeMesDaData(iso: string): string {
+  return MESES[parseInt(iso.slice(5, 7), 10) - 1] ?? ''
+}
+
+function calcMetrica(hoje: number | null, passado: number | null): ComparacaoMetrica {
+  const delta = hoje != null && passado != null ? hoje - passado : null
+  const pct = delta != null && passado != null && passado !== 0 ? Math.round((delta / passado) * 1000) / 10 : null
+  return { hoje, mesPassado: passado, delta, pct }
+}
+
 export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const { data: rows } = await supabase
     .from('bi_indicadores')
-    .select('code,titulo,serie,eixo,ano,valor,captured_at')
+    .select('code,titulo,serie,eixo,ano,valor,captured_at,data_ref')
   const linhas = (rows ?? []) as Linha[]
   if (!linhas.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {} }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {}, comparacaoDia: null }
   }
+
+  // Para gráficos/KPIs: desduplicar mantendo o snapshot mais recente por (code,serie,eixo,ano)
+  // (múltiplos data_ref = múltiplos dias acumulados; queremos o mais atual)
+  const latestMap = new Map<string, Linha>()
+  for (const l of linhas) {
+    const key = `${l.code}|${l.serie}|${l.eixo}|${l.ano}`
+    const ex = latestMap.get(key)
+    if (!ex || (l.data_ref ?? '') > (ex.data_ref ?? '')) latestMap.set(key, l)
+  }
+  const linhasLatest = [...latestMap.values()]
 
   const ymdMeta = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
   const [anoMeta, mesMeta] = ymdMeta.split('-').map(Number)
   const { data: metaRow } = await supabase.from('bi_metas').select('valor').eq('ano', anoMeta).eq('mes', mesMeta).maybeSingle()
   const metaMes = metaRow?.valor != null ? Number(metaRow.valor) : null
 
-  const ano = Math.max(...linhas.map(l => l.ano))
-  const faturamentoRows = linhas.filter(l => /^FATURAMENTO/.test(l.code) && l.ano === ano)
-  const terminalRows = linhas.filter(l => /^TERMINAL_/.test(l.code) && l.ano === ano)
-  const grupos = agrupar(linhas.filter(l => l.ano === ano && !/^(ESTIMATIVA|FATURAMENTO|TERMINAL)/.test(l.code)))
+  const ano = Math.max(...linhasLatest.map(l => l.ano))
+  const faturamentoRows = linhasLatest.filter(l => /^FATURAMENTO/.test(l.code) && l.ano === ano)
+  const terminalRows = linhasLatest.filter(l => /^TERMINAL_/.test(l.code) && l.ano === ano)
+  const grupos = agrupar(linhasLatest.filter(l => l.ano === ano && !/^(ESTIMATIVA|FATURAMENTO|TERMINAL)/.test(l.code)))
 
   const catMap = new Map<string, Categoria & { ord: number }>()
   for (const g of grupos) {
@@ -255,8 +303,52 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     faturamentoAnual = { code: 'FATURAMENTO_ANO', titulo: 'Faturamento por ano (Terminal + Depot)', data, series, medida: 'R$ · por ano' }
   }
 
-  const atualizadoRaw = linhas.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
+  const atualizadoRaw = linhasLatest.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, metasPorMes }
+  // Comparação "hoje vs mesmo dia do mês passado"
+  const dataHoje = dataHojeBrasilia()
+  const dataMesPassado = mesmoDiaMesPassado(dataHoje)
+  const mesHoje = nomeMesDaData(dataHoje)
+  const mesPassadoNome = nomeMesDaData(dataMesPassado)
+
+  // Helper: busca o valor somado de todas as séries de um code numa data_ref específica
+  const somaCode = (code: RegExp, dataRef: string, eixo?: string): number | null => {
+    const subset = linhas.filter(l =>
+      code.test(l.code) &&
+      l.data_ref === dataRef &&
+      (eixo == null || norm(l.eixo) === norm(eixo))
+    )
+    if (!subset.length) return null
+    return subset.reduce((acc, l) => acc + (l.valor ?? 0), 0)
+  }
+
+  const entHoje = somaCode(/^GetMovimentacoesEntrada$/, dataHoje, mesHoje)
+  const entPassado = somaCode(/^GetMovimentacoesEntrada$/, dataMesPassado, mesPassadoNome)
+  const saiHoje = somaCode(/^GetMovimentacoesSaida$/, dataHoje, mesHoje)
+  const saiPassado = somaCode(/^GetMovimentacoesSaida$/, dataMesPassado, mesPassadoNome)
+
+  // Faturamento: usa os dois codes de escala com eixo "Atual"
+  const fatHoje = (() => {
+    const t = linhas.find(l => l.code === 'FATURAMENTO_MES_TERMINAL' && l.data_ref === dataHoje)?.valor ?? null
+    const d = linhas.find(l => l.code === 'FATURAMENTO_MES_DEPOT' && l.data_ref === dataHoje)?.valor ?? null
+    return t != null || d != null ? (t ?? 0) + (d ?? 0) : null
+  })()
+  const fatPassado = (() => {
+    const t = linhas.find(l => l.code === 'FATURAMENTO_MES_TERMINAL' && l.data_ref === dataMesPassado)?.valor ?? null
+    const d = linhas.find(l => l.code === 'FATURAMENTO_MES_DEPOT' && l.data_ref === dataMesPassado)?.valor ?? null
+    return t != null || d != null ? (t ?? 0) + (d ?? 0) : null
+  })()
+
+  const temDados = entPassado != null || saiPassado != null || fatPassado != null
+  const comparacaoDia: ComparacaoDia = {
+    dataHoje,
+    dataMesPassado,
+    temDados,
+    movEntrada: calcMetrica(entHoje, entPassado),
+    movSaida: calcMetrica(saiHoje, saiPassado),
+    faturamento: calcMetrica(fatHoje, fatPassado),
+  }
+
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, metasPorMes, comparacaoDia }
 }
