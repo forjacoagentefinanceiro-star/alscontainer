@@ -16,14 +16,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Seleciona role primeiro (sempre existe); modulos pode ainda não existir no banco
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('role, modulos')
+    .select('role')
     .eq('id', user.id)
     .single()
 
-  const role    = profile?.role    as string       | undefined
-  const modulos = profile?.modulos as string[]     | null | undefined
+  const role = profile?.role as string | undefined
+
+  // Tenta ler modulos — coluna adicionada por migração; null se ainda não existir
+  const { data: profileModulos } = await supabase
+    .from('user_profiles')
+    .select('modulos')
+    .eq('id', user.id)
+    .single()
+  const modulos = (profileModulos as Record<string, unknown> | null)?.modulos as string[] | null ?? null
   const podeGerenciar = role === 'admin' || role === 'editor'
   const isAdmin = role === 'admin'
   const [desacordos, usosSemChecklist, problemas, barra] = podeGerenciar
