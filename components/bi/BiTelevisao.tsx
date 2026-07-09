@@ -340,11 +340,11 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
     return () => clearInterval(t)
   }, [slide, totalSlides])
 
-  // TV: só movimentação por tipo 20'/40' (entrada e saída em QTD containers)
-  // Remove TEUs (por armador) e indicadores de tempo
+  // TV: 4 cards — entrada/saída por armador + entrada/saída por tipo 20'/40'
+  // Remove apenas os totais simples de TEUs (código tem TEUS mas não tem ARMADOR)
   const movCat = categorias.find(c => c.key === 'movimentacao')
   const destaques = movCat
-    ? movCat.grupos.filter(g => !g.medida.startsWith('TEUs'))
+    ? movCat.grupos.filter(g => !/TEUS/i.test(g.code) || /ARMADOR/i.test(g.code))
     : categorias.map(c => c.grupos[0]).filter(Boolean).slice(0, 4)
 
   return (
