@@ -40,20 +40,18 @@ const estoqueItems: Item[] = [
 
 const checklistItem: Item = { href: '/checklist', label: 'Checklist', icon: ClipboardCheck }
 const equipamentosItems: Item[] = [
-  { href: '/equipamentos', label: 'Painel',       icon: Gauge          },
+  { href: '/equipamentos',              label: 'Painel',       icon: Gauge     },
   checklistItem,
-  { href: '/historico',    label: 'Histórico',    icon: History        },
-  { href: '/equipamentos/indicadores', label: 'Indicadores', icon: LineChart },
-  { href: '/equipamentos/relatorios',  label: 'Relatórios',  icon: FileText },
+  { href: '/historico',                 label: 'Histórico',    icon: History   },
+  { href: '/equipamentos/indicadores',  label: 'Indicadores',  icon: LineChart },
+  { href: '/equipamentos/relatorios',   label: 'Relatórios',   icon: FileText  },
 ]
 
-const cadastrosItem: Item = { href: '/cadastros', label: 'Cadastros', icon: FolderPlus }
-const usuariosItem: Item = { href: '/usuarios', label: 'Usuários', icon: Users }
-const biItems: Item[] = [
-  { href: '/bi',            label: 'BI Depot',      icon: BarChart3  },
-  { href: '/monitoramento', label: 'Monitoramento', icon: CloudRain  },
-]
-const indicadoresTarefasItem: Item = { href: '/tarefas', label: 'Indicadores Tarefas', icon: ListChecks }
+const cadastrosItem:         Item = { href: '/cadastros',      label: 'Cadastros',          icon: FolderPlus  }
+const usuariosItem:          Item = { href: '/usuarios',       label: 'Usuários',           icon: Users       }
+const biItem:                Item = { href: '/bi',             label: 'BI Depot',           icon: BarChart3   }
+const indicadoresTarefasItem:Item = { href: '/tarefas',        label: 'Indicadores Tarefas',icon: ListChecks  }
+const monitoramentoItem:     Item = { href: '/monitoramento',  label: 'Monitoramento',      icon: CloudRain   }
 
 const gestaoTarefasItems: Item[] = [
   { href: '/tarefas',        label: 'Tarefas', icon: ListChecks  },
@@ -100,19 +98,26 @@ function SectionLabel({ children, collapsed, first }: { children: string; collap
   )
 }
 
-export function Sidebar({ role }: { role?: string }) {
-  const isOperador = role === 'operador'
+export function Sidebar({ role, modulos }: { role?: string; modulos?: string[] | null }) {
+  const isOperador  = role === 'operador'
   const podeCadastrar = role === 'admin' || role === 'editor'
+  const isAdmin     = role === 'admin'
+
+  // admin sempre vê tudo; null = todos os módulos da role
+  const podeVer = (key: string) => isAdmin || !modulos || modulos.includes(key)
+
   const sections: Section[] = isOperador
     ? [{ label: 'Equipamentos', items: [checklistItem] }]
     : [
-        { label: 'Estoque', items: estoqueItems },
-        { label: 'Equipamentos', items: equipamentosItems },
-        ...(podeCadastrar ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
-        ...(role === 'admin' ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
-        ...(role === 'admin' ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
-        { label: 'Análise', items: role === 'admin' ? [...biItems, indicadoresTarefasItem] : biItems },
+        ...(podeVer('estoque')      ? [{ label: 'Estoque', items: estoqueItems }] : []),
+        ...(podeVer('equipamentos') ? [{ label: 'Equipamentos', items: equipamentosItems }] : []),
+        ...(podeCadastrar && podeVer('cadastros') ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
+        ...(isAdmin && podeVer('tarefas') ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
+        ...(isAdmin ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
+        ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
+        ...(podeVer('monitoramento') ? [{ label: 'Monitoramento', items: [monitoramentoItem] }] : []),
       ]
+
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const isActive = (href: string) => pathname === href || (href !== '/tarefas' && pathname.startsWith(href + '/'))

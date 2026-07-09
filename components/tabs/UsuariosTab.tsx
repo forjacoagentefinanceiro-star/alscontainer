@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import type { UserProfile } from '@/app/actions'
-import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, redefinirSenhaOperador } from '@/app/actions'
+import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
+import { MODULOS, MODULOS_KEYS } from '@/lib/modulos'
 
 const roleLabel = { admin: 'Admin', editor: 'Editor', viewer: 'Visualizador', operador: 'Operador' }
 const roleColor = {
@@ -16,8 +17,9 @@ const roleColor = {
 export function UsuariosTab({ users }: { users: UserProfile[] }) {
   const [list, setList] = useState(users)
   const [isPending, startTransition] = useTransition()
-  const [openAbas, setOpenAbas] = useState<string | null>(null)
-  const [resetId, setResetId] = useState<string | null>(null)
+  const [openAbas, setOpenAbas]       = useState<string | null>(null)
+  const [openModulos, setOpenModulos] = useState<string | null>(null)
+  const [resetId, setResetId]   = useState<string | null>(null)
   const [resetVal, setResetVal] = useState('')
   const [resetMsg, setResetMsg] = useState<{ id: string; txt: string; ok: boolean } | null>(null)
 
@@ -31,11 +33,19 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
   }
 
   function toggleAba(u: UserProfile, key: string, checked: boolean) {
-    const atual = u.bi_abas ?? [...BI_ABAS_KEYS] // null = todas
+    const atual = u.bi_abas ?? [...BI_ABAS_KEYS]
     const next = checked ? [...new Set([...atual, key])] : atual.filter(k => k !== key)
-    const toSave = next.length === BI_ABAS.length ? null : next // todas marcadas → null (= todas)
+    const toSave = next.length === BI_ABAS.length ? null : next
     setList(prev => prev.map(x => x.id === u.id ? { ...x, bi_abas: toSave } : x))
     startTransition(async () => { await updateUserBiAbas(u.id, toSave) })
+  }
+
+  function toggleModulo(u: UserProfile, key: string, checked: boolean) {
+    const atual = u.modulos ?? [...MODULOS_KEYS]
+    const next = checked ? [...new Set([...atual, key])] : atual.filter(k => k !== key)
+    const toSave = next.length === MODULOS.length ? null : next
+    setList(prev => prev.map(x => x.id === u.id ? { ...x, modulos: toSave } : x))
+    startTransition(async () => { await updateUserModulos(u.id, toSave) })
   }
 
   const pending  = list.filter(u => !u.approved)
@@ -95,8 +105,6 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     Pendente
                   </span>
                 </div>
-
-                {/* Aprovar com papel */}
                 <div className="flex flex-wrap gap-2">
                   <p className="text-xs w-full mb-1" style={{ color: '#6b7280' }}>Aprovar como:</p>
                   {(['viewer', 'editor', 'admin', 'operador'] as const).map(role => (
@@ -125,12 +133,15 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
         ) : (
           <div className="divide-y" style={{ borderColor: '#f3f4f6' }}>
             {approved.map(u => {
-              const todas = u.bi_abas == null
-              const qtd = todas ? BI_ABAS.length : u.bi_abas!.length
+              const todasAbas   = u.bi_abas == null
+              const qtdAbas     = todasAbas ? BI_ABAS.length : u.bi_abas!.length
+              const todosModulos = u.modulos == null
+              const qtdModulos  = todosModulos ? MODULOS.length : u.modulos!.length
+              const podeControlarModulos = u.role !== 'admin' && u.role !== 'operador'
               return (
               <div key={u.id}>
-                <div className="px-5 py-3 flex items-center gap-4">
-                  {/* Avatar inicial */}
+                <div className="px-5 py-3 flex items-center gap-3 flex-wrap">
+                  {/* Avatar */}
                   <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-sm text-white"
                     style={{ background: '#1B4F8A' }}>
                     {u.email[0].toUpperCase()}
@@ -143,12 +154,23 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     </p>
                   </div>
 
-                  {/* Abas do BI */}
-                  {u.role !== 'admin' && u.role !== 'operador' && (
-                    <button onClick={() => setOpenAbas(openAbas === u.id ? null : u.id)}
+                  {/* Módulos */}
+                  {podeControlarModulos && (
+                    <button
+                      onClick={() => { setOpenModulos(openModulos === u.id ? null : u.id); setOpenAbas(null) }}
                       className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50"
                       style={{ borderColor: '#cbd5e1', color: '#475569' }}>
-                      Abas BI: {todas ? 'todas' : qtd}
+                      Módulos: {todosModulos ? 'todos' : qtdModulos}
+                    </button>
+                  )}
+
+                  {/* Abas BI */}
+                  {u.role !== 'admin' && u.role !== 'operador' && (
+                    <button
+                      onClick={() => { setOpenAbas(openAbas === u.id ? null : u.id); setOpenModulos(null) }}
+                      className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50"
+                      style={{ borderColor: '#cbd5e1', color: '#475569' }}>
+                      Abas BI: {todasAbas ? 'todas' : qtdAbas}
                     </button>
                   )}
 
@@ -200,6 +222,31 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                   </div>
                 )}
 
+                {/* Painel de módulos */}
+                {openModulos === u.id && podeControlarModulos && (
+                  <div className="px-5 pb-4 -mt-1">
+                    <div className="rounded-lg p-3" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                      <p className="text-xs mb-2 font-medium" style={{ color: '#374151' }}>Módulos que este usuário pode acessar:</p>
+                      <div className="space-y-2">
+                        {MODULOS.map(mod => {
+                          const checked = u.modulos == null || u.modulos.includes(mod.key)
+                          return (
+                            <label key={mod.key} className="flex items-start gap-2 cursor-pointer">
+                              <input type="checkbox" checked={checked} disabled={isPending}
+                                onChange={e => toggleModulo(u, mod.key, e.target.checked)}
+                                className="mt-0.5" />
+                              <span>
+                                <span className="text-xs font-medium" style={{ color: '#111827' }}>{mod.label}</span>
+                                <span className="text-xs ml-1.5" style={{ color: '#9ca3af' }}>{mod.descricao}</span>
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Painel de abas do BI */}
                 {openAbas === u.id && u.role !== 'admin' && u.role !== 'operador' && (
                   <div className="px-5 pb-4 -mt-1">
@@ -226,15 +273,18 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
         )}
       </div>
 
-      {/* Legenda de papéis */}
+      {/* Legenda */}
       <div className="rounded-xl p-4" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
         <p className="text-xs font-semibold mb-2" style={{ color: '#6b7280' }}>PERMISSÕES POR PAPEL</p>
         <div className="space-y-1.5 text-xs" style={{ color: '#374151' }}>
-          <p><strong style={{ color: '#92400e' }}>Admin:</strong> aprovação de usuários + acesso total ao inventário</p>
-          <p><strong style={{ color: '#1d4ed8' }}>Editor:</strong> adicionar, editar e excluir containers</p>
-          <p><strong style={{ color: '#6b7280' }}>Visualizador:</strong> somente consulta — sem edição</p>
+          <p><strong style={{ color: '#92400e' }}>Admin:</strong> aprovação de usuários + acesso total a todos os módulos</p>
+          <p><strong style={{ color: '#1d4ed8' }}>Editor:</strong> adicionar, editar e excluir containers — módulos configuráveis</p>
+          <p><strong style={{ color: '#6b7280' }}>Visualizador:</strong> somente consulta — módulos configuráveis</p>
           <p><strong style={{ color: '#047857' }}>Operador:</strong> vê apenas o Checklist de empilhadeira</p>
         </div>
+        <p className="text-xs mt-3 pt-3" style={{ color: '#9ca3af', borderTop: '1px solid #e5e7eb' }}>
+          Use <strong>Módulos</strong> para restringir quais seções do app cada usuário vê. Use <strong>Abas BI</strong> para filtrar as abas dentro do BI Depot.
+        </p>
       </div>
     </div>
   )

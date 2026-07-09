@@ -144,7 +144,8 @@ export type UserProfile = {
   name: string
   role: 'admin' | 'editor' | 'viewer' | 'operador'
   approved: boolean
-  bi_abas: string[] | null // null = vê todas as abas do BI
+  bi_abas: string[] | null   // null = vê todas as abas do BI
+  modulos:  string[] | null  // null = vê todos os módulos da role
   created_at: string
 }
 
@@ -466,6 +467,17 @@ export async function updateUserBiAbas(userId: string, abas: string[] | null) {
   const { error } = await supabase
     .from('user_profiles')
     .update({ bi_abas: abas })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
+export async function updateUserModulos(userId: string, modulos: string[] | null) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ modulos })
     .eq('id', userId)
   if (error) return { error: error.message }
   revalidatePath('/usuarios')
