@@ -729,20 +729,38 @@ export type ResumoEquipamentos = {
   usosDetalhe: UsoSemChecklist[]
 }
 
+// Retorna nomes dos equipamentos visíveis ao usuário atual, ou null se sem restrição de setor.
+async function filtroEquipamentosSetor(): Promise<string[] | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: prof } = await supabase.from('user_profiles').select('role, setor').eq('id', user.id).single()
+  const role = (prof as { role?: string; setor?: string } | null)?.role ?? null
+  const setor = (prof as { role?: string; setor?: string } | null)?.setor ?? null
+  if (!setor || role === 'admin' || role === 'editor') return null
+  const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setor)
+  return (emps ?? []).map(e => e.nome as string)
+}
+
 export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return null
+  const filtroNomes = await filtroEquipamentosSetor()
   // início do dia no fuso de Brasília
   const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const inicioDia = `${ymd}T00:00:00-03:00`
 
-  const [emp, abertasRes, hojeRes, desRes, usosRes] = await Promise.all([
-    supabase.from('empilhadeiras').select('nome'),
-    supabase.from('checklists').select('id, equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false }),
-    supabase.from('checklists').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia),
-    supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('tem_pendencia', true).eq('pendencia_resolvida', false),
-    supabase.from('operacao_eventos').select('id, checklist_id, horimetro, motivo, horas_gap, created_at, checklists(equipamento, operador)').eq('uso_sem_checklist', true).order('created_at', { ascending: false }).limit(50),
-  ])
+  let empQ = supabase.from('empilhadeiras').select('nome')
+  if (filtroNomes) empQ = empQ.in('nome', filtroNomes)
+  let abertasQ = supabase.from('checklists').select('id, equipamento, operador, created_at, horimetro').eq('status', 'aberta').order('created_at', { ascending: false })
+  if (filtroNomes) abertasQ = abertasQ.in('equipamento', filtroNomes)
+  let hojeQ = supabase.from('checklists').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia)
+  if (filtroNomes) hojeQ = hojeQ.in('equipamento', filtroNomes)
+  let desQ = supabase.from('checklists').select('id', { count: 'exact', head: true }).eq('tem_pendencia', true).eq('pendencia_resolvida', false)
+  if (filtroNomes) desQ = desQ.in('equipamento', filtroNomes)
+  const usosQ = supabase.from('operacao_eventos').select('id, checklist_id, horimetro, motivo, horas_gap, created_at, checklists(equipamento, operador)').eq('uso_sem_checklist', true).order('created_at', { ascending: false }).limit(50)
+
+  const [emp, abertasRes, hojeRes, desRes, usosRes] = await Promise.all([empQ, abertasQ, hojeQ, desQ, usosQ])
 
   const equipamentos = (emp.data ?? []).map(e => e.nome as string)
   const abertasRaw = abertasRes.data ?? []
@@ -758,7 +776,7 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
     return { id: c.id as string, equipamento: c.equipamento as string, operador: c.operador as string, created_at: c.created_at as string, horimetro: c.horimetro as number | null, status }
   })
   const operando = new Set(abertas.map(a => a.equipamento))
-  const usosDetalhe: UsoSemChecklist[] = (usosRes.data ?? []).map((e: Record<string, unknown>) => {
+  const rawUsos: UsoSemChecklist[] = (usosRes.data ?? []).map((e: Record<string, unknown>) => {
     const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
     return {
       id: e.id as string,
@@ -771,6 +789,7 @@ export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null
       created_at: e.created_at as string,
     }
   })
+  const usosDetalhe = filtroNomes ? rawUsos.filter(u => filtroNomes.includes(u.equipamento)) : rawUsos
   return {
     emOperacao: abertas.length,
     totalEquip: equipamentos.length,
@@ -831,11 +850,15 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
   const { supabase, user } = await usuarioEPapel()
   const vazio: DashboardEquipamentos = { totais: { horasTrabalhadas: 0, horasSemChecklist: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
   if (!user) return vazio
+  const filtroNomes = await filtroEquipamentosSetor()
 
-  const { data: emp } = await supabase.from('empilhadeiras').select('nome, horimetro_atual')
+  let empQ = supabase.from('empilhadeiras').select('nome, horimetro_atual')
+  if (filtroNomes) empQ = empQ.in('nome', filtroNomes)
+  const { data: emp } = await empQ
   let q = supabase.from('checklists').select('id, equipamento, horimetro, horimetro_final, tem_pendencia, excluir_indicadores, created_at')
   if (inicio) q = q.gte('created_at', inicio)
   if (fim) q = q.lt('created_at', fim)
+  if (filtroNomes) q = q.in('equipamento', filtroNomes)
   const { data: cksData } = await q
   const checklists = cksData ?? []
   const ids = checklists.map(c => c.id)
@@ -945,6 +968,7 @@ export type ConsumoMensal = {
 export async function getConsumoMensal(numMeses = 6): Promise<ConsumoMensal> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return { meses: [], equipamentos: [], pontos: [] }
+  const filtroNomes = await filtroEquipamentosSetor()
 
   const tz = 'America/Sao_Paulo'
   const nomesMes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -959,7 +983,9 @@ export async function getConsumoMensal(numMeses = 6): Promise<ConsumoMensal> {
   }
   const inicio = new Date(`${chaves[0].ano}-${String(chaves[0].mes).padStart(2, '0')}-01T00:00:00-03:00`)
 
-  const { data: cks } = await supabase.from('checklists').select('id, equipamento').gte('created_at', inicio.toISOString())
+  let cksQ = supabase.from('checklists').select('id, equipamento').gte('created_at', inicio.toISOString())
+  if (filtroNomes) cksQ = cksQ.in('equipamento', filtroNomes)
+  const { data: cks } = await cksQ
   const checklists = cks ?? []
   const ids = checklists.map(c => c.id)
   const equipPorChecklist = new Map(checklists.map(c => [c.id, c.equipamento as string]))
@@ -1016,7 +1042,10 @@ export async function getHorasCicloAtual(): Promise<CicloHoras> {
   const cfg = await getConfigCiclo()
   const { inicio, fim, mesLabel } = cicloAtual(cfg.diaInicio)
   if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
-  const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final, excluir_indicadores').gte('created_at', inicio.toISOString())
+  const filtroNomes = await filtroEquipamentosSetor()
+  let cksQ = supabase.from('checklists').select('id, horimetro, horimetro_final, excluir_indicadores').gte('created_at', inicio.toISOString())
+  if (filtroNomes) cksQ = cksQ.in('equipamento', filtroNomes)
+  const { data: cks } = await cksQ
   const checklists = (cks ?? []).filter(c => !c.excluir_indicadores)
   const horasChecklist = checklists.reduce((acc, c) => acc + (c.horimetro != null && c.horimetro_final != null ? Math.max(0, Number(c.horimetro_final) - Number(c.horimetro)) : 0), 0)
   // horas sem checklist confirmadas pelo admin dentro do ciclo (já entram no total de horas trabalhadas)
@@ -1103,10 +1132,12 @@ export type IndicadorPrestador = {
 export async function getIndicadoresPorPrestador(inicio: string | null, fim: string | null = null): Promise<IndicadorPrestador[]> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return []
+  const filtroNomes = await filtroEquipamentosSetor()
 
   let q = supabase.from('checklists').select('id, excluir_indicadores')
   if (inicio) q = q.gte('created_at', inicio)
   if (fim) q = q.lt('created_at', fim)
+  if (filtroNomes) q = q.in('equipamento', filtroNomes)
   const { data: cks } = await q
   const ids = (cks ?? []).filter((c: { excluir_indicadores?: boolean | null }) => !c.excluir_indicadores).map((c: { id: string }) => c.id)
   if (!ids.length) return []
@@ -1573,13 +1604,10 @@ export async function setChecklistExcluirIndicadores(checklistId: string, exclui
 // ---- Alertas de desacordo (pendências do checklist, para admin/gestor) ----
 export async function getDesacordosAtivos(): Promise<Checklist[]> {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('checklists')
-    .select('*')
-    .eq('tem_pendencia', true)
-    .eq('pendencia_resolvida', false)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  const filtroNomes = await filtroEquipamentosSetor()
+  let q = supabase.from('checklists').select('*').eq('tem_pendencia', true).eq('pendencia_resolvida', false).order('created_at', { ascending: false }).limit(50)
+  if (filtroNomes) q = q.in('equipamento', filtroNomes)
+  const { data } = await q
   const lista = (data ?? []) as Checklist[]
   if (!lista.length) return lista
   // checklists com pendência que já têm um evento de problema vinculado seguem só pelo banner novo (tratativa) — evita banner duplicado

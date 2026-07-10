@@ -39,7 +39,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${geist.variable} ${mono.variable}`}>
-      <body className="min-h-screen antialiased" style={{ background: '#f0f2f5' }}>
+      <body className="min-h-screen antialiased" style={{ background: '#ffffff' }}>
         {children}
       </body>
     </html>

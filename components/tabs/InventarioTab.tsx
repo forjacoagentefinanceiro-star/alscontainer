@@ -330,6 +330,11 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
             style={{ background: '#7DC242' }}>
             ≡ Exportar XLS
           </button>
+          <a href="/relatorio" target="_blank" rel="noopener noreferrer"
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: '#6b7280' }}>
+            📄 Relatório PDF
+          </a>
           {canEdit && (
             <button onClick={openAdd}
               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90"
