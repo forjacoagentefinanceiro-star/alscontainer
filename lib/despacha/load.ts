@@ -131,10 +131,12 @@ export async function getDespachaIndicadores(mesParam?: string): Promise<Despach
   const setorMap = new Map<string, number>()
   const prestadorMap = new Map<string, number>()
   for (const t of doMes) {
-    const setor = t.sector?.trim() || '— sem setor'
-    setorMap.set(setor, (setorMap.get(setor) ?? 0) + 1)
-    const prestador = t.assignee_id ? (nomePrestador.get(String(t.assignee_id)) ?? 'Outro') : '— sem prestador'
-    prestadorMap.set(prestador, (prestadorMap.get(prestador) ?? 0) + 1)
+    const setor = t.sector?.trim()
+    if (setor) setorMap.set(setor, (setorMap.get(setor) ?? 0) + 1)
+    if (t.assignee_id) {
+      const prestador = nomePrestador.get(String(t.assignee_id)) ?? 'Outro'
+      prestadorMap.set(prestador, (prestadorMap.get(prestador) ?? 0) + 1)
+    }
   }
   const ordenar = (m: Map<string, number>): DespachaBreakdown[] =>
     [...m.entries()].map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total)
