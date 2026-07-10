@@ -110,6 +110,7 @@ export type Container = {
   tamanho: string
   fornecedor: string
   data_compra: string | null
+  ano_fabricacao: number | null
   valor_usd: number | null
   cotacao: number | null
   extras_brl: number | null

@@ -14,6 +14,7 @@ type Form = {
   tamanho: string
   fornecedor: string
   data_compra: string
+  ano_fabricacao: string
   valor_usd: string
   cotacao: string
   extras_brl: string
@@ -24,7 +25,7 @@ type Form = {
 
 const emptyForm = (): Form => ({
   numero: '', tipo: 'nacional', nacionalizado: false, tamanho: '40GP', fornecedor: '',
-  data_compra: '', valor_usd: '', cotacao: '', extras_brl: '0', valor_brl: '', obs: '', iso_valido: true
+  data_compra: '', ano_fabricacao: '', valor_usd: '', cotacao: '', extras_brl: '0', valor_brl: '', obs: '', iso_valido: true
 })
 
 function validateISO(num: string): boolean {
@@ -120,6 +121,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
       tamanho: c.tamanho,
       fornecedor: c.fornecedor ?? '',
       data_compra: c.data_compra ?? '',
+      ano_fabricacao: c.ano_fabricacao != null ? String(c.ano_fabricacao) : '',
       valor_usd: c.valor_usd != null ? String(c.valor_usd) : '',
       cotacao: c.cotacao != null ? String(c.cotacao) : '',
       extras_brl: c.extras_brl != null ? String(c.extras_brl) : '0',
@@ -141,6 +143,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
       tamanho: form.tamanho,
       fornecedor: form.fornecedor,
       data_compra: form.data_compra || null,
+      ano_fabricacao: form.ano_fabricacao ? (parseInt(form.ano_fabricacao) || null) : null,
       valor_usd: form.tipo === 'importado' ? (parseFloat(form.valor_usd) || null) : null,
       cotacao: form.tipo === 'importado' ? (parseFloat(form.cotacao) || null) : null,
       extras_brl: form.tipo === 'importado' ? (parseFloat(form.extras_brl) || 0) : null,
@@ -413,7 +416,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Tamanho</Label>
                   <select value={form.tamanho} onChange={e => setField('tamanho', e.target.value)}
@@ -421,6 +424,15 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                     style={{ borderColor: '#d1d5db', color: '#374151' }}>
                     {TAMANHOS.map(t => <option key={t}>{t}</option>)}
                   </select>
+                </div>
+                <div>
+                  <Label>Ano Fabricação</Label>
+                  <Input
+                    type="number" min="1980" max={new Date().getFullYear()}
+                    value={form.ano_fabricacao}
+                    onChange={e => setField('ano_fabricacao', e.target.value)}
+                    placeholder={String(new Date().getFullYear())}
+                  />
                 </div>
                 <div>
                   <Label>Data Compra</Label>
