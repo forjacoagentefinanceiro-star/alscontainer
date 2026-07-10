@@ -58,10 +58,18 @@ export default async function RelatorioPage() {
         @media print {
           .no-print { display: none !important; }
           body { background: #fff !important; margin: 0 !important; }
-          @page { size: A4 portrait; margin: 12mm 15mm; }
+          @page {
+            size: A4 portrait;
+            margin: 12mm 15mm 20mm;
+            @bottom-center {
+              content: "Página " counter(page) " de " counter(pages);
+              font-size: 8pt;
+              color: #9ca3af;
+              font-family: Arial, sans-serif;
+            }
+          }
           .report-doc { box-shadow: none !important; margin: 0 !important; padding: 4px 0 0 !important; max-width: 100% !important; }
           thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
           tr { page-break-inside: avoid; }
           .section-title { page-break-after: avoid; }
         }
