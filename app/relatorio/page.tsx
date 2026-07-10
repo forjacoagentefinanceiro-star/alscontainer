@@ -191,7 +191,7 @@ export default async function RelatorioPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5 }}>
             <thead>
               <tr style={{ background: '#1B4F8A' }}>
-                {['#', 'Número ISO 6346', 'Tipo', 'Tam.', 'Fornecedor', 'Data Compra', 'Valor USD', 'Cotação', 'Valor R$', 'Observações'].map(h => (
+                {['#', 'Número ISO 6346', 'Tipo', 'Tam.', 'Ano', 'Fornecedor', 'Data Compra', 'Valor USD', 'Cotação', 'Valor R$', 'Observações'].map(h => (
                   <th key={h} style={{ padding: '8px 8px', textAlign: 'left', fontSize: 9.5, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', letterSpacing: '0.03em' }}>
                     {h}
                   </th>
@@ -222,6 +222,7 @@ export default async function RelatorioPage() {
                     )}
                   </td>
                   <td style={{ ...tdBase, color: '#374151' }}>{c.tamanho}</td>
+                  <td style={{ ...tdBase, color: '#374151', fontFamily: 'monospace' }}>{c.ano_fabricacao ?? '—'}</td>
                   <td style={{ ...tdBase, color: '#374151', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {c.fornecedor || '—'}
                   </td>
@@ -243,7 +244,7 @@ export default async function RelatorioPage() {
             </tbody>
             <tfoot>
               <tr style={{ background: '#1a2a3a' }}>
-                <td colSpan={6} style={{ padding: '8px 8px', fontWeight: 700, color: '#fff', fontSize: 11 }}>
+                <td colSpan={7} style={{ padding: '8px 8px', fontWeight: 700, color: '#fff', fontSize: 11 }}>
                   TOTAL GERAL — {todos.length} container{todos.length !== 1 ? 's' : ''}
                 </td>
                 <td style={{ padding: '8px 8px', fontFamily: 'monospace', fontWeight: 700, color: '#e5e7eb', fontSize: 10.5 }}>
