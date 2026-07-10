@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { PurchaseGoal } from '@/app/actions'
 import { upsertGoal } from '@/app/actions'
 
-type Container = { valor_brl: number | null; data_compra: string | null; created_at: string }
+type Container = { valor_brl: number | null; data_compra: string | null; created_at: string; ano_fabricacao: number | null }
 type ResumoFinanceiro = Awaited<ReturnType<typeof import('@/app/actions').getResumoFinanceiro>>
 
 const fmtBRL = (v: number) =>
@@ -129,6 +129,12 @@ export function DashboardView({
   const totalGasto = containers.reduce((s, c) => s + (c.valor_brl ?? 0), 0)
   const custoMedio = totalUnidades > 0 ? totalGasto / totalUnidades : 0
 
+  const anoAtual = new Date().getFullYear()
+  const comAno = containers.filter(c => c.ano_fabricacao != null)
+  const idadeMedia = comAno.length > 0
+    ? Math.round(comAno.reduce((s, c) => s + (anoAtual - c.ano_fabricacao!), 0) / comAno.length)
+    : null
+
   const metaQtd = goal?.quantidade ?? 0
   const metaOrc = goal?.orcamento ?? 0
   const prazo = goal?.prazo ? new Date(goal.prazo) : null
@@ -183,7 +189,7 @@ export function DashboardView({
     <div className="space-y-4">
 
       {/* Cards de topo */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Unidades */}
         <div className="bg-white rounded-xl p-4" style={{ border: '1px solid #e5e7eb', borderLeft: '4px solid #1B4F8A' }}>
           <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Meta de unidades</p>
@@ -249,6 +255,20 @@ export function DashboardView({
               </span>
             </div>
           )}
+        </div>
+
+        {/* Idade média da frota */}
+        <div className="bg-white rounded-xl p-4" style={{ border: '1px solid #e5e7eb', borderLeft: '4px solid #0ea5e9' }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6b7280' }}>Idade média da frota</p>
+          <p className="text-2xl font-bold" style={{ color: '#1a2a3a' }}>
+            {idadeMedia != null ? idadeMedia : '—'}
+            {idadeMedia != null && <span className="text-sm font-normal text-gray-400"> anos</span>}
+          </p>
+          <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+            {comAno.length > 0
+              ? `${comAno.length} de ${totalUnidades} com ano cadastrado`
+              : 'Cadastre o ano de fabricação'}
+          </p>
         </div>
       </div>
 
