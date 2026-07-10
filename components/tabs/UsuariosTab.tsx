@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { UserProfile } from '@/app/actions'
-import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador } from '@/app/actions'
+import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 import { MODULOS, MODULOS_KEYS } from '@/lib/modulos'
 
@@ -19,9 +19,13 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
   const [isPending, startTransition] = useTransition()
   const [openAbas, setOpenAbas]       = useState<string | null>(null)
   const [openModulos, setOpenModulos] = useState<string | null>(null)
+  const [openExtra, setOpenExtra]     = useState<string | null>(null) // setor + telegram
   const [resetId, setResetId]   = useState<string | null>(null)
   const [resetVal, setResetVal] = useState('')
   const [resetMsg, setResetMsg] = useState<{ id: string; txt: string; ok: boolean } | null>(null)
+  // estados locais para campos inline de setor e telegram
+  const [editSetor, setEditSetor]   = useState<Record<string, string>>({})
+  const [editTg, setEditTg]         = useState<Record<string, string>>({})
 
   function handleReset(userId: string) {
     setResetMsg(null)
@@ -71,6 +75,27 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
       const res = await revokeUser(userId)
       if (!res.error) setList(prev => prev.map(u => u.id === userId ? { ...u, approved: false } : u))
     })
+  }
+
+  function salvarSetor(u: UserProfile) {
+    const s = (editSetor[u.id] ?? u.setor ?? '').trim() || null
+    setList(prev => prev.map(x => x.id === u.id ? { ...x, setor: s } : x))
+    startTransition(async () => { await updateUserSetor(u.id, s) })
+  }
+
+  function salvarTelegram(u: UserProfile) {
+    const t = (editTg[u.id] ?? u.telegram_chat_id ?? '').trim() || null
+    setList(prev => prev.map(x => x.id === u.id ? { ...x, telegram_chat_id: t } : x))
+    startTransition(async () => { await updateUserTelegramChatId(u.id, t) })
+  }
+
+  function openExtraPanel(userId: string, u: UserProfile) {
+    if (openExtra === userId) { setOpenExtra(null); return }
+    setEditSetor(prev => ({ ...prev, [userId]: u.setor ?? '' }))
+    setEditTg(prev => ({ ...prev, [userId]: u.telegram_chat_id ?? '' }))
+    setOpenExtra(userId)
+    setOpenAbas(null)
+    setOpenModulos(null)
   }
 
   return (
@@ -188,6 +213,14 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     <option value="operador">Operador</option>
                   </select>
 
+                  {/* Setor / Telegram */}
+                  <button
+                    onClick={() => openExtraPanel(u.id, u)}
+                    className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50"
+                    style={{ borderColor: u.setor || u.telegram_chat_id ? '#6ee7b7' : '#cbd5e1', color: u.setor || u.telegram_chat_id ? '#047857' : '#475569' }}>
+                    {u.setor ? `Setor: ${u.setor}` : 'Setor / TG'}
+                  </button>
+
                   {/* Redefinir senha */}
                   <button onClick={() => { setResetId(resetId === u.id ? null : u.id); setResetVal(''); setResetMsg(null) }} disabled={isPending}
                     className="text-xs px-3 py-1.5 rounded border transition-colors hover:bg-gray-50 disabled:opacity-50"
@@ -202,6 +235,66 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                     Revogar
                   </button>
                 </div>
+
+                {/* Painel Setor + Telegram Chat ID */}
+                {openExtra === u.id && (
+                  <div className="px-5 pb-4 -mt-1">
+                    <div className="rounded-lg p-3" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                      <p className="text-xs font-medium mb-3" style={{ color: '#374151' }}>Restrições de acesso e notificações</p>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {/* Setor */}
+                        <div className="flex-1">
+                          <label className="text-xs mb-1 block" style={{ color: '#6b7280' }}>
+                            Setor de equipamentos
+                            <span className="ml-1" style={{ color: '#9ca3af' }}>(vazio = vê todos)</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              value={editSetor[u.id] ?? ''}
+                              onChange={e => setEditSetor(prev => ({ ...prev, [u.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter') salvarSetor(u) }}
+                              placeholder="ex: Pátio A, Portaria…"
+                              className="flex-1 rounded border px-2 py-1.5 text-sm outline-none"
+                              style={{ borderColor: '#d1d5db', color: '#1a2a3a' }}
+                            />
+                            <button onClick={() => salvarSetor(u)} disabled={isPending}
+                              className="text-xs font-semibold px-3 py-1.5 rounded text-white disabled:opacity-50"
+                              style={{ background: '#1B4F8A' }}>
+                              Salvar
+                            </button>
+                          </div>
+                        </div>
+                        {/* Telegram Chat ID */}
+                        <div className="flex-1">
+                          <label className="text-xs mb-1 block" style={{ color: '#6b7280' }}>
+                            Telegram Chat ID
+                            <span className="ml-1" style={{ color: '#9ca3af' }}>(para alertas de máquinas)</span>
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              value={editTg[u.id] ?? ''}
+                              onChange={e => setEditTg(prev => ({ ...prev, [u.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter') salvarTelegram(u) }}
+                              placeholder="ex: 123456789 ou -100987…"
+                              className="flex-1 rounded border px-2 py-1.5 text-sm outline-none"
+                              style={{ borderColor: '#d1d5db', color: '#1a2a3a' }}
+                            />
+                            <button onClick={() => salvarTelegram(u)} disabled={isPending}
+                              className="text-xs font-semibold px-3 py-1.5 rounded text-white disabled:opacity-50"
+                              style={{ background: '#1B4F8A' }}>
+                              Salvar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      {u.setor && (
+                        <p className="text-xs mt-2" style={{ color: '#047857' }}>
+                          Este usuário vê apenas equipamentos do setor <strong>{u.setor}</strong>.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Painel de redefinir senha */}
                 {resetId === u.id && (
@@ -284,6 +377,7 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
         </div>
         <p className="text-xs mt-3 pt-3" style={{ color: '#9ca3af', borderTop: '1px solid #e5e7eb' }}>
           Use <strong>Módulos</strong> para restringir quais seções do app cada usuário vê. Use <strong>Abas BI</strong> para filtrar as abas dentro do BI Depot.
+          Use <strong>Setor / TG</strong> para tornar um usuário ADM de setor (vê só as máquinas daquele setor) e configurar o Chat ID do Telegram para receber alertas automáticos das máquinas.
         </p>
       </div>
     </div>

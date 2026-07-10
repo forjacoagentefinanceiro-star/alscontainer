@@ -144,8 +144,10 @@ export type UserProfile = {
   name: string
   role: 'admin' | 'editor' | 'viewer' | 'operador'
   approved: boolean
-  bi_abas: string[] | null   // null = vê todas as abas do BI
-  modulos:  string[] | null  // null = vê todos os módulos da role
+  bi_abas: string[] | null        // null = vê todas as abas do BI
+  modulos:  string[] | null       // null = vê todos os módulos da role
+  setor: string | null            // null = sem restrição; preenchido = ADM do setor
+  telegram_chat_id: string | null // ID do chat Telegram para alertas de máquinas
   created_at: string
 }
 
@@ -478,6 +480,28 @@ export async function updateUserModulos(userId: string, modulos: string[] | null
   const { error } = await supabase
     .from('user_profiles')
     .update({ modulos })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
+export async function updateUserSetor(userId: string, setor: string | null) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ setor: setor?.trim() || null })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
+export async function updateUserTelegramChatId(userId: string, chatId: string | null) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ telegram_chat_id: chatId?.trim() || null })
     .eq('id', userId)
   if (error) return { error: error.message }
   revalidatePath('/usuarios')
@@ -1618,31 +1642,37 @@ export async function resolverUsoSemChecklist(eventoId: string, confirmarReal: b
 }
 
 // ---- Empilhadeiras (equipamentos do checklist) ----
-export type Empilhadeira = { id: string; nome: string; ativo: boolean; horimetro_atual: number | null; created_at: string }
+export type Empilhadeira = { id: string; nome: string; setor: string | null; ativo: boolean; horimetro_atual: number | null; created_at: string }
 
 export async function getEmpilhadeiras(): Promise<Empilhadeira[]> {
   const supabase = await createClient()
-  const { data } = await supabase.from('empilhadeiras').select('*').order('nome', { ascending: true })
+  const profile = await getMyProfile()
+  let query = supabase.from('empilhadeiras').select('*').order('nome', { ascending: true })
+  // ADM do setor (setor preenchido + não é admin) vê apenas as máquinas do seu setor
+  if (profile?.setor && profile.role !== 'admin') {
+    query = query.eq('setor', profile.setor)
+  }
+  const { data } = await query
   return (data ?? []) as Empilhadeira[]
 }
 
-export async function addEmpilhadeira(nome: string) {
+export async function addEmpilhadeira(nome: string, setor?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
   const n = nome.trim()
   if (!n) return { error: 'Informe a identificação do equipamento.' }
-  const { error } = await supabase.from('empilhadeiras').insert({ nome: n })
+  const { error } = await supabase.from('empilhadeiras').insert({ nome: n, setor: setor?.trim() || null })
   if (error) return { error: error.message }
   revalidatePath('/checklist')
   return { error: null }
 }
 
-export async function updateEmpilhadeira(id: string, nome: string) {
+export async function updateEmpilhadeira(id: string, nome: string, setor?: string) {
   const supabase = await createClient()
   const n = nome.trim()
   if (!n) return { error: 'Informe a identificação do equipamento.' }
-  const { error } = await supabase.from('empilhadeiras').update({ nome: n }).eq('id', id)
+  const { error } = await supabase.from('empilhadeiras').update({ nome: n, setor: setor?.trim() || null }).eq('id', id)
   if (error) return { error: error.message }
   revalidatePath('/cadastros')
   revalidatePath('/checklist')
