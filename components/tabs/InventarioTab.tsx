@@ -627,7 +627,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['NÚMERO', 'TIPO', 'NACION.', 'TAMANHO', 'FORNECEDOR', 'DATA COMPRA', 'VALOR USD', 'COTAÇÃO', 'VALOR R$', 'OBSERVAÇÕES', 'AÇÕES'].map(h => (
+                {['NÚMERO', 'TIPO', 'NACION.', 'TAMANHO', 'ANO', 'FORNECEDOR', 'DATA COMPRA', 'VALOR USD', 'COTAÇÃO', 'VALOR R$', 'OBSERVAÇÕES', 'AÇÕES'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold tracking-wide"
                     style={{ color: '#6b7280' }}>{h}</th>
                 ))}
@@ -654,6 +654,9 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                       : <span className="text-xs" style={{ color: '#d1d5db' }}>—</span>}
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: '#374151' }}>{c.tamanho}</td>
+                  <td className="px-4 py-3 text-xs font-mono" style={{ color: '#374151' }}>
+                    {c.ano_fabricacao ?? '—'}
+                  </td>
                   <td className="px-4 py-3 text-xs" style={{ color: '#374151' }}>
                     {c.fornecedor ? (c.fornecedor.length > 16 ? c.fornecedor.slice(0, 16) + '…' : c.fornecedor) : '—'}
                   </td>
