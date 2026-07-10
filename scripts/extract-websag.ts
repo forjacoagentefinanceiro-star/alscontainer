@@ -104,7 +104,7 @@ async function coletaEstimativas(page: Page): Promise<Row[]> {
     data_ref: DATA_REF,
   });
   try {
-    await page.goto(`${BASE}/Dashboard/Television`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/Dashboard/Television`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForSelector('[name="estimativa-quantidade-pendente"]', { timeout: 20000 });
 
     // debug: estrutura do bloco (vai pro log do Actions, sem filtro de privacidade)
@@ -186,7 +186,7 @@ async function main() {
   await page.addInitScript({ content: 'globalThis.__name = globalThis.__name || (function (f) { return f; });' });
   try {
     // 1) Login
-    await page.goto(`${BASE}/Authentication/Login`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/Authentication/Login`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.fill("#login-input", login);
     await page.fill("#senha-input", senha);
     if (chave) await page.fill("#chave-acesso-input", chave);
@@ -255,7 +255,37 @@ async function main() {
   }
 }
 
-main().catch((e) => {
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 20000;
+function isNetworkError(e: unknown): boolean {
+  return /timeout|net::|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ERR_NAME_NOT_RESOLVED/i.test((e as Error).message || "");
+}
+
+async function mainWithRetry() {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await main();
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (isNetworkError(e)) {
+        console.warn(`Tentativa ${attempt}/${MAX_RETRIES} falhou (rede/timeout): ${(e as Error).message}`);
+        if (attempt < MAX_RETRIES) {
+          console.log(`Aguardando ${RETRY_DELAY_MS / 1000}s...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        } else {
+          console.warn("Servidor websag indisponível após todas as tentativas — pulando sem erro.");
+          process.exit(0);
+        }
+      } else {
+        throw e;
+      }
+    }
+  }
+}
+
+mainWithRetry().catch((e) => {
   console.error("FALHA:", (e as Error).message);
   process.exit(1);
 });

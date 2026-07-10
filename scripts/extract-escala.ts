@@ -39,15 +39,16 @@ function num(s: string | undefined): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
-async function main() {
-  const login = requireEnv("ESCALA_LOGIN");
-  const senha = requireEnv("ESCALA_SENHA");
-  const supabase = createClient(
-    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { persistSession: false } }
-  );
+const GOTO_TIMEOUT = 60000; // 60s — servidor :9000 é lento/instável
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 20000;
 
+function isNetworkError(e: unknown): boolean {
+  const msg = (e as Error).message || "";
+  return /timeout|net::|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ERR_NAME_NOT_RESOLVED/i.test(msg);
+}
+
+async function run(login: string, senha: string, supabase: ReturnType<typeof createClient>): Promise<void> {
   const browser = await chromium.launch({ args: ["--ignore-certificate-errors"] });
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
@@ -64,7 +65,7 @@ async function main() {
   });
   try {
     // 1) Login (genérico: primeiro input de texto + input de senha + enter)
-    await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
+    await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: GOTO_TIMEOUT });
     await page.locator("input[type=password]").first().fill(senha);
     await page.locator("input[type=text], input[type=email], input:not([type])").first().fill(login);
     await Promise.all([
@@ -82,7 +83,7 @@ async function main() {
     console.log("Login escala OK:", page.url());
 
     // 2) Painel 236
-    await page.goto(PAINEL_URL, { waitUntil: "domcontentloaded" });
+    await page.goto(PAINEL_URL, { waitUntil: "domcontentloaded", timeout: GOTO_TIMEOUT });
     await page.waitForSelector("table", { timeout: 25000 }).catch(() => {});
 
     // coleta tabelas de TODOS os frames (cada bloco do painel pode ser um iframe)
@@ -246,6 +247,39 @@ async function main() {
     console.log(`Concluído: ${validas.length}/${rows.length} valores de faturamento gravados (ano ${ANO}).`);
   } finally {
     await browser.close();
+  }
+}
+
+async function main() {
+  const login = requireEnv("ESCALA_LOGIN");
+  const senha = requireEnv("ESCALA_SENHA");
+  const supabase = createClient(
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    { auth: { persistSession: false } }
+  );
+
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await run(login, senha, supabase);
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (isNetworkError(e)) {
+        console.warn(`Tentativa ${attempt}/${MAX_RETRIES} falhou (rede/timeout): ${(e as Error).message}`);
+        if (attempt < MAX_RETRIES) {
+          console.log(`Aguardando ${RETRY_DELAY_MS / 1000}s antes da próxima tentativa...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        } else {
+          console.warn("Servidor escala indisponível após todas as tentativas — pulando sem erro.");
+          process.exit(0);
+        }
+      } else {
+        // erro real (login falhou, dados não extraídos, upsert etc.) — propaga imediatamente
+        throw e;
+      }
+    }
   }
 }
 
