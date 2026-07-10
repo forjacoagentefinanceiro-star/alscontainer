@@ -50,7 +50,7 @@ export default async function RelatorioPage() {
     hour: '2-digit', minute: '2-digit',
   })
 
-  const tdBase: React.CSSProperties = { padding: '6px 8px', borderBottom: '1px solid #f3f4f6' }
+  const tdBase: React.CSSProperties = { padding: '6px 8px', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }
 
   return (
     <div style={{ background: '#ffffff', minHeight: '100vh', color: '#1a2a3a' }}>
