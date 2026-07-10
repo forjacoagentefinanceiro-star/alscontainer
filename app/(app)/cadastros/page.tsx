@@ -1,10 +1,14 @@
-import { getEmpilhadeiras } from '@/app/actions'
+import { getEmpilhadeiras, getSetores } from '@/app/actions'
 import { EmpilhadeirasManager } from '@/components/EmpilhadeirasManager'
+import { SetoresManager } from '@/components/SetoresManager'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CadastrosPage() {
-  const empilhadeiras = await getEmpilhadeiras()
+  const [empilhadeiras, setores] = await Promise.all([
+    getEmpilhadeiras(),
+    getSetores(),
+  ])
 
   return (
     <div>
@@ -13,7 +17,8 @@ export default async function CadastrosPage() {
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Central de cadastros do sistema. Novos cadastros serão adicionados aqui.</p>
       </div>
 
-      <EmpilhadeirasManager empilhadeiras={empilhadeiras} defaultOpen />
+      <SetoresManager setores={setores} defaultOpen />
+      <EmpilhadeirasManager empilhadeiras={empilhadeiras} setores={setores} defaultOpen />
 
       {/* Futuros cadastros entram aqui como novos componentes/cards */}
     </div>

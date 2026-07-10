@@ -1641,6 +1641,37 @@ export async function resolverUsoSemChecklist(eventoId: string, confirmarReal: b
   return { error: null }
 }
 
+// ---- Setores ----
+export type Setor = { id: string; nome: string; created_at: string }
+
+export async function getSetores(): Promise<Setor[]> {
+  const supabase = await createClient()
+  const { data } = await supabase.from('setores').select('*').order('nome')
+  return (data ?? []) as Setor[]
+}
+
+export async function addSetor(nome: string) {
+  const { ok } = await souAdmin()
+  if (!ok) return { error: 'Apenas administradores podem cadastrar setores.' }
+  const supabase = await createClient()
+  const n = nome.trim()
+  if (!n) return { error: 'Informe o nome do setor.' }
+  const { error } = await supabase.from('setores').insert({ nome: n })
+  if (error) return { error: error.message }
+  revalidatePath('/cadastros')
+  return { error: null }
+}
+
+export async function deleteSetor(id: string) {
+  const { ok } = await souAdmin()
+  if (!ok) return { error: 'Apenas administradores podem remover setores.' }
+  const supabase = await createClient()
+  const { error } = await supabase.from('setores').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/cadastros')
+  return { error: null }
+}
+
 // ---- Empilhadeiras (equipamentos do checklist) ----
 export type Empilhadeira = { id: string; nome: string; setor: string | null; ativo: boolean; horimetro_atual: number | null; created_at: string }
 

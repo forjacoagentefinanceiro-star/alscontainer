@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { UserProfile } from '@/app/actions'
+import type { UserProfile, Setor } from '@/app/actions'
 import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 import { MODULOS, MODULOS_KEYS } from '@/lib/modulos'
@@ -14,7 +14,7 @@ const roleColor = {
   operador: { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
 }
 
-export function UsuariosTab({ users }: { users: UserProfile[] }) {
+export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores: Setor[] }) {
   const [list, setList] = useState(users)
   const [isPending, startTransition] = useTransition()
   const [openAbas, setOpenAbas]       = useState<string | null>(null)
@@ -249,20 +249,26 @@ export function UsuariosTab({ users }: { users: UserProfile[] }) {
                             <span className="ml-1" style={{ color: '#9ca3af' }}>(vazio = vê todos)</span>
                           </label>
                           <div className="flex gap-2">
-                            <input
+                            <select
                               value={editSetor[u.id] ?? ''}
                               onChange={e => setEditSetor(prev => ({ ...prev, [u.id]: e.target.value }))}
-                              onKeyDown={e => { if (e.key === 'Enter') salvarSetor(u) }}
-                              placeholder="ex: Pátio A, Portaria…"
                               className="flex-1 rounded border px-2 py-1.5 text-sm outline-none"
                               style={{ borderColor: '#d1d5db', color: '#1a2a3a' }}
-                            />
+                            >
+                              <option value="">Sem restrição (vê todos)</option>
+                              {setores.map(s => (
+                                <option key={s.id} value={s.nome}>{s.nome}</option>
+                              ))}
+                            </select>
                             <button onClick={() => salvarSetor(u)} disabled={isPending}
                               className="text-xs font-semibold px-3 py-1.5 rounded text-white disabled:opacity-50"
                               style={{ background: '#1B4F8A' }}>
                               Salvar
                             </button>
                           </div>
+                          {setores.length === 0 && (
+                            <p className="text-xs mt-1" style={{ color: '#f59e0b' }}>Cadastre setores em Cadastros para usar esta opção.</p>
+                          )}
                         </div>
                         {/* Telegram Chat ID */}
                         <div className="flex-1">

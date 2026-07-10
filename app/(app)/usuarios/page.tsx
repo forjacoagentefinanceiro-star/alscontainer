@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getMyProfile, getUsers } from '@/app/actions'
+import { getMyProfile, getUsers, getSetores } from '@/app/actions'
 import { UsuariosTab } from '@/components/tabs/UsuariosTab'
 import { CriarOperadorForm } from '@/components/CriarOperadorForm'
 import { TestarTelegramButton } from '@/components/TestarTelegramButton'
@@ -8,7 +8,7 @@ export default async function UsuariosPage() {
   const profile = await getMyProfile()
   if (!profile || profile.role !== 'admin') redirect('/inventario')
 
-  const users = await getUsers()
+  const [users, setores] = await Promise.all([getUsers(), getSetores()])
 
   return (
     <div>
@@ -18,7 +18,7 @@ export default async function UsuariosPage() {
       </div>
       <TestarTelegramButton />
       <CriarOperadorForm />
-      <UsuariosTab users={users} />
+      <UsuariosTab users={users} setores={setores} />
     </div>
   )
 }
