@@ -23,21 +23,49 @@ const TG_CHATS_BARRA = (process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEG
 // TELEGRAM_CHAT_ID continua sendo usado apenas para notificação de falha no workflow
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID ?? "";
 
-type CondBarra = { condicao_barra?: string; desc_condicao_barra?: string; restricao?: string; menor_profundidade?: string; mare_atual?: string };
+type CondBarra = {
+  condicao_barra?: string;    // código ou texto curto: "P", "R", "I", "F", "C", "Praticável" etc.
+  desc_condicao_barra?: string;
+  semaforo?: string;          // ex: "verde", "amarelo", "vermelho" — se existir no payload
+  restricao?: string;
+  menor_profundidade?: string;
+  mare_atual?: string;
+};
 
 function formatarStatus(item: CondBarra): string {
-  const desc = (item.desc_condicao_barra ?? "").trim();
+  const desc = (item.desc_condicao_barra ?? item.condicao_barra ?? "").trim();
   const prof = (item.menor_profundidade ?? "").trim();
   const mare = (item.mare_atual ?? "").trim();
   return [desc, prof ? `Prof: ${prof}` : "", mare ? `Maré: ${mare}m` : ""].filter(Boolean).join(" · ");
 }
 
-function emojiStatus(status: string): string {
+/**
+ * Determina emoji usando o objeto raw (campos semaforo/condicao_barra) quando disponível,
+ * com fallback no texto livre. "impraticáv" DEVE vir antes de "praticáv" na busca de texto.
+ */
+function emojiStatus(status: string, item?: CondBarra): string {
+  // 1) campo semaforo direto (cor CSS: "vermelho", "amarelo", "verde", "laranja")
+  if (item?.semaforo) {
+    const sem = item.semaforo.toLowerCase().trim();
+    if (sem.includes("verm")) return "🔴";
+    if (sem.includes("amar")) return "🟡";
+    if (sem.includes("laran")) return "🟠";
+    if (sem.includes("verd")) return "🟢";
+  }
+  // 2) campo condicao_barra (código: "I"/"F" → vermelho, "R" → amarelo, "C" → laranja, "P" → verde)
+  if (item?.condicao_barra) {
+    const c = item.condicao_barra.toUpperCase().trim();
+    if (c === "F" || c === "I" || /^(FECHA|IMPRAT)/i.test(c)) return "🔴";
+    if (c === "R" || /^RESTRI/i.test(c)) return "🟡";
+    if (c === "C" || /^CONDIC/i.test(c)) return "🟠";
+    if (c === "P" || /^PRATIC/i.test(c)) return "🟢";
+  }
+  // 3) fallback: texto livre — impraticáv ANTES de praticáv para não dar match errado
   const s = status.toLowerCase();
-  if (s.includes("fechad")) return "🔴";
+  if (s.includes("fechad") || s.includes("impraticáv") || s.includes("impraticav")) return "🔴";
   if (s.includes("restri")) return "🟡";
-  if (s.includes("praticáv") || s.includes("praticav")) return "🟢";
   if (s.includes("condicion")) return "🟠";
+  if (s.includes("praticáv") || s.includes("praticav")) return "🟢";
   return "⚓";
 }
 
@@ -64,6 +92,7 @@ async function main() {
 
   let profundidade = "";
   let rawText = "";
+  let rawItem: CondBarra | undefined;
 
   try {
     console.log("[barra] acessando", SITE);
@@ -77,9 +106,11 @@ async function main() {
       (window as unknown as { cond_barra?: CondBarra[] }).cond_barra ?? null
     );
     if (globalVar && globalVar[0]) {
+      rawItem = globalVar[0];
       rawText = JSON.stringify(globalVar[0]).slice(0, 500);
       profundidade = formatarStatus(globalVar[0]);
       console.log("[barra] estratégia 1 (window.cond_barra) OK");
+      console.log("[barra] semaforo:", globalVar[0].semaforo, "| condicao_barra:", globalVar[0].condicao_barra);
     }
 
     // ── Estratégia 2: regex no HTML fonte (cobre scripts inline) ──
@@ -90,8 +121,12 @@ async function main() {
         rawText = m[1].slice(0, 500);
         try {
           const data = JSON.parse(m[1]) as CondBarra[];
-          if (data[0]) profundidade = formatarStatus(data[0]);
-          console.log("[barra] estratégia 2 (HTML regex) OK");
+          if (data[0]) {
+            rawItem = data[0];
+            profundidade = formatarStatus(data[0]);
+            console.log("[barra] estratégia 2 (HTML regex) OK");
+            console.log("[barra] semaforo:", data[0].semaforo, "| condicao_barra:", data[0].condicao_barra);
+          }
         } catch (e) { console.warn("[barra] erro parse JSON:", e); }
       }
     }
@@ -165,7 +200,7 @@ async function main() {
   if (changed) {
     const horaBrasilia = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const anterior = anteriorDB.includes("cond_barra") ? "(formato anterior)" : anteriorDB || "(sem registro)";
-    const emoji = emojiStatus(profundidade);
+    const emoji = emojiStatus(profundidade, rawItem);
     const emojiAnterior = anteriorDB && !anteriorDB.includes("cond_barra") ? emojiStatus(anteriorDB) : "⚓";
     const msg =
       `🚢 BARRA ITAJAÍ — condição atualizada\n\n` +
