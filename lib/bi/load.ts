@@ -156,8 +156,13 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .sort((a, b) => a.ord - b.ord)
     .map(c => ({ key: c.key, label: c.label, grupos: c.grupos.sort((a, b) => a.code.localeCompare(b.code)) }))
 
-  const gEntrada = grupos.find(g => /ENTRADA/.test(g.code) && /CNTR/.test(g.code)) ?? grupos.find(g => /ENTRADA/.test(g.code))
-  const gSaida = grupos.find(g => /SAIDA/.test(g.code) && /CNTR/.test(g.code)) ?? grupos.find(g => /SAIDA/.test(g.code))
+  // Prioridade: código exato do endpoint (containers, sem TEUs/Armador), depois qualquer ENTRADA sem essas flags
+  const gEntrada = grupos.find(g => g.code === 'GetMovimentacoesEntrada')
+    ?? grupos.find(g => /ENTRADA/.test(g.code) && !/TEUS|ARMADOR/.test(g.code))
+    ?? grupos.find(g => /ENTRADA/.test(g.code))
+  const gSaida = grupos.find(g => g.code === 'GetMovimentacoesSaida')
+    ?? grupos.find(g => /SAIDA/.test(g.code) && !/TEUS|ARMADOR/.test(g.code))
+    ?? grupos.find(g => /SAIDA/.test(g.code))
   const gEntradaTeus = grupos.find(g => /ENTRADA/.test(g.code) && /TEUS/.test(g.code) && !/ARMADOR/.test(g.code))
   const gSaidaTeus = grupos.find(g => /SAIDA/.test(g.code) && /TEUS/.test(g.code) && !/ARMADOR/.test(g.code))
 
@@ -175,8 +180,8 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const teusMes = (teusEntMes.get(mes) ?? 0) + (teusSaiMes.get(mes) ?? 0)
 
   const kpis: KpiT[] = [
-    { label: `Depot · Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
-    { label: `Depot · Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
+    { label: `Depot · Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)} · fonte: ${gEntrada?.code ?? '—'}`, accent: true },
+    { label: `Depot · Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)} · fonte: ${gSaida?.code ?? '—'}`, accent: true },
     { label: `Depot · Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
   ]
 
