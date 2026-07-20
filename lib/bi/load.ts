@@ -138,8 +138,9 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   ])
 
   const linhasLatest = (rowsLatest ?? []) as Linha[]
-  // linhas combina latest + historico (para somaCode funcionar com data_ref específico)
-  const linhas = [...linhasLatest, ...(rowsHistorico ?? []) as Linha[]]
+  // linhasHistorico: somente as linhas filtradas por data_ref (hoje + mês passado),
+  // usadas exclusivamente para comparacaoDia — evita duplicação com linhasLatest.
+  const linhasHistorico = (rowsHistorico ?? []) as Linha[]
 
   if (!linhasLatest.length) {
     return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {}, comparacaoDia: null }
@@ -327,7 +328,7 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
 
   // Helper: busca o valor somado de todas as séries de um code numa data_ref específica
   const somaCode = (code: RegExp, dataRef: string, eixo?: string): number | null => {
-    const subset = linhas.filter(l =>
+    const subset = linhasHistorico.filter(l =>
       code.test(l.code) &&
       l.data_ref === dataRef &&
       (eixo == null || norm(l.eixo) === norm(eixo))
@@ -344,13 +345,13 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
 
   // Faturamento: usa os dois codes de escala com eixo "Atual"
   const fatHoje = (() => {
-    const t = linhas.find(l => l.code === 'FATURAMENTO_MES_TERMINAL' && l.data_ref === dataHoje)?.valor ?? null
-    const d = linhas.find(l => l.code === 'FATURAMENTO_MES_DEPOT' && l.data_ref === dataHoje)?.valor ?? null
+    const t = linhasHistorico.find(l => l.code === 'FATURAMENTO_MES_TERMINAL' && l.data_ref === dataHoje)?.valor ?? null
+    const d = linhasHistorico.find(l => l.code === 'FATURAMENTO_MES_DEPOT' && l.data_ref === dataHoje)?.valor ?? null
     return t != null || d != null ? (t ?? 0) + (d ?? 0) : null
   })()
   const fatPassado = (() => {
-    const t = linhas.find(l => l.code === 'FATURAMENTO_MES_TERMINAL' && l.data_ref === dataMesPassado)?.valor ?? null
-    const d = linhas.find(l => l.code === 'FATURAMENTO_MES_DEPOT' && l.data_ref === dataMesPassado)?.valor ?? null
+    const t = linhasHistorico.find(l => l.code === 'FATURAMENTO_MES_TERMINAL' && l.data_ref === dataMesPassado)?.valor ?? null
+    const d = linhasHistorico.find(l => l.code === 'FATURAMENTO_MES_DEPOT' && l.data_ref === dataMesPassado)?.valor ?? null
     return t != null || d != null ? (t ?? 0) + (d ?? 0) : null
   })()
 
