@@ -61,7 +61,7 @@ type Linha = { code: string; titulo: string | null; serie: string; eixo: string;
 
 function categoria(code: string): { key: string; label: string; ord: number } {
   if (/MOVIMENTACAO/.test(code)) return { key: 'movimentacao', label: 'Movimentação', ord: 1 }
-  if (/OCUPACAO/.test(code)) return { key: 'patio', label: 'Pátio', ord: 2 }
+  if (/OCUPACAO|PATIAMENTO/.test(code)) return { key: 'patio', label: 'Pátio', ord: 2 }
   if (/VISTORIA/.test(code)) return { key: 'vistorias', label: 'Vistorias', ord: 3 }
   if (/REPARO/.test(code)) return { key: 'reparos', label: 'Reparos', ord: 4 }
   if (/PERMANENCIA/.test(code)) return { key: 'permanencia', label: 'Permanência', ord: 5 }
@@ -156,11 +156,11 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     .sort((a, b) => a.ord - b.ord)
     .map(c => ({ key: c.key, label: c.label, grupos: c.grupos.sort((a, b) => a.code.localeCompare(b.code)) }))
 
-  // Prioridade: código exato do endpoint (containers, sem TEUs/Armador), depois qualquer ENTRADA sem essas flags
-  const gEntrada = grupos.find(g => g.code === 'GetMovimentacoesEntrada')
+  // Entradas/Saídas de containers (QTD) — código real retornado pela API é MOVIMENTACAO_*_CNTR2040
+  const gEntrada = grupos.find(g => /ENTRADA/.test(g.code) && /CNTR/.test(g.code))
     ?? grupos.find(g => /ENTRADA/.test(g.code) && !/TEUS|ARMADOR/.test(g.code))
     ?? grupos.find(g => /ENTRADA/.test(g.code))
-  const gSaida = grupos.find(g => g.code === 'GetMovimentacoesSaida')
+  const gSaida = grupos.find(g => /SAIDA/.test(g.code) && /CNTR/.test(g.code))
     ?? grupos.find(g => /SAIDA/.test(g.code) && !/TEUS|ARMADOR/.test(g.code))
     ?? grupos.find(g => /SAIDA/.test(g.code))
   const gEntradaTeus = grupos.find(g => /ENTRADA/.test(g.code) && /TEUS/.test(g.code) && !/ARMADOR/.test(g.code))
@@ -180,8 +180,8 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const teusMes = (teusEntMes.get(mes) ?? 0) + (teusSaiMes.get(mes) ?? 0)
 
   const kpis: KpiT[] = [
-    { label: `Depot · Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)} · fonte: ${gEntrada?.code ?? '—'}`, accent: true },
-    { label: `Depot · Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)} · fonte: ${gSaida?.code ?? '—'}`, accent: true },
+    { label: `Depot · Entradas · ${cap(mes)}`, value: nf.format(entMes), sub: `ano: ${nf.format(entradasAno)}`, accent: true },
+    { label: `Depot · Saídas · ${cap(mes)}`, value: nf.format(saiMes), sub: `ano: ${nf.format(saidasAno)}`, accent: true },
     { label: `Depot · Total mov. · ${cap(mes)}`, value: nf.format(entMes + saiMes), sub: `${nf.format(teusMes)} TEUs · entradas + saídas` },
   ]
 
@@ -205,8 +205,9 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   // Se a extração perdeu/duplicou algo, a diferença sai ≠ 0.
   const gEntradaArmadorTeus = grupos.find(g => /ENTRADA/.test(g.code) && /TEUS/.test(g.code) && /ARMADOR/.test(g.code))
   const gSaidaArmadorTeus = grupos.find(g => /SAIDA/.test(g.code) && /TEUS/.test(g.code) && /ARMADOR/.test(g.code))
-  const gOcup = grupos.find(g => /OCUPACAO/.test(g.code) && !/ARMADOR/.test(g.code))
-  const gOcupArm = grupos.find(g => /OCUPACAO/.test(g.code) && /ARMADOR/.test(g.code))
+  // Ocupação de pátio — API retorna PATIAMENTO_* (não OCUPACAO_*)
+  const gOcup = grupos.find(g => /OCUPACAO|PATIAMENTO/.test(g.code) && !/ARMADOR/.test(g.code))
+  const gOcupArm = grupos.find(g => /OCUPACAO|PATIAMENTO/.test(g.code) && /ARMADOR/.test(g.code))
 
   const checa = (metrica: string, gT?: Grupo, gD?: Grupo): Conferencia | null => {
     if (!gT || !gD) return null
@@ -328,10 +329,11 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     return subset.reduce((acc, l) => acc + (l.valor ?? 0), 0)
   }
 
-  const entHoje = somaCode(/^GetMovimentacoesEntrada$/, dataHoje, mesHoje)
-  const entPassado = somaCode(/^GetMovimentacoesEntrada$/, dataMesPassado, mesPassadoNome)
-  const saiHoje = somaCode(/^GetMovimentacoesSaida$/, dataHoje, mesHoje)
-  const saiPassado = somaCode(/^GetMovimentacoesSaida$/, dataMesPassado, mesPassadoNome)
+  // Usa CNTR2040 (QTD containers 20+40 pés) — mesma fonte dos KPIs de Entradas/Saídas
+  const entHoje = somaCode(/ENTRADA.*CNTR|CNTR.*ENTRADA/, dataHoje, mesHoje)
+  const entPassado = somaCode(/ENTRADA.*CNTR|CNTR.*ENTRADA/, dataMesPassado, mesPassadoNome)
+  const saiHoje = somaCode(/SAIDA.*CNTR|CNTR.*SAIDA/, dataHoje, mesHoje)
+  const saiPassado = somaCode(/SAIDA.*CNTR|CNTR.*SAIDA/, dataMesPassado, mesPassadoNome)
 
   // Faturamento: usa os dois codes de escala com eixo "Atual"
   const fatHoje = (() => {
