@@ -118,23 +118,32 @@ function calcMetrica(hoje: number | null, passado: number | null): ComparacaoMet
 }
 
 export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
-  const { data: rows } = await supabase
-    .from('bi_indicadores')
-    .select('code,titulo,serie,eixo,ano,valor,captured_at,data_ref')
-  const linhas = (rows ?? []) as Linha[]
-  if (!linhas.length) {
+  const dataHoje = dataHojeBrasilia()
+  const dataMesPassado = mesmoDiaMesPassado(dataHoje)
+
+  // Query 1: view com DISTINCT ON — 1 linha por (code,serie,eixo,ano), sempre o snapshot mais recente.
+  // Resolve o problema do limite de 1000 linhas do Supabase numa tabela com 30k+ registros.
+  // SQL da view: CREATE OR REPLACE VIEW bi_indicadores_latest AS
+  //   SELECT DISTINCT ON (code,serie,eixo,ano) code,titulo,serie,eixo,ano,valor,captured_at,data_ref
+  //   FROM bi_indicadores ORDER BY code,serie,eixo,ano, data_ref DESC, captured_at DESC;
+  const [{ data: rowsLatest }, { data: rowsHistorico }] = await Promise.all([
+    supabase
+      .from('bi_indicadores_latest')
+      .select('code,titulo,serie,eixo,ano,valor,captured_at,data_ref'),
+    // Query 2: linhas de datas específicas para comparacaoDia (hoje + mesmo dia mês passado)
+    supabase
+      .from('bi_indicadores')
+      .select('code,titulo,serie,eixo,ano,valor,captured_at,data_ref')
+      .in('data_ref', [dataHoje, dataMesPassado]),
+  ])
+
+  const linhasLatest = (rowsLatest ?? []) as Linha[]
+  // linhas combina latest + historico (para somaCode funcionar com data_ref específico)
+  const linhas = [...linhasLatest, ...(rowsHistorico ?? []) as Linha[]]
+
+  if (!linhasLatest.length) {
     return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {}, comparacaoDia: null }
   }
-
-  // Para gráficos/KPIs: desduplicar mantendo o snapshot mais recente por (code,serie,eixo,ano)
-  // (múltiplos data_ref = múltiplos dias acumulados; queremos o mais atual)
-  const latestMap = new Map<string, Linha>()
-  for (const l of linhas) {
-    const key = `${l.code}|${l.serie}|${l.eixo}|${l.ano}`
-    const ex = latestMap.get(key)
-    if (!ex || (l.data_ref ?? '') > (ex.data_ref ?? '')) latestMap.set(key, l)
-  }
-  const linhasLatest = [...latestMap.values()]
 
   const ymdMeta = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
   const [anoMeta, mesMeta] = ymdMeta.split('-').map(Number)
@@ -313,8 +322,6 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'
 
   // Comparação "hoje vs mesmo dia do mês passado"
-  const dataHoje = dataHojeBrasilia()
-  const dataMesPassado = mesmoDiaMesPassado(dataHoje)
   const mesHoje = nomeMesDaData(dataHoje)
   const mesPassadoNome = nomeMesDaData(dataMesPassado)
 
