@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getRelatorioOperadores, getRelatorioProblemas, getDashboardEquipamentos } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
 import { ExportarCsvButton } from '@/components/ExportarCsvButton'
@@ -84,6 +85,15 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
         <h1 className="text-xl font-bold" style={{ color: '#1a2a3a' }}>Relatórios</h1>
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Operadores, consumo, tempo parado e histórico de problemas/manutenção.</p>
       </div>
+
+      {/* Atalho para relatório de fechamento de ciclo */}
+      <Link
+        href="/equipamentos/relatorios/brasmaq"
+        className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg font-medium mb-4"
+        style={{ background: '#1a2a3a', color: '#fff' }}
+      >
+        Fechamento de ciclo — Brasmaq →
+      </Link>
 
       <p className="text-xs mb-1" style={{ color: '#9ca3af' }}>Exibindo dados de: <strong style={{ color: '#1a2a3a' }}>{mesLabel}</strong></p>
       <IndicadoresFiltro basePath="/equipamentos/relatorios" />

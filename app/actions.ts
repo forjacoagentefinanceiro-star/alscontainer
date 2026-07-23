@@ -1251,6 +1251,152 @@ export async function getRelatorioProblemas(inicio: string | null, fim: string |
   })
 }
 
+// ---- Relatório de fechamento de ciclo por prestador (ex: Brasmaq) ----
+export type MaquinaCiclo = {
+  equipamento: string
+  horimetroInicio: number | null  // menor horímetro inicial dos checklists do ciclo
+  horimetroFim: number | null     // maior horímetro final dos checklists do ciclo
+  horasUtilizadas: number         // soma (final − inicial) dos checklists encerrados
+  checklistsNoCiclo: number
+  acionamentos: number            // eventos tipo problema atribuídos ao prestador
+  comParada: number
+  tempoParadoMin: number          // tempo total acionado → liberado (min)
+  tempoRespostaMedioMin: number | null
+}
+
+export type RelatorioCicloPrestador = {
+  prestador: string
+  cicloLabel: string
+  cicloInicio: string
+  cicloFim: string
+  maquinas: MaquinaCiclo[]
+  totalHoras: number
+  totalAcionamentos: number
+}
+
+// Retorna as datas do ciclo que fecha no mês indicado (anoFim/mesFim).
+// Ex: mesFim=7/2026, diaInicio=23 → início 23/06/2026, fim 22/07/2026.
+function cicloDoFechamento(anoFim: number, mesFim: number, diaInicio: number): { inicio: Date; fim: Date; mesLabel: string } {
+  const diaFim = diaInicio - 1
+  const mesIni = mesFim === 1 ? 12 : mesFim - 1
+  const anoIni = mesFim === 1 ? anoFim - 1 : anoFim
+  const inicio = new Date(`${anoIni}-${String(mesIni).padStart(2, '0')}-${String(diaInicio).padStart(2, '0')}T00:00:00-03:00`)
+  const fim = new Date(`${anoFim}-${String(mesFim).padStart(2, '0')}-${String(diaFim).padStart(2, '0')}T23:59:59-03:00`)
+  const nomesMes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+  return { inicio, fim, mesLabel: `${nomesMes[mesFim - 1]}/${anoFim}` }
+}
+
+export async function getRelatorioCicloPrestador(
+  prestador: string,
+  cicloFechamento?: string, // "YYYY-MM" — mês de fechamento; omitir = ciclo atual
+): Promise<RelatorioCicloPrestador> {
+  const { supabase, user } = await usuarioEPapel()
+  const cfg = await getConfigCiclo()
+
+  let inicio: Date, fim: Date, label: string
+  if (cicloFechamento) {
+    const [a, m] = cicloFechamento.split('-').map(Number)
+    const r = cicloDoFechamento(a, m, cfg.diaInicio)
+    inicio = r.inicio; fim = r.fim; label = r.mesLabel
+  } else {
+    const r = cicloAtual(cfg.diaInicio)
+    inicio = r.inicio; fim = r.fim; label = r.mesLabel
+  }
+
+  const vazio: RelatorioCicloPrestador = {
+    prestador, cicloLabel: label,
+    cicloInicio: inicio.toISOString(), cicloFim: fim.toISOString(),
+    maquinas: [], totalHoras: 0, totalAcionamentos: 0,
+  }
+  if (!user) return vazio
+
+  const { data: cksData } = await supabase
+    .from('checklists')
+    .select('id, equipamento, horimetro, horimetro_final, excluir_indicadores')
+    .gte('created_at', inicio.toISOString())
+    .lte('created_at', fim.toISOString())
+
+  const checklists = (cksData ?? []).filter((c: { excluir_indicadores?: boolean | null }) => !c.excluir_indicadores)
+  if (!checklists.length) return vazio
+
+  const ids = checklists.map((c: { id: string }) => c.id)
+
+  const { data: evData } = await supabase
+    .from('operacao_eventos')
+    .select('checklist_id, parado, prestador, acionado_em, chegada_em, liberado_em, excluir_indicadores')
+    .in('checklist_id', ids)
+    .eq('tipo', 'problema')
+    .not('prestador', 'is', null)
+
+  const evsPrestador = (evData ?? []).filter((e: { excluir_indicadores?: boolean | null; prestador?: string | null }) =>
+    !e.excluir_indicadores &&
+    (e.prestador ?? '').toLowerCase().includes(prestador.toLowerCase())
+  )
+
+  const equipamentos = [...new Set(checklists.map((c: { equipamento: string }) => c.equipamento as string))].sort((a, b) => a.localeCompare(b))
+  const cksByEquip = new Map<string, typeof checklists>()
+  for (const c of checklists) {
+    const arr = cksByEquip.get(c.equipamento as string) ?? []
+    arr.push(c)
+    cksByEquip.set(c.equipamento as string, arr)
+  }
+
+  const maquinas: MaquinaCiclo[] = equipamentos.map(eq => {
+    const cks = cksByEquip.get(eq) ?? []
+    const ckIds = new Set(cks.map((c: { id: string }) => c.id as string))
+
+    const horasUtilizadas = cks.reduce((acc: number, c: { horimetro?: number | null; horimetro_final?: number | null }) => {
+      if (c.horimetro != null && c.horimetro_final != null)
+        return acc + Math.max(0, Number(c.horimetro_final) - Number(c.horimetro))
+      return acc
+    }, 0)
+
+    const cksComInicio = cks.filter((c: { horimetro?: number | null }) => c.horimetro != null)
+    const cksComFim = cks.filter((c: { horimetro_final?: number | null }) => c.horimetro_final != null)
+    const horimetroInicio = cksComInicio.length ? Math.min(...cksComInicio.map((c: { horimetro: number }) => Number(c.horimetro))) : null
+    const horimetroFim = cksComFim.length ? Math.max(...cksComFim.map((c: { horimetro_final: number }) => Number(c.horimetro_final))) : null
+
+    const evs = evsPrestador.filter((e: { checklist_id: string }) => ckIds.has(e.checklist_id))
+    const comParada = evs.filter((e: { parado?: boolean | null }) => e.parado).length
+
+    const tempoParadoMin = evs.reduce((acc: number, e: { acionado_em?: string | null; liberado_em?: string | null }) => {
+      if (e.acionado_em && e.liberado_em) {
+        const min = (new Date(e.liberado_em).getTime() - new Date(e.acionado_em).getTime()) / 60000
+        return acc + (min > 0 ? min : 0)
+      }
+      return acc
+    }, 0)
+
+    const respostas = evs
+      .filter((e: { acionado_em?: string | null; chegada_em?: string | null }) => e.acionado_em && e.chegada_em)
+      .map((e: { acionado_em: string; chegada_em: string }) => (new Date(e.chegada_em).getTime() - new Date(e.acionado_em).getTime()) / 60000)
+
+    return {
+      equipamento: eq,
+      horimetroInicio,
+      horimetroFim,
+      horasUtilizadas: Math.round(horasUtilizadas * 10) / 10,
+      checklistsNoCiclo: cks.length,
+      acionamentos: evs.length,
+      comParada,
+      tempoParadoMin: Math.round(tempoParadoMin),
+      tempoRespostaMedioMin: respostas.length
+        ? Math.round(respostas.reduce((a: number, b: number) => a + b, 0) / respostas.length)
+        : null,
+    }
+  })
+
+  return {
+    prestador,
+    cicloLabel: label,
+    cicloInicio: inicio.toISOString(),
+    cicloFim: fim.toISOString(),
+    maquinas,
+    totalHoras: Math.round(maquinas.reduce((a, m) => a + m.horasUtilizadas, 0) * 10) / 10,
+    totalAcionamentos: maquinas.reduce((a, m) => a + m.acionamentos, 0),
+  }
+}
+
 export async function getHistorico(limit = 100): Promise<{ checklist: Checklist; eventos: OperacaoEvento[] }[]> {
   const { supabase, user, gestor } = await usuarioEPapel()
   if (!user) return []
