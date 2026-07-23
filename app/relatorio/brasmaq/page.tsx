@@ -62,12 +62,52 @@ export default async function RelatorioBrasmaqPage({
   const totalComParada = rel.maquinas.reduce((a, m) => a + m.comParada, 0)
 
   return (
-    <div style={{ background: '#f0f2f5', minHeight: '100vh', padding: '24px 16px', fontFamily: 'var(--font-geist, system-ui, sans-serif)' }}>
+    <div data-pw style={{ background: '#f0f2f5', minHeight: '100vh', padding: '24px 16px', fontFamily: 'var(--font-geist, system-ui, sans-serif)' }}>
       <style>{`
         @media print {
-          @page { margin: 12mm 14mm; size: A4 portrait; }
-          body { background: #fff !important; }
+          @page { margin: 8mm 10mm; size: A4 landscape; }
+
+          body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
           .no-print { display: none !important; }
+
+          /* Outer wrapper: remove bg e padding */
+          [data-pw] {
+            background: #fff !important;
+            padding: 0 !important;
+            min-height: auto !important;
+          }
+
+          /* Card do documento: full-width, sem sombra */
+          [data-doc] {
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+
+          /* Cabeçalho: menos padding */
+          [data-header] { padding: 12px 18px 10px !important; }
+          [data-header] h1 { font-size: 16px !important; }
+          [data-header] p { font-size: 11px !important; }
+
+          /* Resumo: 4 colunas compactas */
+          [data-summary] { padding: 10px 18px !important; gap: 4px !important; }
+          [data-summary] > div > p:first-child { font-size: 9px !important; margin-bottom: 2px !important; }
+          [data-summary] > div > p:last-child  { font-size: 18px !important; }
+
+          /* Tabela: fonte e padding reduzidos */
+          [data-table] { font-size: 10px !important; }
+          [data-table] th { padding: 8px 8px !important; font-size: 9px !important; }
+          [data-table] td { padding: 7px 8px !important; }
+          [data-table] th:first-child,
+          [data-table] td:first-child { padding-left: 14px !important; }
+          [data-table] th:last-child,
+          [data-table] td:last-child  { padding-right: 14px !important; }
+
+          /* Rodapé */
+          [data-footer] { padding: 12px 18px 16px !important; }
+          [data-footer] p { font-size: 10px !important; }
         }
       `}</style>
 
@@ -95,10 +135,10 @@ export default async function RelatorioBrasmaqPage({
       </div>
 
       {/* Documento do relatório */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', background: '#fff', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+      <div data-doc style={{ maxWidth: '900px', margin: '0 auto', background: '#fff', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
 
         {/* Cabeçalho */}
-        <div style={{ padding: '28px 32px 22px', borderBottom: '3px solid #1a2a3a', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div data-header style={{ padding: '28px 32px 22px', borderBottom: '3px solid #1a2a3a', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <p style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 6px 0' }}>
               ALS Logística
@@ -117,7 +157,7 @@ export default async function RelatorioBrasmaqPage({
         </div>
 
         {/* Resumo do ciclo — 4 itens sempre visíveis */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', padding: '18px 32px', gap: '8px' }}>
+        <div data-summary style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', padding: '18px 32px', gap: '8px' }}>
           <div>
             <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ciclo</p>
             <p style={{ fontSize: '15px', fontWeight: 700, color: '#1a2a3a', margin: 0 }}>{rel.cicloLabel}</p>
@@ -150,7 +190,7 @@ export default async function RelatorioBrasmaqPage({
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: '#374151' }}>
+              <table data-table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: '#374151' }}>
                 <thead>
                   <tr style={{ background: '#1a2a3a', color: '#fff' }}>
                     {['Máquina', 'Checklists', 'H. Início', 'H. Fim', 'Horas Utilizadas', 'Acionamentos', 'Com Parada', 'T. Parado', 'T. Resposta Médio'].map((h, i) => (
@@ -221,7 +261,7 @@ export default async function RelatorioBrasmaqPage({
         </div>
 
         {/* Rodapé */}
-        <div style={{ padding: '18px 32px 28px', borderTop: '1px solid #e5e7eb', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px', flexWrap: 'wrap' }}>
+        <div data-footer style={{ padding: '18px 32px 28px', borderTop: '1px solid #e5e7eb', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px', flexWrap: 'wrap' }}>
           <div style={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.8, maxWidth: '500px' }}>
             <p style={{ margin: 0 }}><strong style={{ color: '#6b7280' }}>Horas utilizadas:</strong> soma de (horímetro final − horímetro inicial) dos checklists abertos e encerrados no ciclo.</p>
             <p style={{ margin: 0 }}><strong style={{ color: '#6b7280' }}>H. Início / H. Fim:</strong> menor e maior horímetro registrados para a máquina no período.</p>
