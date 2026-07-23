@@ -88,7 +88,8 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
 
       {/* Atalho para relatório de fechamento de ciclo */}
       <Link
-        href="/equipamentos/relatorios/brasmaq"
+        href="/relatorio/brasmaq"
+        target="_blank"
         className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg font-medium mb-4"
         style={{ background: '#1a2a3a', color: '#fff' }}
       >

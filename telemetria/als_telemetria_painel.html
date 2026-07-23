@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ALS Depot — Telemetria</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2330;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --blue: #388bfd;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red: #f85149;
+    --teal: #39d353;
+    --accent: #1f6feb;
+    --font: 'JetBrains Mono', 'Courier New', monospace;
+    --sans: system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--blue); }
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background .3s;
+  }
+  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.err { background: var(--red); }
+
+  /* TABS DE MÁQUINAS */
+  .machine-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 8px 16px;
+    border-radius: 6px 6px 0 0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    white-space: nowrap;
+    transition: all .2s;
+  }
+  .tab.active {
+    background: var(--bg2);
+    color: var(--text);
+    border-color: var(--border);
+    border-bottom-color: var(--bg2);
+    margin-bottom: -1px;
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* PAINEL PRINCIPAL */
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+
+  /* GRID DE CARDS */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .card-value {
+    font-family: var(--font);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    transition: color .3s;
+  }
+  .card-unit {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--font);
+  }
+  .card-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .card-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width .5s ease, background .3s;
+  }
+
+  /* Cores dos valores */
+  .c-blue  { color: var(--blue); }
+  .c-green { color: var(--green); }
+  .c-amber { color: var(--amber); }
+  .c-red   { color: var(--red); }
+  .c-teal  { color: var(--teal); }
+
+  /* CARD HORÍMETRO — destaque */
+  .card-horimetro {
+    grid-column: span 2;
+    background: linear-gradient(135deg, #0d1f3c 0%, #161b22 100%);
+    border-color: var(--accent);
+  }
+  .card-horimetro .card-value { font-size: 42px; color: var(--blue); }
+
+  /* CARD DTC */
+  .card-dtc { grid-column: span 2; }
+  .dtc-ok { color: var(--green); font-family: var(--font); font-size: 14px; }
+  .dtc-err { color: var(--red); font-family: var(--font); font-size: 13px; font-weight: 700; }
+
+  /* GRÁFICO DE HISTÓRICO */
+  .chart-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .chart-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  canvas { width: 100% !important; }
+
+  /* BOTÃO BLUETOOTH */
+  .bt-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .bt-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .bt-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .bt-device {
+    font-size: 13px;
+    font-family: var(--font);
+    color: var(--text);
+    flex: 1;
+    min-width: 180px;
+  }
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .btn-blue { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-blue:hover { opacity: .85; }
+  .btn-outline { background: transparent; border-color: var(--border); color: var(--text); }
+  .btn-outline:hover { border-color: var(--muted); }
+  .btn-red { background: transparent; border-color: var(--red); color: var(--red); }
+
+  /* LOG */
+  .log-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--font);
+    font-size: 11px;
+    color: var(--muted);
+    max-height: 120px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+  .log-ok  { color: var(--green); }
+  .log-err { color: var(--red); }
+  .log-info { color: var(--blue); }
+
+  /* TIMESTAMP */
+  .last-update {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font);
+    text-align: right;
+    margin-bottom: 8px;
+  }
+
+  /* AVISO BT NÃO SUPORTADO */
+  .bt-warning {
+    background: #2d1f0e;
+    border: 1px solid var(--amber);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--amber);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .card-horimetro { grid-column: span 2; }
+    .card-dtc { grid-column: span 2; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ALS <span>Depot</span> — Telemetria</div>
+  <div class="status-bar">
+    <div class="dot" id="global-dot"></div>
+    <span id="global-status">Desconectado</span>
+  </div>
+</header>
+
+<div class="machine-tabs">
+  <button class="tab active" onclick="showPanel('kone')">🏗 Kone Crane</button>
+  <button class="tab" onclick="showPanel('ferrari')">🚜 Ferrari Loader</button>
+  <button class="tab" onclick="showPanel('linde')">🏭 Linde RS</button>
+</div>
+
+<!-- ===================== PAINEL KONE ===================== -->
+<div class="panel active" id="panel-kone">
+  <div class="last-update" id="update-kone">Sem dados</div>
+  <div class="grid">
+    <div class="card card-horimetro">
+      <div class="card-label">⏱ Horímetro total</div>
+      <div class="card-value c-blue" id="kone-horimetro">—</div>
+      <div class="card-unit">horas de motor</div>
+    </div>
+    <div class="card">
+      <div class="card-label">⚙ RPM</div>
+      <div class="card-value c-teal" id="kone-rpm">—</div>
+      <div class="card-unit">rot/min</div>
+      <div class="card-bar"><div class="card-bar-fill" id="kone-rpm-bar" style="width:0%;background:var(--teal)"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">📊 Carga motor</div>
+      <div class="card-value" id="kone-carga">—</div>
+      <div class="card-unit">% capacidade</div>
+      <div class="card-bar"><div class="card-bar-fill" id="kone-carga-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">🌡 Temperatura</div>
+      <div class="card-value" id="kone-temp">—</div>
+      <div class="card-unit">°C</div>
+      <div class="card-bar"><div class="card-bar-fill" id="kone-temp-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">🛢 Pressão óleo</div>
+      <div class="card-value c-blue" id="kone-oleo">—</div>
+      <div class="card-unit">kPa</div>
+      <div class="card-bar"><div class="card-bar-fill" id="kone-oleo-bar" style="width:0%;background:var(--blue)"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">⛽ Combustível</div>
+      <div class="card-value" id="kone-comb">—</div>
+      <div class="card-unit">% do tanque</div>
+      <div class="card-bar"><div class="card-bar-fill" id="kone-comb-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card card-dtc">
+      <div class="card-label">⚠ Códigos de falha (DTC)</div>
+      <div id="kone-dtc" class="dtc-ok">Sem falhas ativas</div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-header">
+      <span class="chart-title">RPM — últimos 30 pontos</span>
+    </div>
+    <canvas id="chart-kone" height="80"></canvas>
+  </div>
+
+  <div class="bt-section">
+    <h3>Conexão Bluetooth — Kone Crane</h3>
+    <div class="bt-row">
+      <span class="bt-device" id="bt-device-kone">ALS-Kone-01</span>
+      <button class="btn btn-blue" onclick="conectarBluetooth('kone')">Conectar</button>
+      <button class="btn btn-red" onclick="desconectar('kone')">Desconectar</button>
+    </div>
+    <div class="log-box" id="log-kone">Aguardando conexão Bluetooth...<br></div>
+    <div class="bt-warning" id="bt-warn-kone" style="display:none">
+      ⚠ Web Bluetooth não disponível neste browser. Use o <strong>Chrome para Android</strong> no tablet da máquina, ou instale o app nativo via WebAPK.
+    </div>
+  </div>
+</div>
+
+<!-- ===================== PAINEL FERRARI ===================== -->
+<div class="panel" id="panel-ferrari">
+  <div class="last-update" id="update-ferrari">Sem dados</div>
+  <div class="grid">
+    <div class="card card-horimetro">
+      <div class="card-label">⏱ Horímetro total</div>
+      <div class="card-value c-blue" id="ferrari-horimetro">—</div>
+      <div class="card-unit">horas de motor</div>
+    </div>
+    <div class="card">
+      <div class="card-label">⚙ RPM</div>
+      <div class="card-value c-teal" id="ferrari-rpm">—</div>
+      <div class="card-unit">rot/min</div>
+      <div class="card-bar"><div class="card-bar-fill" id="ferrari-rpm-bar" style="width:0%;background:var(--teal)"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">📊 Carga motor</div>
+      <div class="card-value" id="ferrari-carga">—</div>
+      <div class="card-unit">% capacidade</div>
+      <div class="card-bar"><div class="card-bar-fill" id="ferrari-carga-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">🌡 Temperatura</div>
+      <div class="card-value" id="ferrari-temp">—</div>
+      <div class="card-unit">°C</div>
+      <div class="card-bar"><div class="card-bar-fill" id="ferrari-temp-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">🛢 Pressão óleo</div>
+      <div class="card-value c-blue" id="ferrari-oleo">—</div>
+      <div class="card-unit">kPa</div>
+      <div class="card-bar"><div class="card-bar-fill" id="ferrari-oleo-bar" style="width:0%;background:var(--blue)"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">⛽ Combustível</div>
+      <div class="card-value" id="ferrari-comb">—</div>
+      <div class="card-unit">% do tanque</div>
+      <div class="card-bar"><div class="card-bar-fill" id="ferrari-comb-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card card-dtc">
+      <div class="card-label">⚠ Códigos de falha (DTC)</div>
+      <div id="ferrari-dtc" class="dtc-ok">Sem falhas ativas</div>
+    </div>
+  </div>
+  <div class="chart-section">
+    <div class="chart-header"><span class="chart-title">RPM — últimos 30 pontos</span></div>
+    <canvas id="chart-ferrari" height="80"></canvas>
+  </div>
+  <div class="bt-section">
+    <h3>Conexão Bluetooth — Ferrari Loader</h3>
+    <div class="bt-row">
+      <span class="bt-device">ALS-Ferrari-01</span>
+      <button class="btn btn-blue" onclick="conectarBluetooth('ferrari')">Conectar</button>
+      <button class="btn btn-red" onclick="desconectar('ferrari')">Desconectar</button>
+    </div>
+    <div class="log-box" id="log-ferrari">Aguardando conexão Bluetooth...<br></div>
+  </div>
+</div>
+
+<!-- ===================== PAINEL LINDE ===================== -->
+<div class="panel" id="panel-linde">
+  <div class="last-update" id="update-linde">Sem dados</div>
+  <div class="grid">
+    <div class="card card-horimetro">
+      <div class="card-label">⏱ Horímetro total</div>
+      <div class="card-value c-blue" id="linde-horimetro">—</div>
+      <div class="card-unit">horas de motor</div>
+    </div>
+    <div class="card">
+      <div class="card-label">⚙ RPM</div>
+      <div class="card-value c-teal" id="linde-rpm">—</div>
+      <div class="card-unit">rot/min</div>
+      <div class="card-bar"><div class="card-bar-fill" id="linde-rpm-bar" style="width:0%;background:var(--teal)"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">📊 Carga motor</div>
+      <div class="card-value" id="linde-carga">—</div>
+      <div class="card-unit">% capacidade</div>
+      <div class="card-bar"><div class="card-bar-fill" id="linde-carga-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">🌡 Temperatura</div>
+      <div class="card-value" id="linde-temp">—</div>
+      <div class="card-unit">°C</div>
+      <div class="card-bar"><div class="card-bar-fill" id="linde-temp-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">🛢 Pressão óleo</div>
+      <div class="card-value c-blue" id="linde-oleo">—</div>
+      <div class="card-unit">kPa</div>
+      <div class="card-bar"><div class="card-bar-fill" id="linde-oleo-bar" style="width:0%;background:var(--blue)"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">⛽ Combustível</div>
+      <div class="card-value" id="linde-comb">—</div>
+      <div class="card-unit">% do tanque</div>
+      <div class="card-bar"><div class="card-bar-fill" id="linde-comb-bar" style="width:0%"></div></div>
+    </div>
+    <div class="card card-dtc">
+      <div class="card-label">⚠ Códigos de falha (DTC)</div>
+      <div id="linde-dtc" class="dtc-ok">Sem falhas ativas</div>
+    </div>
+  </div>
+  <div class="chart-section">
+    <div class="chart-header"><span class="chart-title">RPM — últimos 30 pontos</span></div>
+    <canvas id="chart-linde" height="80"></canvas>
+  </div>
+  <div class="bt-section">
+    <h3>Conexão Bluetooth — Linde Reach Stacker</h3>
+    <div class="bt-row">
+      <span class="bt-device">ALS-Linde-01</span>
+      <button class="btn btn-blue" onclick="conectarBluetooth('linde')">Conectar</button>
+      <button class="btn btn-red" onclick="desconectar('linde')">Desconectar</button>
+    </div>
+    <div class="log-box" id="log-linde">Aguardando conexão Bluetooth...<br></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ============================================================
+//  ALS DEPOT — Painel de Telemetria
+//  Conecta via Web Bluetooth (BLE) ao ESP32 de cada máquina
+//  Recebe JSON, captura GPS do tablet e envia tudo ao Supabase
+// ============================================================
+
+// ---- Configuração do Supabase (projeto container-numeracao) ----
+const SUPABASE_URL      = 'https://asnczhwktdkwrtfpfztl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzbmN6aHdrdGRrd3J0ZnBmenRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NjQ2NjksImV4cCI6MjA5NzE0MDY2OX0.PwCvQ_vNUzNHV63tgAcXDaTNveWGlWLBHyMNQ1Lk8YM';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const machines = ['kone','ferrari','linde'];
+const devices  = {};  // { machineId: BluetoothDevice }
+const charts   = {};  // { machineId: Chart }
+const history  = { kone:[], ferrari:[], linde:[] };
+
+// ---- GPS — última posição conhecida do tablet ----
+let ultimaPosicao = null; // { latitude, longitude }
+
+function iniciarGPS() {
+  if (!navigator.geolocation) {
+    console.warn('Geolocalização não suportada neste navegador.');
+    return;
+  }
+  navigator.geolocation.watchPosition(
+    pos => {
+      ultimaPosicao = {
+        latitude:  pos.coords.latitude,
+        longitude: pos.coords.longitude
+      };
+    },
+    err => console.warn('Erro de GPS:', err.message),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
+}
+iniciarGPS();
+
+// ---- Envia uma leitura de telemetria + GPS ao Supabase ----
+async function enviarParaSupabase(machineId, d) {
+  const { error } = await supabaseClient.from('telemetria_maquinas').insert({
+    maquina:         machineId,
+    dispositivo:     d.dispositivo || null,
+    rpm:             d.rpm ?? null,
+    carga_pct:       d.carga_pct ?? null,
+    horimetro_h:     d.horimetro_h ?? null,
+    temp_c:          d.temp_c ?? null,
+    pressao_kpa:     d.pressao_kpa ?? null,
+    combustivel_pct: d.combustivel_pct ?? null,
+    dtc:             d.dtc || null,
+    latitude:        ultimaPosicao?.latitude ?? null,
+    longitude:       ultimaPosicao?.longitude ?? null
+  });
+  if (error) {
+    log(machineId, 'Erro ao enviar pro Supabase: ' + error.message, 'err');
+  }
+}
+
+// UUID do serviço Serial BT do ESP32 (Serial Port Profile simulado via BLE)
+const UART_SERVICE    = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_RX_CHAR    = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notificações vindas do ESP32
+
+// Buffers para montar JSONs fragmentados
+const buffers = { kone:'', ferrari:'', linde:'' };
+
+// ---- INICIALIZA GRÁFICOS ----
+function initChart(id) {
+  const ctx = document.getElementById('chart-' + id);
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderColor: '#39d353',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: true,
+        backgroundColor: 'rgba(57,211,83,0.06)'
+      }]
+    },
+    options: {
+      animation: false,
+      plugins: { legend: { display:false } },
+      scales: {
+        x: { display:false },
+        y: {
+          min: 0, max: 2500,
+          grid: { color:'rgba(255,255,255,0.05)' },
+          ticks: { color:'#7d8590', font:{ size:10 } }
+        }
+      }
+    }
+  });
+}
+
+machines.forEach(initChart);
+
+// ---- NAVEGAÇÃO ENTRE ABAS ----
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ---- LOG ----
+function log(machineId, msg, type='info') {
+  const box = document.getElementById('log-' + machineId);
+  const now = new Date().toLocaleTimeString('pt-BR');
+  const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-info';
+  box.innerHTML += `<span class="${cls}">[${now}] ${msg}</span><br>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+// ---- CONEXÃO BLUETOOTH ----
+async function conectarBluetooth(machineId) {
+  if (!navigator.bluetooth) {
+    document.getElementById('bt-warn-' + machineId) &&
+      (document.getElementById('bt-warn-' + machineId).style.display = 'block');
+    log(machineId, 'Web Bluetooth não suportado. Use Chrome no Android.', 'err');
+    return;
+  }
+  try {
+    log(machineId, 'Buscando dispositivo Bluetooth...');
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'ALS-' }],
+      optionalServices: [UART_SERVICE]
+    });
+    devices[machineId] = device;
+    log(machineId, 'Dispositivo encontrado: ' + device.name);
+
+    const server  = await device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    const rx      = await service.getCharacteristic(UART_RX_CHAR);
+    await rx.startNotifications();
+
+    rx.addEventListener('characteristicvaluechanged', e => {
+      const chunk = new TextDecoder().decode(e.target.value);
+      buffers[machineId] += chunk;
+      // Tenta extrair JSON completo
+      const nl = buffers[machineId].indexOf('\n');
+      if (nl !== -1) {
+        const line = buffers[machineId].substring(0, nl).trim();
+        buffers[machineId] = buffers[machineId].substring(nl + 1);
+        try {
+          const data = JSON.parse(line);
+          atualizarPainel(machineId, data);
+        } catch(err) {
+          // Pacote BLE perdido pode colar duas mensagens numa linha só.
+          // Tenta resgatar a última mensagem completa antes de descartar.
+          const ultimaChave = line.lastIndexOf('{');
+          if (ultimaChave > 0) {
+            try {
+              const data = JSON.parse(line.substring(ultimaChave));
+              atualizarPainel(machineId, data);
+              return;
+            } catch (err2) { /* segue pro log de erro abaixo */ }
+          }
+          log(machineId, 'Erro ao parsear JSON: ' + line, 'err');
+        }
+      }
+    });
+
+    device.addEventListener('gattserverdisconnected', () => {
+      setStatus(machineId, false);
+      log(machineId, 'Dispositivo desconectado.', 'err');
+    });
+
+    setStatus(machineId, true);
+    log(machineId, 'Conectado! Recebendo dados...', 'ok');
+
+  } catch(err) {
+    log(machineId, 'Erro: ' + err.message, 'err');
+  }
+}
+
+function desconectar(machineId) {
+  if (devices[machineId] && devices[machineId].gatt.connected) {
+    devices[machineId].gatt.disconnect();
+  }
+  setStatus(machineId, false);
+  log(machineId, 'Desconectado manualmente.');
+}
+
+function setStatus(machineId, connected) {
+  // Atualiza dot global se for o painel ativo
+  const dot = document.getElementById('global-dot');
+  const lbl = document.getElementById('global-status');
+  const anyOn = machines.some(m => devices[m] && devices[m].gatt && devices[m].gatt.connected);
+  dot.className = 'dot' + (anyOn ? ' on' : '');
+  lbl.textContent = anyOn ? 'Conectado' : 'Desconectado';
+}
+
+// ---- ATUALIZAR PAINEL COM DADOS RECEBIDOS ----
+function atualizarPainel(machineId, d) {
+  const now = new Date().toLocaleString('pt-BR');
+  document.getElementById('update-' + machineId).textContent = 'Atualizado: ' + now;
+
+  // Horímetro
+  set(machineId + '-horimetro', d.horimetro_h !== undefined ? d.horimetro_h.toFixed(1) : '—');
+
+  // RPM (0–2500)
+  const rpm = d.rpm || 0;
+  const rpmEl = document.getElementById(machineId + '-rpm');
+  rpmEl.textContent = rpm.toFixed(0);
+  rpmEl.className = 'card-value ' + (rpm > 2000 ? 'c-red' : rpm > 1500 ? 'c-amber' : 'c-teal');
+  setBar(machineId + '-rpm-bar', rpm / 2500 * 100,
+    rpm > 2000 ? '#f85149' : rpm > 1500 ? '#d29922' : '#39d353');
+
+  // Carga motor (0–100%)
+  const carga = d.carga_pct || 0;
+  const cargaEl = document.getElementById(machineId + '-carga');
+  cargaEl.textContent = carga.toFixed(0) + '%';
+  cargaEl.className = 'card-value ' + (carga > 90 ? 'c-red' : carga > 70 ? 'c-amber' : 'c-green');
+  setBar(machineId + '-carga-bar', carga,
+    carga > 90 ? '#f85149' : carga > 70 ? '#d29922' : '#3fb950');
+
+  // Temperatura (40–120°C normal = 40–95)
+  const temp = d.temp_c || 0;
+  const tempEl = document.getElementById(machineId + '-temp');
+  tempEl.textContent = temp.toFixed(0);
+  tempEl.className = 'card-value ' + (temp > 100 ? 'c-red' : temp > 90 ? 'c-amber' : 'c-green');
+  setBar(machineId + '-temp-bar', Math.min(temp / 120 * 100, 100),
+    temp > 100 ? '#f85149' : temp > 90 ? '#d29922' : '#3fb950');
+
+  // Pressão óleo (kPa, normal Cummins 200–500 kPa)
+  const oleo = d.pressao_kpa || 0;
+  const oleoEl = document.getElementById(machineId + '-oleo');
+  oleoEl.textContent = oleo.toFixed(0);
+  oleoEl.className = 'card-value ' + (oleo < 150 ? 'c-red' : oleo < 200 ? 'c-amber' : 'c-blue');
+  setBar(machineId + '-oleo-bar', Math.min(oleo / 600 * 100, 100),
+    oleo < 150 ? '#f85149' : oleo < 200 ? '#d29922' : '#388bfd');
+
+  // Combustível
+  const comb = d.combustivel_pct || 0;
+  const combEl = document.getElementById(machineId + '-comb');
+  combEl.textContent = comb.toFixed(0) + '%';
+  combEl.className = 'card-value ' + (comb < 15 ? 'c-red' : comb < 30 ? 'c-amber' : 'c-green');
+  setBar(machineId + '-comb-bar', comb,
+    comb < 15 ? '#f85149' : comb < 30 ? '#d29922' : '#3fb950');
+
+  // DTC
+  const dtcEl = document.getElementById(machineId + '-dtc');
+  if (!d.dtc || d.dtc === 'OK') {
+    dtcEl.className = 'dtc-ok';
+    dtcEl.textContent = '✓ Sem falhas ativas';
+  } else {
+    dtcEl.className = 'dtc-err';
+    dtcEl.textContent = '⚠ ' + d.dtc;
+    log(machineId, 'DTC detectado: ' + d.dtc, 'err');
+  }
+
+  // Gráfico RPM
+  const h = history[machineId];
+  h.push(rpm);
+  if (h.length > 30) h.shift();
+  const chart = charts[machineId];
+  chart.data.labels = h.map((_,i) => i);
+  chart.data.datasets[0].data = [...h];
+  chart.update('none');
+
+  // Salva no localStorage para histórico
+  salvarHistorico(machineId, d);
+
+  // Envia ao Supabase (ALS Containers lê dessa tabela)
+  enviarParaSupabase(machineId, d);
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function setBar(id, pct, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.width = Math.min(Math.max(pct, 0), 100) + '%';
+  if (color) el.style.background = color;
+}
+
+// ---- PERSISTÊNCIA LOCAL ----
+function salvarHistorico(machineId, data) {
+  try {
+    const key = 'als_telemetria_' + machineId;
+    const hist = JSON.parse(localStorage.getItem(key) || '[]');
+    hist.push({ ts: new Date().toISOString(), ...data });
+    // Mantém últimas 1000 leituras por máquina
+    if (hist.length > 1000) hist.splice(0, hist.length - 1000);
+    localStorage.setItem(key, JSON.stringify(hist));
+  } catch(e) {}
+}
+
+// ---- MODO DEMO (para testar sem hardware) ----
+// Chame simularDados('kone') no console para ver funcionando
+window.simularDados = function(machineId) {
+  let t = 0;
+  setInterval(() => {
+    t++;
+    atualizarPainel(machineId, {
+      dispositivo: 'ALS-' + machineId,
+      rpm: 800 + Math.sin(t/10) * 400 + Math.random() * 100,
+      carga_pct: 40 + Math.sin(t/8) * 30 + Math.random() * 10,
+      horimetro_h: 2847.35 + t * 0.0005,
+      temp_c: 82 + Math.sin(t/20) * 8 + Math.random() * 3,
+      pressao_kpa: 320 + Math.sin(t/15) * 40 + Math.random() * 20,
+      combustivel_pct: Math.max(10, 67 - t * 0.02),
+      dtc: t > 80 && t < 90 ? 'SPN:100 FMI:4' : 'OK'
+    });
+  }, 2000);
+};
+</script>
+</body>
+</html>
