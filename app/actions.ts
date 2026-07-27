@@ -731,14 +731,21 @@ export type ResumoEquipamentos = {
 }
 
 // Retorna nomes dos equipamentos visíveis ao usuário atual, ou null se sem restrição de setor.
-async function filtroEquipamentosSetor(): Promise<string[] | null> {
+// setorOverride: admin/editor pode passar um nome de setor para filtrar manualmente.
+// Outros usuários sempre usam o setor do próprio perfil (override ignorado por segurança).
+async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<string[] | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data: prof } = await supabase.from('user_profiles').select('role, setor').eq('id', user.id).single()
   const role = (prof as { role?: string; setor?: string } | null)?.role ?? null
   const setor = (prof as { role?: string; setor?: string } | null)?.setor ?? null
-  if (!setor || role === 'admin' || role === 'editor') return null
+  if (role === 'admin' || role === 'editor') {
+    if (!setorOverride) return null
+    const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setorOverride)
+    return (emps ?? []).map(e => e.nome as string)
+  }
+  if (!setor) return null
   const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setor)
   return (emps ?? []).map(e => e.nome as string)
 }
@@ -847,11 +854,11 @@ function consumoPonderado(abastecimentos: { litros: number | null; consumo_lh: n
   return somaHoras > 0 ? Math.round((somaLitros / somaHoras) * 10) / 10 : null
 }
 
-export async function getDashboardEquipamentos(inicio: string | null, fim: string | null = null): Promise<DashboardEquipamentos> {
+export async function getDashboardEquipamentos(inicio: string | null, fim: string | null = null, setorFiltro?: string | null): Promise<DashboardEquipamentos> {
   const { supabase, user } = await usuarioEPapel()
   const vazio: DashboardEquipamentos = { totais: { horasTrabalhadas: 0, horasSemChecklist: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
   if (!user) return vazio
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorFiltro)
 
   let empQ = supabase.from('empilhadeiras').select('nome, horimetro_atual')
   if (filtroNomes) empQ = empQ.in('nome', filtroNomes)
@@ -966,10 +973,10 @@ export type ConsumoMensal = {
   pontos: Array<{ mes: string } & Record<string, number | null | string>>
 }
 
-export async function getConsumoMensal(numMeses = 6): Promise<ConsumoMensal> {
+export async function getConsumoMensal(numMeses = 6, setorFiltro?: string | null): Promise<ConsumoMensal> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return { meses: [], equipamentos: [], pontos: [] }
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorFiltro)
 
   const tz = 'America/Sao_Paulo'
   const nomesMes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -1038,12 +1045,12 @@ function cicloAtual(diaInicio = 23): { inicio: Date; fim: Date; mesLabel: string
 
 export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasTrabalhadas: number; horasSemChecklist: number }
 
-export async function getHorasCicloAtual(): Promise<CicloHoras> {
+export async function getHorasCicloAtual(setorFiltro?: string | null): Promise<CicloHoras> {
   const { supabase, user } = await usuarioEPapel()
   const cfg = await getConfigCiclo()
   const { inicio, fim, mesLabel } = cicloAtual(cfg.diaInicio)
   if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorFiltro)
   let cksQ = supabase.from('checklists').select('id, horimetro, horimetro_final, excluir_indicadores').gte('created_at', inicio.toISOString())
   if (filtroNomes) cksQ = cksQ.in('equipamento', filtroNomes)
   const { data: cks } = await cksQ
@@ -1130,10 +1137,10 @@ export type IndicadorPrestador = {
   maquinas: string[]
 }
 
-export async function getIndicadoresPorPrestador(inicio: string | null, fim: string | null = null): Promise<IndicadorPrestador[]> {
+export async function getIndicadoresPorPrestador(inicio: string | null, fim: string | null = null, setorFiltro?: string | null): Promise<IndicadorPrestador[]> {
   const { supabase, user } = await usuarioEPapel()
   if (!user) return []
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorFiltro)
 
   let q = supabase.from('checklists').select('id, excluir_indicadores')
   if (inicio) q = q.gte('created_at', inicio)

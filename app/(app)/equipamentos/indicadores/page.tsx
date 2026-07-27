@@ -1,5 +1,6 @@
-import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo, getIndicadoresPorPrestador } from '@/app/actions'
+import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo, getIndicadoresPorPrestador, getSetores } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
+import { SetorFiltro } from '@/components/SetorFiltro'
 import { IndicadoresCharts } from '@/components/IndicadoresCharts'
 import { ConsumoMensalChart, ConsumoMensalTabela } from '@/components/ConsumoMensal'
 import { LiveRefresh } from '@/components/LiveRefresh'
@@ -59,8 +60,8 @@ function CicloCard({ horasTrabalhadas, mesLabel, meta, diaInicio, gestor }: {
   )
 }
 
-export default async function IndicadoresPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
-  const { mes: mesParam } = await searchParams
+export default async function IndicadoresPage({ searchParams }: { searchParams: Promise<{ mes?: string; setor?: string }> }) {
+  const { mes: mesParam, setor: setorParam } = await searchParams
   const mesAtual = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7)
   const mes = mesParam ?? mesAtual
   const [ano, mesN] = mes.split('-').map(Number)
@@ -70,14 +71,16 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
     : new Date(`${ano}-${String(mesN + 1).padStart(2, '0')}-01T00:00:00-03:00`).toISOString()
   const fim = mes === mesAtual ? null : fimISO
   const mesLabel = `${NOMES_MES[mesN - 1]} ${ano}`
+  const setor = setorParam || null
 
-  const [d, ciclo, consumoMensal, cfgCiclo, perfil, prestadores] = await Promise.all([
-    getDashboardEquipamentos(inicio, fim),
-    getHorasCicloAtual(),
-    getConsumoMensal(6),
+  const [d, ciclo, consumoMensal, cfgCiclo, perfil, prestadores, setores] = await Promise.all([
+    getDashboardEquipamentos(inicio, fim, setor),
+    getHorasCicloAtual(setor),
+    getConsumoMensal(6, setor),
     getConfigCiclo(),
     import('@/app/actions').then(m => m.getMyProfile()),
-    getIndicadoresPorPrestador(inicio, fim),
+    getIndicadoresPorPrestador(inicio, fim, setor),
+    getSetores(),
   ])
   const { metaHoras, diaInicio } = cfgCiclo
   const t = d.totais
@@ -94,7 +97,17 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Indicadores da frota: abastecimento, problemas, tempo parado e utilização.</p>
       </div>
 
-      <IndicadoresFiltro />
+      <div className="flex items-center gap-4 flex-wrap mb-3">
+        <IndicadoresFiltro />
+        {gestor && setores.length > 0 && (
+          <SetorFiltro setores={setores} setorAtual={setor ?? undefined} />
+        )}
+      </div>
+      {setor && (
+        <div className="mb-4 text-xs font-medium px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5" style={{ background: '#eff6ff', color: '#1B4F8A', border: '1px solid #bfdbfe' }}>
+          <span>Setor:</span> <strong>{setor}</strong>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-6xl mb-3">
         <CicloCard horasTrabalhadas={ciclo.horasTrabalhadas} mesLabel={ciclo.mesLabel} meta={metaHoras} diaInicio={diaInicio} gestor={gestor} />
