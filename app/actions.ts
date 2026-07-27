@@ -634,7 +634,12 @@ export async function getChecklists(limit = 30): Promise<Checklist[]> {
   const { supabase, user, gestor } = await usuarioEPapel()
   if (!user) return []
   let q = supabase.from('checklists').select('*').order('created_at', { ascending: false }).limit(limit)
-  if (!gestor) q = q.eq('user_id', user.id)
+  if (!gestor) {
+    q = q.eq('user_id', user.id)
+  } else {
+    const filtroNomes = await filtroEquipamentosSetor()
+    if (filtroNomes) q = q.in('equipamento', filtroNomes)
+  }
   const { data } = await q
   return (data ?? []) as Checklist[]
 }
@@ -709,7 +714,12 @@ export async function getOperacoesAbertas(): Promise<{ checklist: Checklist; eve
   const { supabase, user, gestor } = await usuarioEPapel()
   if (!user) return []
   let q = supabase.from('checklists').select('*').eq('status', 'aberta').order('created_at', { ascending: false })
-  if (!gestor) q = q.eq('user_id', user.id)
+  if (!gestor) {
+    q = q.eq('user_id', user.id)
+  } else {
+    const filtroNomes = await filtroEquipamentosSetor()
+    if (filtroNomes) q = q.in('equipamento', filtroNomes)
+  }
   const { data: cks } = await q
   const lista = (cks ?? []) as Checklist[]
   if (!lista.length) return []
@@ -731,8 +741,9 @@ export type ResumoEquipamentos = {
 }
 
 // Retorna nomes dos equipamentos visíveis ao usuário atual, ou null se sem restrição de setor.
-// setorOverride: admin/editor pode passar um nome de setor para filtrar manualmente.
-// Outros usuários sempre usam o setor do próprio perfil (override ignorado por segurança).
+// Admin: pode usar setorOverride livremente (filtro manual na UI); sem override vê tudo.
+// Editor SEM setor no perfil: mesmo comportamento do admin.
+// Qualquer role COM setor no perfil: sempre filtrado pelo setor (override ignorado — segurança).
 async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<string[] | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -740,14 +751,28 @@ async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<s
   const { data: prof } = await supabase.from('user_profiles').select('role, setor').eq('id', user.id).single()
   const role = (prof as { role?: string; setor?: string } | null)?.role ?? null
   const setor = (prof as { role?: string; setor?: string } | null)?.setor ?? null
-  if (role === 'admin' || role === 'editor') {
+
+  // Admin sem setor no perfil: override opcional, senão vê tudo
+  if (role === 'admin') {
     if (!setorOverride) return null
     const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setorOverride)
     return (emps ?? []).map(e => e.nome as string)
   }
-  if (!setor) return null
-  const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setor)
-  return (emps ?? []).map(e => e.nome as string)
+
+  // Qualquer role com setor no perfil: sempre filtrado pelo setor do perfil
+  if (setor) {
+    const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setor)
+    return (emps ?? []).map(e => e.nome as string)
+  }
+
+  // Editor sem setor: override opcional, senão vê tudo
+  if (role === 'editor') {
+    if (!setorOverride) return null
+    const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setorOverride)
+    return (emps ?? []).map(e => e.nome as string)
+  }
+
+  return null
 }
 
 export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null> {
@@ -1408,7 +1433,12 @@ export async function getHistorico(limit = 100): Promise<{ checklist: Checklist;
   const { supabase, user, gestor } = await usuarioEPapel()
   if (!user) return []
   let q = supabase.from('checklists').select('*').order('created_at', { ascending: false }).limit(limit)
-  if (!gestor) q = q.eq('user_id', user.id)
+  if (!gestor) {
+    q = q.eq('user_id', user.id)
+  } else {
+    const filtroNomes = await filtroEquipamentosSetor()
+    if (filtroNomes) q = q.in('equipamento', filtroNomes)
+  }
   const { data: cks } = await q
   const lista = (cks ?? []) as Checklist[]
   if (!lista.length) return []
