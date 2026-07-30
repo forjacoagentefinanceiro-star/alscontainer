@@ -62,9 +62,20 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
         const resV = await updateEventoHorimetro(e.id, horimVal)
         if (resV.error) { setErro(resV.error); return }
       }
-      // edição de litros (só quando o evento tem abastecimento)
-      if (e.litros != null) {
+      // mudança de tipo (parada ↔ retorno) — para correção manual
+      if (podeMudarTipo && tipoVal !== e.tipo) {
+        const resT = await updateEventoTipo(e.id, tipoVal)
+        if (resT.error) { setErro(resT.error); return }
+        setE(prev => ({ ...prev, tipo: tipoVal }))
+      }
+      // litros: edita quando o evento já tinha litros OU quando converteu parada(abastecimento)→retorno
+      const precisaLitros = e.litros != null || (e.abastecimento && tipoVal === 'retorno' && e.tipo !== 'retorno')
+      if (precisaLitros) {
         const novoLitros = litrosVal.trim() === '' ? null : parseFloat(litrosVal.replace(',', '.'))
+        // obriga litros quando está convertendo parada(abastecimento) → retorno
+        if (e.abastecimento && tipoVal === 'retorno' && e.tipo !== 'retorno') {
+          if (!novoLitros || novoLitros <= 0) { setErro('Informe os litros abastecidos.'); return }
+        }
         if (novoLitros !== e.litros) {
           if (novoLitros !== null && (isNaN(novoLitros) || novoLitros < 0)) {
             setErro('Litros inválido.'); return
@@ -73,12 +84,6 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
           if (resL.error) { setErro(resL.error); return }
           setE(prev => ({ ...prev, litros: novoLitros, consumo_lh: resL.consumo_lh ?? null }))
         }
-      }
-      // mudança de tipo (parada ↔ retorno) — para correção manual
-      if (podeMudarTipo && tipoVal !== e.tipo) {
-        const resT = await updateEventoTipo(e.id, tipoVal)
-        if (resT.error) { setErro(resT.error); return }
-        setE(prev => ({ ...prev, tipo: tipoVal }))
       }
       setE(prev => ({ ...prev, horimetro: horimVal, created_at: novoHorarioISO, editado_em: new Date().toISOString() }))
       setModo('ver')
@@ -116,14 +121,15 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
           <input type="datetime-local" value={horarioVal} onChange={ev => setHorarioVal(ev.target.value)}
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a' }} />
-          {e.litros != null && (
+          {/* campo de litros: quando já existia OU quando converte parada(abastecimento)→retorno */}
+          {(e.litros != null || (e.abastecimento && tipoVal === 'retorno')) && (
             <span className="inline-flex items-center gap-1">
               <span className="text-xs" style={{ color: '#9a3412' }}>⛽</span>
               <input
                 type="number" min="0" step="0.1"
                 value={litrosVal}
                 onChange={ev => setLitrosVal(ev.target.value)}
-                placeholder="Litros"
+                placeholder="Litros *"
                 className="rounded border px-2 py-1 text-xs outline-none"
                 style={{ borderColor: '#c2410c', color: '#1a2a3a', width: 80 }}
               />
