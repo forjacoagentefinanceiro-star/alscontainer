@@ -1642,7 +1642,7 @@ export async function updateEventoTipo(eventoId: string, novoTipo: 'parada' | 'r
   const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
   if (!ev?.checklist_id) return { error: 'Evento não encontrado' }
   const { data: upd, error } = await supabase.from('operacao_eventos')
-    .update({ tipo: novoTipo, abastecimento: novoTipo === 'retorno' ? false : undefined, editado_em: new Date().toISOString() })
+    .update({ tipo: novoTipo, editado_em: new Date().toISOString() })
     .eq('id', eventoId).select('id')
   if (error) return { error: error.message }
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }

@@ -68,12 +68,13 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
         if (resT.error) { setErro(resT.error); return }
         setE(prev => ({ ...prev, tipo: tipoVal }))
       }
-      // litros: edita quando o evento já tinha litros OU quando converteu parada(abastecimento)→retorno
-      const precisaLitros = e.litros != null || (e.abastecimento && tipoVal === 'retorno' && e.tipo !== 'retorno')
+      // litros: edita quando o evento já tinha litros, é retorno, ou converteu parada(abastecimento)→retorno
+      const precisaLitros = e.litros != null || tipoVal === 'retorno' || (e.abastecimento && tipoVal === 'retorno')
       if (precisaLitros) {
         const novoLitros = litrosVal.trim() === '' ? null : parseFloat(litrosVal.replace(',', '.'))
-        // obriga litros quando está convertendo parada(abastecimento) → retorno
-        if (e.abastecimento && tipoVal === 'retorno' && e.tipo !== 'retorno') {
+        // obriga litros quando convertendo parada(abastecimento) → retorno (ou já era retorno de abastecimento sem litros)
+        const eraAbastecimentoSemLitros = e.abastecimento && e.litros == null
+        if (eraAbastecimentoSemLitros && tipoVal === 'retorno') {
           if (!novoLitros || novoLitros <= 0) { setErro('Informe os litros abastecidos.'); return }
         }
         if (novoLitros !== e.litros) {
@@ -121,8 +122,8 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
           <input type="datetime-local" value={horarioVal} onChange={ev => setHorarioVal(ev.target.value)}
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a' }} />
-          {/* campo de litros: quando já existia OU quando converte parada(abastecimento)→retorno */}
-          {(e.litros != null || (e.abastecimento && tipoVal === 'retorno')) && (
+          {/* campo de litros: quando já existia, quando é retorno, ou quando converte parada(abastecimento)→retorno */}
+          {(e.litros != null || tipoVal === 'retorno' || (e.abastecimento && tipoVal === 'retorno')) && (
             <span className="inline-flex items-center gap-1">
               <span className="text-xs" style={{ color: '#9a3412' }}>⛽</span>
               <input
