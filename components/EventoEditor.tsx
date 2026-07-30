@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { OperacaoEvento } from '@/app/actions'
-import { updateEventoHorimetro, updateEventoHorario, excluirEvento, setEventoLitros } from '@/app/actions'
+import { updateEventoHorimetro, updateEventoHorario, excluirEvento, setEventoLitros, updateEventoTipo } from '@/app/actions'
 import { HorimetroInput } from '@/components/HorimetroInput'
 
 function toDatetimeLocal(iso: string): string {
@@ -33,6 +33,10 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
   const [horimVal, setHorimVal] = useState<number | null>(evento.horimetro ?? null)
   const [horarioVal, setHorarioVal] = useState(() => toDatetimeLocal(evento.created_at))
   const [litrosVal, setLitrosVal] = useState<string>(evento.litros != null ? String(evento.litros) : '')
+  const [tipoVal, setTipoVal] = useState<'parada' | 'retorno'>(
+    (evento.tipo === 'parada' || evento.tipo === 'retorno') ? evento.tipo : 'parada'
+  )
+  const podeMudarTipo = evento.tipo === 'parada' || evento.tipo === 'retorno'
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -41,6 +45,7 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
     setHorimVal(e.horimetro ?? null)
     setHorarioVal(toDatetimeLocal(e.created_at))
     setLitrosVal(e.litros != null ? String(e.litros) : '')
+    setTipoVal((e.tipo === 'parada' || e.tipo === 'retorno') ? e.tipo : 'parada')
     setErro(null)
     setModo('editar')
   }
@@ -69,6 +74,12 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
           setE(prev => ({ ...prev, litros: novoLitros, consumo_lh: resL.consumo_lh ?? null }))
         }
       }
+      // mudança de tipo (parada ↔ retorno) — para correção manual
+      if (podeMudarTipo && tipoVal !== e.tipo) {
+        const resT = await updateEventoTipo(e.id, tipoVal)
+        if (resT.error) { setErro(resT.error); return }
+        setE(prev => ({ ...prev, tipo: tipoVal }))
+      }
       setE(prev => ({ ...prev, horimetro: horimVal, created_at: novoHorarioISO, editado_em: new Date().toISOString() }))
       setModo('ver')
       router.refresh()
@@ -93,6 +104,14 @@ export function EventoEditor({ evento, podeEditar, onDeleted, prefixo = true, pe
 
       {modo === 'editar' ? (
         <span className="inline-flex items-center gap-1.5 flex-wrap">
+          {podeMudarTipo && (
+            <select value={tipoVal} onChange={ev => setTipoVal(ev.target.value as 'parada' | 'retorno')}
+              className="rounded border px-2 py-1 text-xs outline-none font-semibold"
+              style={{ borderColor: '#f59e0b', color: '#92400e', background: '#fffbeb' }}>
+              <option value="parada">parada</option>
+              <option value="retorno">retorno</option>
+            </select>
+          )}
           <HorimetroInput value={horimVal} onChange={setHorimVal} placeholder="Horímetro"
             className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#1B4F8A', color: '#1a2a3a', width: 90 }} />
           <input type="datetime-local" value={horarioVal} onChange={ev => setHorarioVal(ev.target.value)}

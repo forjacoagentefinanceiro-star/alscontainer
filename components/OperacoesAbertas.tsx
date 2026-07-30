@@ -268,15 +268,39 @@ export function OperacoesAbertas({ operacoes, podeEditar = false }: { operacoes:
                 </button>
                 <button onClick={() => { setAcao(null); setErro(null) }} className="px-3 py-2 rounded-lg text-sm" style={{ color: '#6b7280' }}>Cancelar</button>
               </div>
-            ) : (
-              <div className="mt-3 flex gap-2 flex-wrap">
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'parada' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}>Parada</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'abastecimento' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff7ed' }}>⛽ Abastecimento</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'retorno' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}>Retorno</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'problema' }); setHorim(null); setDescricaoProblema(''); setParado(null); setFotosProblema([]); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>⚠️ Reportar problema</button>
-                <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
-              </div>
-            )}
+            ) : (() => {
+              // estado atual da máquina baseado nos eventos parada/retorno
+              const ultPR = [...eventos].reverse().find(e => e.tipo === 'parada' || e.tipo === 'retorno')
+              const estaParado = ultPR?.tipo === 'parada'
+              const btnDisabled = 'opacity-40 cursor-not-allowed pointer-events-none'
+              return (
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => { if (estaParado) return; setAcao({ id: c.id, tipo: 'parada' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold border ${estaParado ? btnDisabled : ''}`}
+                    style={{ borderColor: '#fde68a', color: '#92400e', background: '#fffbeb' }}
+                    title={estaParado ? 'Já existe uma parada em aberto' : undefined}>
+                    Parada
+                  </button>
+                  <button
+                    onClick={() => { if (estaParado) return; setAcao({ id: c.id, tipo: 'abastecimento' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold border ${estaParado ? btnDisabled : ''}`}
+                    style={{ borderColor: '#fdba74', color: '#9a3412', background: '#fff7ed' }}
+                    title={estaParado ? 'Já existe uma parada em aberto' : undefined}>
+                    ⛽ Abastecimento
+                  </button>
+                  <button
+                    onClick={() => { if (!estaParado) return; setAcao({ id: c.id, tipo: 'retorno' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold border ${!estaParado ? btnDisabled : ''}`}
+                    style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#eff6ff' }}
+                    title={!estaParado ? 'Nenhuma parada aberta para retornar' : undefined}>
+                    Retorno
+                  </button>
+                  <button onClick={() => { setAcao({ id: c.id, tipo: 'problema' }); setHorim(null); setDescricaoProblema(''); setParado(null); setFotosProblema([]); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>⚠️ Reportar problema</button>
+                  <button onClick={() => { setAcao({ id: c.id, tipo: 'encerramento' }); setHorim(null); setMotivo(''); setLitros(''); setErro(null) }} className="px-3 py-2 rounded-lg text-sm font-semibold border" style={{ borderColor: '#fecaca', color: '#b91c1c', background: '#fef2f2' }}>Encerrar</button>
+                </div>
+              )
+            })()}
           </div>
         ))}
       </div>

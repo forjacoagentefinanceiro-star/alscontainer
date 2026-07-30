@@ -1452,6 +1452,18 @@ export async function addEvento(checklistId: string, tipo: 'parada' | 'retorno',
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  // Valida sequência: não permite parada dupla sem retorno, nem retorno sem parada
+  const { data: ultimoEv } = await supabase.from('operacao_eventos')
+    .select('tipo').eq('checklist_id', checklistId)
+    .in('tipo', ['parada', 'retorno'])
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const estadoAtual = (ultimoEv as { tipo?: string } | null)?.tipo ?? 'operando'
+  if (tipo === 'parada' && estadoAtual === 'parada') {
+    return { error: 'Máquina já está parada. Registre o retorno antes de lançar nova parada.' }
+  }
+  if (tipo === 'retorno' && estadoAtual !== 'parada') {
+    return { error: 'Nenhuma parada aberta para encerrar com retorno.' }
+  }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
   const equip = ck?.equipamento as string | undefined
   if (horimetro != null) {
@@ -1616,6 +1628,24 @@ export async function excluirEvento(eventoId: string) {
   }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()
   if (ck?.equipamento) await recalcHorimetro(supabase, ck.equipamento)
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+// altera o tipo de um evento (ex.: parada → retorno) para correção manual — gestor only
+export async function updateEventoTipo(eventoId: string, novoTipo: 'parada' | 'retorno') {
+  const { gestor } = await usuarioEPapel()
+  if (!gestor) return { error: 'Apenas admin/editor podem alterar o tipo de lançamento.' }
+  const supabase = await createClient()
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
+  if (!ev?.checklist_id) return { error: 'Evento não encontrado' }
+  const { data: upd, error } = await supabase.from('operacao_eventos')
+    .update({ tipo: novoTipo, abastecimento: novoTipo === 'retorno' ? false : undefined, editado_em: new Date().toISOString() })
+    .eq('id', eventoId).select('id')
+  if (error) return { error: error.message }
+  if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   revalidatePath('/checklist')
   revalidatePath('/historico')
   revalidatePath('/', 'layout')
