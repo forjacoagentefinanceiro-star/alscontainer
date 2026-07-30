@@ -106,15 +106,19 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
   const podeVer = (key: string) => isAdmin || !modulos || modulos.includes(key)
   // usuário com setor definido é operacional — não acessa o módulo de estoque (containers)
   const podeVerEstoque = !setor && podeVer('estoque')
-  // Dashboard de containers (/dashboard) e Cadastros só para admin
+  // Dashboard de containers (/dashboard) só para admin no estoque
   const estoqueItemsVisiveis = isAdmin ? estoqueItems : estoqueItems.filter(i => i.href !== '/dashboard')
+  // Painel global (/equipamentos) oculto para usuário com setor — visão filtrada via checklist/indicadores
+  const equipamentosItemsVisiveis = setor
+    ? equipamentosItems.filter(i => i.href !== '/equipamentos')
+    : equipamentosItems
 
   const sections: Section[] = isOperador
     ? [{ label: 'Equipamentos', items: [checklistItem] }]
     : [
         ...(podeVerEstoque          ? [{ label: 'Estoque', items: estoqueItemsVisiveis }] : []),
-        ...(podeVer('equipamentos') ? [{ label: 'Equipamentos', items: equipamentosItems }] : []),
-        ...(isAdmin && podeVer('cadastros') ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
+        ...(podeVer('equipamentos') ? [{ label: 'Equipamentos', items: equipamentosItemsVisiveis }] : []),
+        ...(podeVer('cadastros')    ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
         ...(isAdmin && podeVer('tarefas') ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
         ...(isAdmin ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
         ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),

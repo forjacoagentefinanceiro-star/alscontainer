@@ -149,6 +149,7 @@ export type UserProfile = {
   modulos:  string[] | null       // null = vê todos os módulos da role
   setor: string | null            // null = sem restrição; preenchido = ADM do setor
   telegram_chat_id: string | null // ID do chat Telegram para alertas de máquinas
+  telegram_setores: string[] | null // null = recebe alertas de todos os setores; array = só dos setores listados
   created_at: string
 }
 
@@ -509,6 +510,17 @@ export async function updateUserTelegramChatId(userId: string, chatId: string | 
   return { error: null }
 }
 
+export async function updateUserTelegramSetores(userId: string, setores: string[] | null) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ telegram_setores: setores?.length ? setores : null })
+    .eq('id', userId)
+  if (error) return { error: error.message }
+  revalidatePath('/usuarios')
+  return { error: null }
+}
+
 export async function revokeUser(userId: string) {
   const supabase = await createClient()
   const { error } = await supabase
@@ -697,8 +709,11 @@ export async function addChecklist(payload: {
     })
     if (payload.parado) {
       const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-      await notificarTelegram(
-        `⛔ MÁQUINA PARADA — item em desacordo no checklist\n\nEquipamento: ${payload.equipamento}\nOperador: ${payload.operador}\nHorário: ${hora}\nHorímetro: ${payload.horimetro ?? '—'}\n${descricao}\n\nAbra o app para acionar o prestador.`
+      const { data: empSt } = await supabase.from('empilhadeiras').select('setor').eq('nome', payload.equipamento).maybeSingle()
+      await notificarTelegramSetor(
+        `⛔ MÁQUINA PARADA — item em desacordo no checklist\n\nEquipamento: ${payload.equipamento}\nOperador: ${payload.operador}\nHorário: ${hora}\nHorímetro: ${payload.horimetro ?? '—'}\n${descricao}\n\nAbra o app para acionar o prestador.`,
+        empSt?.setor as string | null,
+        supabase
       )
     }
   }
@@ -773,6 +788,47 @@ async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<s
   }
 
   return null
+}
+
+// Envia alerta Telegram a editores do setor + admins com chat_id configurado.
+// Admin: telegram_setores null = recebe tudo; array = só os setores listados.
+// Fallback: TELEGRAM_CHAT_ID global quando ninguém tem chat_id configurado.
+async function notificarTelegramSetor(mensagem: string, setorNome: string | null | undefined, supabase: SB) {
+  const token = process.env.TELEGRAM_TOKEN
+  if (!token) return
+  const chatIds = new Set<string>()
+
+  if (setorNome) {
+    const { data: editores } = await supabase
+      .from('user_profiles').select('telegram_chat_id')
+      .eq('setor', setorNome).eq('approved', true).eq('role', 'editor')
+      .not('telegram_chat_id', 'is', null)
+    for (const ed of editores ?? []) chatIds.add(ed.telegram_chat_id as string)
+  }
+
+  const { data: admins } = await supabase
+    .from('user_profiles').select('telegram_chat_id, telegram_setores')
+    .eq('role', 'admin').eq('approved', true)
+    .not('telegram_chat_id', 'is', null)
+  for (const adm of admins ?? []) {
+    const ts = adm.telegram_setores as string[] | null
+    if (!ts || !ts.length || (setorNome ? ts.includes(setorNome) : true)) {
+      chatIds.add(adm.telegram_chat_id as string)
+    }
+  }
+
+  if (chatIds.size === 0) {
+    const globalId = process.env.TELEGRAM_CHAT_ID
+    if (globalId) chatIds.add(globalId)
+  }
+
+  await Promise.allSettled([...chatIds].map(chatId =>
+    fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: mensagem }),
+    }).catch((e: unknown) => console.warn('Falha ao enviar alerta no Telegram (setor):', e))
+  ))
 }
 
 export async function getResumoEquipamentos(): Promise<ResumoEquipamentos | null> {
@@ -1684,8 +1740,11 @@ export async function reportarProblema(checklistId: string, descricao: string, p
   if (equip) await recalcHorimetro(supabase, equip)
   if (parado) {
     const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-    await notificarTelegram(
-      `⛔ MÁQUINA PARADA — problema reportado\n\nEquipamento: ${equip ?? '—'}\nOperador: ${ck?.operador ?? '—'}\nHorário: ${hora}\nHorímetro: ${horimetro}h\nDescrição: ${descricao.trim()}\n\nAbra o app para acionar o prestador.`
+    const { data: empSt } = await supabase.from('empilhadeiras').select('setor').eq('nome', equip ?? '').maybeSingle()
+    await notificarTelegramSetor(
+      `⛔ MÁQUINA PARADA — problema reportado\n\nEquipamento: ${equip ?? '—'}\nOperador: ${ck?.operador ?? '—'}\nHorário: ${hora}\nHorímetro: ${horimetro}h\nDescrição: ${descricao.trim()}\n\nAbra o app para acionar o prestador.`,
+      empSt?.setor as string | null,
+      supabase
     )
   }
   revalidatePath('/checklist')
@@ -1698,13 +1757,22 @@ export type ProblemaEquipamento = OperacaoEvento & { equipamento: string; operad
 
 export async function getProblemasAtivos(): Promise<ProblemaEquipamento[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  const filtroNomes = await filtroEquipamentosSetor()
+  let q = supabase
     .from('operacao_eventos')
     .select('*, checklists(equipamento, operador)')
     .eq('tipo', 'problema')
     .eq('resolvido', false)
     .order('created_at', { ascending: false })
     .limit(50)
+  if (filtroNomes) {
+    if (!filtroNomes.length) return []
+    const { data: cks } = await supabase.from('checklists').select('id').in('equipamento', filtroNomes)
+    const ckIds = (cks ?? []).map(c => c.id as string)
+    if (!ckIds.length) return []
+    q = q.in('checklist_id', ckIds)
+  }
+  const { data } = await q
   return (data ?? []).map((e: Record<string, unknown>) => {
     const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
     const { checklists, ...rest } = e
@@ -1776,8 +1844,11 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   if (equip) await recalcHorimetro(supabase, equip)
   const horaLiberado = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-  await notificarTelegram(
-    `✅ EQUIPAMENTO LIBERADO\n\nEquipamento: ${equip ?? '—'}\nOperador: ${ck?.operador ?? '—'}\nHorário: ${horaLiberado}\nHorímetro: ${horimetro}h\n\nA tratativa foi concluída e a máquina está liberada para operar.`
+  const { data: empSt } = await supabase.from('empilhadeiras').select('setor').eq('nome', equip ?? '').maybeSingle()
+  await notificarTelegramSetor(
+    `✅ EQUIPAMENTO LIBERADO\n\nEquipamento: ${equip ?? '—'}\nOperador: ${ck?.operador ?? '—'}\nHorário: ${horaLiberado}\nHorímetro: ${horimetro}h\n\nA tratativa foi concluída e a máquina está liberada para operar.`,
+    empSt?.setor as string | null,
+    supabase
   )
   revalidatePath('/checklist')
   revalidatePath('/historico')
@@ -1848,12 +1919,21 @@ export type UsoSemChecklist = {
 
 export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  const filtroNomes = await filtroEquipamentosSetor()
+  let q = supabase
     .from('operacao_eventos')
     .select('id, checklist_id, horimetro, motivo, horas_gap, created_at, checklists(equipamento, operador)')
     .eq('uso_sem_checklist', true)
     .order('created_at', { ascending: false })
     .limit(50)
+  if (filtroNomes) {
+    if (!filtroNomes.length) return []
+    const { data: cks } = await supabase.from('checklists').select('id').in('equipamento', filtroNomes)
+    const ckIds = (cks ?? []).map(c => c.id as string)
+    if (!ckIds.length) return []
+    q = q.in('checklist_id', ckIds)
+  }
+  const { data } = await q
   return (data ?? []).map((e: Record<string, unknown>) => {
     const ck = (Array.isArray(e.checklists) ? e.checklists[0] : e.checklists) as { equipamento?: string; operador?: string } | undefined
     return {

@@ -5,18 +5,18 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain } from 'lucide-react'
 
-export function BottomNav({ role, modulos }: { role?: string; modulos?: string[] | null }) {
+export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: string[] | null; setor?: string | null }) {
   const pathname = usePathname()
   const navRef = useRef<HTMLElement>(null)
 
   const isAdmin       = role === 'admin'
-  const podeCadastrar = role === 'admin' || role === 'editor'
+  const isEditor      = role === 'editor'
   const podeVer       = (key: string) => isAdmin || !modulos || modulos.includes(key)
 
   const items = role === 'operador'
     ? [{ href: '/checklist', label: 'Checklist', icon: ClipboardCheck }]
     : [
-        ...(podeVer('estoque') ? [
+        ...(!setor && podeVer('estoque') ? [
           { href: '/dashboard',             label: 'Dashboard',  icon: LayoutDashboard },
           { href: '/inventario',            label: 'Inventário', icon: Package2 },
           { href: '/inventario/financeiro', label: 'Financeiro', icon: DollarSign },
@@ -25,11 +25,11 @@ export function BottomNav({ role, modulos }: { role?: string; modulos?: string[]
           { href: '/exportar',              label: 'Exportar',   icon: FileCode2 },
         ] : []),
         ...(podeVer('equipamentos') ? [
-          { href: '/equipamentos', label: 'Painel',    icon: Gauge },
+          ...(!setor ? [{ href: '/equipamentos', label: 'Painel', icon: Gauge }] : []),
           { href: '/checklist',    label: 'Checklist', icon: ClipboardCheck },
           { href: '/historico',    label: 'Histórico', icon: History },
         ] : []),
-        ...(podeCadastrar && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
+        ...((isAdmin || isEditor) && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
         ...(podeVer('bi') ? [{ href: '/bi', label: 'BI', icon: BarChart3 }] : []),
         ...(podeVer('monitoramento') ? [{ href: '/monitoramento', label: 'Clima', icon: CloudRain }] : []),
         ...(isAdmin ? [

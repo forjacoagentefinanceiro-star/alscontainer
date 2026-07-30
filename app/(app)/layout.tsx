@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
-      <BottomNav role={role} modulos={modulos} />
+      <BottomNav role={role} modulos={modulos} setor={setor} />
     </div>
   )
 }

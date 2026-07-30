@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { UserProfile, Setor } from '@/app/actions'
-import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId } from '@/app/actions'
+import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId, updateUserTelegramSetores } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 import { MODULOS, MODULOS_KEYS } from '@/lib/modulos'
 
@@ -23,9 +23,10 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
   const [resetId, setResetId]   = useState<string | null>(null)
   const [resetVal, setResetVal] = useState('')
   const [resetMsg, setResetMsg] = useState<{ id: string; txt: string; ok: boolean } | null>(null)
-  // estados locais para campos inline de setor e telegram
-  const [editSetor, setEditSetor]   = useState<Record<string, string>>({})
-  const [editTg, setEditTg]         = useState<Record<string, string>>({})
+  // estados locais para campos inline de setor, telegram e setores de alerta
+  const [editSetor, setEditSetor]       = useState<Record<string, string>>({})
+  const [editTg, setEditTg]             = useState<Record<string, string>>({})
+  const [editTgSetores, setEditTgSetores] = useState<Record<string, string[]>>({})
 
   function handleReset(userId: string) {
     setResetMsg(null)
@@ -89,10 +90,24 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
     startTransition(async () => { await updateUserTelegramChatId(u.id, t) })
   }
 
+  function salvarTgSetores(u: UserProfile) {
+    const s = editTgSetores[u.id] ?? (u.telegram_setores ?? [])
+    const toSave = s.length ? s : null
+    setList(prev => prev.map(x => x.id === u.id ? { ...x, telegram_setores: toSave } : x))
+    startTransition(async () => { await updateUserTelegramSetores(u.id, toSave) })
+  }
+
+  function toggleTgSetor(u: UserProfile, nome: string, checked: boolean) {
+    const atual = editTgSetores[u.id] ?? (u.telegram_setores ?? [])
+    const next = checked ? [...new Set([...atual, nome])] : atual.filter(s => s !== nome)
+    setEditTgSetores(prev => ({ ...prev, [u.id]: next }))
+  }
+
   function openExtraPanel(userId: string, u: UserProfile) {
     if (openExtra === userId) { setOpenExtra(null); return }
     setEditSetor(prev => ({ ...prev, [userId]: u.setor ?? '' }))
     setEditTg(prev => ({ ...prev, [userId]: u.telegram_chat_id ?? '' }))
+    setEditTgSetores(prev => ({ ...prev, [userId]: u.telegram_setores ?? [] }))
     setOpenExtra(userId)
     setOpenAbas(null)
     setOpenModulos(null)
@@ -293,6 +308,36 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
                           </div>
                         </div>
                       </div>
+                      {/* Setores para alertas Telegram — só para admins */}
+                      {u.role === 'admin' && setores.length > 0 && (
+                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-xs font-medium" style={{ color: '#6b7280' }}>
+                              Setores para alertas Telegram
+                              <span className="ml-1" style={{ color: '#9ca3af' }}>(nenhum = recebe todos)</span>
+                            </label>
+                            <button onClick={() => salvarTgSetores(u)} disabled={isPending}
+                              className="text-xs font-semibold px-3 py-1 rounded text-white disabled:opacity-50"
+                              style={{ background: '#1B4F8A' }}>
+                              Salvar
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {setores.map(s => {
+                              const checked = (editTgSetores[u.id] ?? (u.telegram_setores ?? [])).includes(s.nome)
+                              return (
+                                <label key={s.id} className="flex items-center gap-1.5 cursor-pointer text-xs px-2 py-1 rounded border"
+                                  style={{ borderColor: checked ? '#1B4F8A' : '#d1d5db', background: checked ? '#eff6ff' : '#fff', color: checked ? '#1d4ed8' : '#6b7280' }}>
+                                  <input type="checkbox" checked={checked} disabled={isPending}
+                                    onChange={e => toggleTgSetor(u, s.nome, e.target.checked)}
+                                    className="accent-blue-700" />
+                                  {s.nome}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {u.setor && (
                         <p className="text-xs mt-2" style={{ color: '#047857' }}>
                           Este usuário vê apenas equipamentos do setor <strong>{u.setor}</strong>.
