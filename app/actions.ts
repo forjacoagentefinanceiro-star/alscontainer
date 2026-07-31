@@ -790,14 +790,18 @@ async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<s
   return null
 }
 
-// Envia alerta Telegram a editores do setor + admins com chat_id configurado.
-// Admin: telegram_setores null = recebe tudo; array = só os setores listados.
-// Fallback: TELEGRAM_CHAT_ID global quando ninguém tem chat_id configurado.
+// Envia alerta Telegram ao TELEGRAM_CHAT_ID global (sempre) + editores do setor + admins configurados.
+// Admin: telegram_setores null = recebe todos os setores; array = só os listados.
 async function notificarTelegramSetor(mensagem: string, setorNome: string | null | undefined, supabase: SB) {
   const token = process.env.TELEGRAM_TOKEN
   if (!token) return
   const chatIds = new Set<string>()
 
+  // Global sempre incluído — mantém comportamento original que já funcionava
+  const globalId = process.env.TELEGRAM_CHAT_ID
+  if (globalId) chatIds.add(globalId)
+
+  // Editores do setor com telegram_chat_id configurado
   if (setorNome) {
     const { data: editores } = await supabase
       .from('user_profiles').select('telegram_chat_id')
@@ -806,6 +810,7 @@ async function notificarTelegramSetor(mensagem: string, setorNome: string | null
     for (const ed of editores ?? []) chatIds.add(ed.telegram_chat_id as string)
   }
 
+  // Admins com telegram_chat_id pessoal (filtrado por telegram_setores se configurado)
   const { data: admins } = await supabase
     .from('user_profiles').select('telegram_chat_id, telegram_setores')
     .eq('role', 'admin').eq('approved', true)
@@ -815,11 +820,6 @@ async function notificarTelegramSetor(mensagem: string, setorNome: string | null
     if (!ts || !ts.length || (setorNome ? ts.includes(setorNome) : true)) {
       chatIds.add(adm.telegram_chat_id as string)
     }
-  }
-
-  if (chatIds.size === 0) {
-    const globalId = process.env.TELEGRAM_CHAT_ID
-    if (globalId) chatIds.add(globalId)
   }
 
   await Promise.allSettled([...chatIds].map(chatId =>
