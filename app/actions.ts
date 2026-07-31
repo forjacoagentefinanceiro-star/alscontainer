@@ -442,6 +442,29 @@ export async function testarAlertaTelegram() {
   return { error: null }
 }
 
+export async function testarTelegramUsuario(userId: string) {
+  if (!(await souAdmin()).ok) return { error: 'Apenas administradores.' }
+  const token = process.env.TELEGRAM_TOKEN
+  if (!token) return { error: 'TELEGRAM_TOKEN não configurado na Vercel.' }
+  const supabase = await createClient()
+  const { data: prof } = await supabase.from('user_profiles').select('telegram_chat_id, email').eq('id', userId).single()
+  const chatId = (prof as { telegram_chat_id?: string | null; email?: string } | null)?.telegram_chat_id
+  if (!chatId) return { error: 'Sem Telegram Chat ID configurado para este usuário.' }
+  const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: `✅ Teste ALS Depot — alerta configurado para ${(prof as { email?: string } | null)?.email ?? 'este usuário'} (${hora}).` }),
+    })
+    const json = await res.json() as { ok: boolean; description?: string }
+    if (!json.ok) return { error: `Telegram recusou: ${json.description ?? 'erro desconhecido'}` }
+  } catch (e) {
+    return { error: `Falha de rede: ${String(e)}` }
+  }
+  return { error: null }
+}
+
 // Troca a senha do próprio usuário (1º acesso obrigatório) e limpa a flag de troca.
 export async function trocarMinhaSenha(novaSenha: string) {
   const supabase = await createClient()

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import type { UserProfile, Setor } from '@/app/actions'
-import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId, updateUserTelegramSetores } from '@/app/actions'
+import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId, updateUserTelegramSetores, testarTelegramUsuario } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
 import { MODULOS, MODULOS_KEYS } from '@/lib/modulos'
 
@@ -27,6 +27,8 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
   const [editSetor, setEditSetor]       = useState<Record<string, string>>({})
   const [editTg, setEditTg]             = useState<Record<string, string>>({})
   const [editTgSetores, setEditTgSetores] = useState<Record<string, string[]>>({})
+  const [tgTestMsg, setTgTestMsg]       = useState<Record<string, { ok: boolean; txt: string }>>({})
+  const [tgTestPending, setTgTestPending] = useState<Record<string, boolean>>({})
 
   function handleReset(userId: string) {
     setResetMsg(null)
@@ -101,6 +103,16 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
     const atual = editTgSetores[u.id] ?? (u.telegram_setores ?? [])
     const next = checked ? [...new Set([...atual, nome])] : atual.filter(s => s !== nome)
     setEditTgSetores(prev => ({ ...prev, [u.id]: next }))
+  }
+
+  function testarTg(userId: string) {
+    setTgTestMsg(prev => { const n = { ...prev }; delete n[userId]; return n })
+    setTgTestPending(prev => ({ ...prev, [userId]: true }))
+    startTransition(async () => {
+      const res = await testarTelegramUsuario(userId)
+      setTgTestPending(prev => ({ ...prev, [userId]: false }))
+      setTgTestMsg(prev => ({ ...prev, [userId]: res.error ? { ok: false, txt: res.error } : { ok: true, txt: '✓ Mensagem enviada! Confira o Telegram.' } }))
+    })
   }
 
   function openExtraPanel(userId: string, u: UserProfile) {
@@ -305,7 +317,23 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
                               style={{ background: '#1B4F8A' }}>
                               Salvar
                             </button>
+                            {u.telegram_chat_id && (
+                              <button
+                                onClick={() => testarTg(u.id)}
+                                disabled={tgTestPending[u.id] || isPending}
+                                className="text-xs font-semibold px-3 py-1.5 rounded disabled:opacity-50"
+                                style={{ background: '#229ED9', color: '#fff' }}
+                                title="Envia mensagem de teste para este chat ID">
+                                {tgTestPending[u.id] ? '…' : '📲'}
+                              </button>
+                            )}
                           </div>
+                          {tgTestMsg[u.id] && (
+                            <p className="text-xs mt-1 px-2 py-1 rounded"
+                              style={{ background: tgTestMsg[u.id].ok ? '#ecfdf5' : '#fef2f2', color: tgTestMsg[u.id].ok ? '#047857' : '#b91c1c' }}>
+                              {tgTestMsg[u.id].txt}
+                            </p>
+                          )}
                         </div>
                       </div>
                       {/* Setores para alertas Telegram — só para admins */}
