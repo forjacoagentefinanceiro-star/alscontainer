@@ -634,7 +634,7 @@ export async function getConfigCiclo(): Promise<ConfigCiclo> {
   const row = data as Record<string, unknown> | null
   return {
     metaHoras: Number(row?.horas_meta_ciclo ?? 0),
-    diaInicio: Number(row?.dia_inicio_ciclo ?? 23),
+    diaInicio: Number(row?.dia_inicio_ciclo || 23),  // || protects against 0 (not just null)
   }
 }
 
@@ -1133,6 +1133,8 @@ export async function getConsumoMensal(numMeses = 6, setorFiltro?: string | null
 
 // ciclo de faturamento: começa todo dia 23, fecha no dia 22 do mês seguinte (zera no dia 23)
 function cicloAtual(diaInicio = 23): { inicio: Date; fim: Date; mesLabel: string } {
+  const safeDay = (Number.isInteger(diaInicio) && diaInicio >= 1 && diaInicio <= 28) ? diaInicio : 23
+  diaInicio = safeDay
   const diaFim = diaInicio - 1  // fim = dia anterior ao início no mês seguinte
   const tz = 'America/Sao_Paulo'
   const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
