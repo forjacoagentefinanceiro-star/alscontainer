@@ -4,7 +4,11 @@ import { useState, useTransition } from 'react'
 import { setConfigCiclo } from '@/app/actions'
 import { useRouter } from 'next/navigation'
 
-export function MetaHorasCicloEditor({ metaAtual, diaInicioAtual }: { metaAtual: number; diaInicioAtual: number }) {
+export function MetaHorasCicloEditor({ metaAtual, diaInicioAtual, setor }: {
+  metaAtual: number
+  diaInicioAtual: number
+  setor?: string | null
+}) {
   const [editando, setEditando] = useState(false)
   const [meta, setMeta] = useState(String(metaAtual || ''))
   const [diaInicio, setDiaInicio] = useState(String(diaInicioAtual || 23))
@@ -28,7 +32,7 @@ export function MetaHorasCicloEditor({ metaAtual, diaInicioAtual }: { metaAtual:
     if (!Number.isInteger(diaInicioN) || diaInicioN < 1 || diaInicioN > 28) { setErro('Dia de início deve ser entre 1 e 28.'); return }
     setErro(null)
     startTransition(async () => {
-      const res = await setConfigCiclo(metaN, diaInicioN)
+      const res = await setConfigCiclo(metaN, diaInicioN, setor)
       if (res.error) { setErro(res.error); return }
       setEditando(false)
       router.refresh()
@@ -41,12 +45,16 @@ export function MetaHorasCicloEditor({ metaAtual, diaInicioAtual }: { metaAtual:
         className="mt-2 text-xs font-semibold px-2 py-1 rounded-lg border"
         style={{ color: '#1d4ed8', borderColor: '#bfdbfe', background: '#eff6ff' }}>
         {metaAtual > 0 ? 'Editar ciclo / meta' : 'Configurar ciclo e meta de horas'}
+        {setor ? ` — ${setor}` : ' — global'}
       </button>
     )
   }
 
   return (
     <div className="mt-2 p-2 rounded-lg space-y-2" style={{ background: '#f8fafc', border: '1px solid #e5e7eb' }}>
+      {setor && (
+        <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>Setor: {setor}</p>
+      )}
       <div className="flex items-center gap-2 flex-wrap">
         <label className="text-xs font-medium" style={{ color: '#374151' }}>Dia de início:</label>
         <input

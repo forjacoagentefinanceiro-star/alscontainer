@@ -27,8 +27,8 @@ function Card({ label, value, cor, sub }: { label: string; value: string | numbe
   )
 }
 
-function CicloCard({ horasTrabalhadas, mesLabel, meta, diaInicio, gestor }: {
-  horasTrabalhadas: number; mesLabel: string; meta: number; diaInicio: number; gestor: boolean
+function CicloCard({ horasTrabalhadas, mesLabel, meta, diaInicio, gestor, setor }: {
+  horasTrabalhadas: number; mesLabel: string; meta: number; diaInicio: number; gestor: boolean; setor?: string | null
 }) {
   const diaFim = diaInicio - 1
   let cor = '#1B4F8A'
@@ -55,7 +55,7 @@ function CicloCard({ horasTrabalhadas, mesLabel, meta, diaInicio, gestor }: {
           }} />
         </div>
       )}
-      {gestor && <MetaHorasCicloEditor metaAtual={meta} diaInicioAtual={diaInicio} />}
+      {gestor && <MetaHorasCicloEditor metaAtual={meta} diaInicioAtual={diaInicio} setor={setor} />}
     </div>
   )
 }
@@ -77,7 +77,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
     getDashboardEquipamentos(inicio, fim, setor),
     getHorasCicloAtual(setor),
     getConsumoMensal(6, setor),
-    getConfigCiclo(),
+    getConfigCiclo(setor),
     import('@/app/actions').then(m => m.getMyProfile()),
     getIndicadoresPorPrestador(inicio, fim, setor),
     getSetores(),
@@ -110,7 +110,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-6xl mb-3">
-        <CicloCard horasTrabalhadas={ciclo.horasTrabalhadas} mesLabel={ciclo.mesLabel} meta={metaHoras} diaInicio={diaInicio} gestor={gestor} />
+        <CicloCard horasTrabalhadas={ciclo.horasTrabalhadas} mesLabel={ciclo.mesLabel} meta={metaHoras} diaInicio={diaInicio} gestor={gestor} setor={setor} />
         <Card label={`Horas trabalhadas — ${mesLabel}`} value={t.horasTrabalhadas} cor="#1B4F8A" sub="soma de todas as máquinas no mês" />
         <Card label="Consumo médio" value={t.consumoMedio != null ? `${t.consumoMedio} L/h` : '—'} cor="#9a3412" sub="litros ÷ horas trabalhadas" />
         <Card label="Litros abastecidos" value={`${t.litrosTotal} L`} cor="#9a3412" />

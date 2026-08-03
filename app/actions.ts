@@ -628,17 +628,25 @@ export async function setMetaMes(ano: number, mes: number, valor: number) {
 // ---- Configuração do ciclo de equipamentos (dia de início, meta de horas) ----
 export type ConfigCiclo = { metaHoras: number; diaInicio: number }
 
-export async function getConfigCiclo(): Promise<ConfigCiclo> {
+export async function getConfigCiclo(setor?: string | null): Promise<ConfigCiclo> {
   const supabase = await createClient()
+  if (setor) {
+    const { data: sd } = await supabase
+      .from('config_ciclo_setor').select('horas_meta_ciclo, dia_inicio_ciclo').eq('setor', setor).maybeSingle()
+    if (sd) return {
+      metaHoras: Number(sd.horas_meta_ciclo ?? 0),
+      diaInicio: Number(sd.dia_inicio_ciclo || 23),
+    }
+  }
   const { data } = await supabase.from('config_equipamentos').select('horas_meta_ciclo, dia_inicio_ciclo').eq('id', 1).single()
   const row = data as Record<string, unknown> | null
   return {
     metaHoras: Number(row?.horas_meta_ciclo ?? 0),
-    diaInicio: Number(row?.dia_inicio_ciclo || 23),  // || protects against 0 (not just null)
+    diaInicio: Number(row?.dia_inicio_ciclo || 23),
   }
 }
 
-export async function setConfigCiclo(metaHoras: number, diaInicio: number) {
+export async function setConfigCiclo(metaHoras: number, diaInicio: number, setor?: string | null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -647,8 +655,15 @@ export async function setConfigCiclo(metaHoras: number, diaInicio: number) {
   if (role !== 'admin' && role !== 'editor') return { error: 'Sem permissão.' }
   if (!Number.isFinite(metaHoras) || metaHoras < 0) return { error: 'Meta de horas inválida.' }
   if (!Number.isInteger(diaInicio) || diaInicio < 1 || diaInicio > 28) return { error: 'Dia de início deve ser entre 1 e 28.' }
-  const { error } = await supabase.from('config_equipamentos').upsert({ id: 1, horas_meta_ciclo: metaHoras, dia_inicio_ciclo: diaInicio }, { onConflict: 'id' })
-  if (error) return { error: error.message }
+  if (setor) {
+    const { error } = await supabase.from('config_ciclo_setor')
+      .upsert({ setor, horas_meta_ciclo: metaHoras, dia_inicio_ciclo: diaInicio }, { onConflict: 'setor' })
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await supabase.from('config_equipamentos')
+      .upsert({ id: 1, horas_meta_ciclo: metaHoras, dia_inicio_ciclo: diaInicio }, { onConflict: 'id' })
+    if (error) return { error: error.message }
+  }
   revalidatePath('/equipamentos/indicadores')
   revalidatePath('/equipamentos/relatorios')
   return { error: null }
@@ -1153,7 +1168,7 @@ export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasT
 
 export async function getHorasCicloAtual(setorFiltro?: string | null): Promise<CicloHoras> {
   const { supabase, user } = await usuarioEPapel()
-  const cfg = await getConfigCiclo()
+  const cfg = await getConfigCiclo(setorFiltro)
   const { inicio, fim, mesLabel } = cicloAtual(cfg.diaInicio)
   if (!user) return { inicio: inicio.toISOString(), fim: fim.toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
   const filtroNomes = await filtroEquipamentosSetor(setorFiltro)
