@@ -73,7 +73,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
   const mesLabel = `${NOMES_MES[mesN - 1]} ${ano}`
   const setor = setorParam || null
 
-  const [d, ciclo, consumoMensal, cfgCiclo, perfil, prestadores, setores] = await Promise.all([
+  const results = await Promise.allSettled([
     getDashboardEquipamentos(inicio, fim, setor),
     getHorasCicloAtual(setor),
     getConsumoMensal(6, setor),
@@ -82,6 +82,19 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
     getIndicadoresPorPrestador(inicio, fim, setor),
     getSetores(),
   ])
+  const erroCarregamento = results.find(r => r.status === 'rejected')
+  if (erroCarregamento && erroCarregamento.status === 'rejected') {
+    console.error('[indicadores] erro ao carregar dados:', erroCarregamento.reason)
+  }
+  const vdash = { totais: { horasTrabalhadas: 0, horasSemChecklist: 0, litrosTotal: 0, consumoMedio: null, problemas: 0, problemasParado: 0, tempoParadoMin: 0, tempoRespostaMedioMin: null, utilizacaoPct: null }, maquinas: [] }
+  const vciclo = { inicio: new Date().toISOString(), fim: new Date().toISOString(), mesLabel, horasTrabalhadas: 0, horasSemChecklist: 0 }
+  const d        = results[0].status === 'fulfilled' ? results[0].value : vdash
+  const ciclo    = results[1].status === 'fulfilled' ? results[1].value : vciclo
+  const consumoMensal = results[2].status === 'fulfilled' ? results[2].value : { meses: [], equipamentos: [], pontos: [] }
+  const cfgCiclo = results[3].status === 'fulfilled' ? results[3].value : { metaHoras: 0, diaInicio: 23 }
+  const perfil   = results[4].status === 'fulfilled' ? results[4].value : null
+  const prestadores = results[5].status === 'fulfilled' ? results[5].value : []
+  const setores  = results[6].status === 'fulfilled' ? results[6].value : []
   const { metaHoras, diaInicio } = cfgCiclo
   const t = d.totais
   const disponibilidadePct = t.utilizacaoPct != null ? Math.round((100 - t.utilizacaoPct) * 10) / 10 : null

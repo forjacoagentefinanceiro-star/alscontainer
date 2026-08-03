@@ -629,20 +629,24 @@ export async function setMetaMes(ano: number, mes: number, valor: number) {
 export type ConfigCiclo = { metaHoras: number; diaInicio: number }
 
 export async function getConfigCiclo(setor?: string | null): Promise<ConfigCiclo> {
-  const supabase = await createClient()
-  if (setor) {
-    const { data: sd } = await supabase
-      .from('config_ciclo_setor').select('horas_meta_ciclo, dia_inicio_ciclo').eq('setor', setor).maybeSingle()
-    if (sd) return {
-      metaHoras: Number(sd.horas_meta_ciclo ?? 0),
-      diaInicio: Number(sd.dia_inicio_ciclo || 23),
+  try {
+    const supabase = await createClient()
+    if (setor) {
+      const { data: sd } = await supabase
+        .from('config_ciclo_setor').select('horas_meta_ciclo, dia_inicio_ciclo').eq('setor', setor).maybeSingle()
+      if (sd) return {
+        metaHoras: Number(sd.horas_meta_ciclo ?? 0),
+        diaInicio: Number(sd.dia_inicio_ciclo || 23),
+      }
     }
-  }
-  const { data } = await supabase.from('config_equipamentos').select('horas_meta_ciclo, dia_inicio_ciclo').eq('id', 1).single()
-  const row = data as Record<string, unknown> | null
-  return {
-    metaHoras: Number(row?.horas_meta_ciclo ?? 0),
-    diaInicio: Number(row?.dia_inicio_ciclo || 23),
+    const { data } = await supabase.from('config_equipamentos').select('horas_meta_ciclo, dia_inicio_ciclo').eq('id', 1).single()
+    const row = data as Record<string, unknown> | null
+    return {
+      metaHoras: Number(row?.horas_meta_ciclo ?? 0),
+      diaInicio: Number(row?.dia_inicio_ciclo || 23),
+    }
+  } catch {
+    return { metaHoras: 0, diaInicio: 23 }
   }
 }
 
