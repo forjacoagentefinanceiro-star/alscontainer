@@ -13,10 +13,13 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
   const isEditor      = role === 'editor'
   const podeVer       = (key: string) => isAdmin || !modulos || modulos.includes(key)
 
+  // setor no perfil restringe apenas editores/operadores — admin nunca perde acesso
+  const setorRestringe = !!setor && !isAdmin
+
   const items = role === 'operador'
     ? [{ href: '/checklist', label: 'Checklist', icon: ClipboardCheck }]
     : [
-        ...(!setor && podeVer('estoque') ? [
+        ...(!setorRestringe && podeVer('estoque') ? [
           { href: '/dashboard',             label: 'Dashboard',  icon: LayoutDashboard },
           { href: '/inventario',            label: 'Inventário', icon: Package2 },
           { href: '/inventario/financeiro', label: 'Financeiro', icon: DollarSign },
@@ -25,7 +28,7 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
           { href: '/exportar',              label: 'Exportar',   icon: FileCode2 },
         ] : []),
         ...(podeVer('equipamentos') ? [
-          ...(!setor ? [{ href: '/equipamentos', label: 'Painel', icon: Gauge }] : []),
+          ...(!setorRestringe ? [{ href: '/equipamentos', label: 'Painel', icon: Gauge }] : []),
           { href: '/checklist',    label: 'Checklist', icon: ClipboardCheck },
           { href: '/historico',    label: 'Histórico', icon: History },
         ] : []),

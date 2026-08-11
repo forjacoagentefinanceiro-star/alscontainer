@@ -104,12 +104,13 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
 
   // admin sempre vê tudo; null = todos os módulos da role
   const podeVer = (key: string) => isAdmin || !modulos || modulos.includes(key)
-  // usuário com setor definido é operacional — não acessa o módulo de estoque (containers)
-  const podeVerEstoque = !setor && podeVer('estoque')
+  // setor no perfil restringe apenas editores/operadores — admin nunca perde acesso
+  const setorRestringe = !!setor && !isAdmin
+  const podeVerEstoque = !setorRestringe && podeVer('estoque')
   // Dashboard de containers (/dashboard) só para admin no estoque
   const estoqueItemsVisiveis = isAdmin ? estoqueItems : estoqueItems.filter(i => i.href !== '/dashboard')
-  // Painel global (/equipamentos) oculto para usuário com setor — visão filtrada via checklist/indicadores
-  const equipamentosItemsVisiveis = setor
+  // Painel global (/equipamentos) oculto para editor/operador com setor — visão filtrada via checklist/indicadores
+  const equipamentosItemsVisiveis = setorRestringe
     ? equipamentosItems.filter(i => i.href !== '/equipamentos')
     : equipamentosItems
 
