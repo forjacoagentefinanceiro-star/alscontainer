@@ -27,15 +27,15 @@ function Kpi({ k }: { k: KpiT }) {
     <div style={{
       background: '#0f2138',
       border: `1px solid ${k.destaque ? cor : 'rgba(255,255,255,0.06)'}`,
-      borderRadius: 14, padding: 16, minWidth: 0,
+      borderRadius: 14, padding: 12, minWidth: 0,
     }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>{k.label}</div>
+      <div style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>{k.label}</div>
       <div style={{
-        fontSize: k.compact ? 'clamp(14px, 3vw, 20px)' : 'clamp(22px, 5vw, 30px)',
+        fontSize: k.compact ? 'clamp(13px, 2.5vw, 17px)' : 'clamp(17px, 3.5vw, 22px)',
         fontWeight: 700, color: cor, lineHeight: 1.25,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{k.value}</div>
-      {k.sub && <div style={{ fontSize: 11, color: '#5f7da0', marginTop: 2 }}>{k.sub}</div>}
+      {k.sub && <div style={{ fontSize: 10, color: '#5f7da0', marginTop: 2 }}>{k.sub}</div>}
     </div>
   )
 }
@@ -153,77 +153,67 @@ function EstoqueCard({ estoque, podeGerenciar }: { estoque: EstoqueInfo; podeGer
     })
   }
 
-  return (
-    <div style={{ background: '#0f2138', border: `1px solid ${corOcup}44`, borderRadius: 16, padding: 18 }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>
-        Estoque atual — Depot
-      </div>
-      <div style={{ fontSize: 'clamp(24px,4vw,32px)', fontWeight: 700, color: '#e6eef7', lineHeight: 1.1 }}>
-        {nf.format(estoque.estoqueAtual)}
-        <span style={{ fontSize: 14, fontWeight: 400, color: '#5f7da0', marginLeft: 6 }}>containers</span>
-      </div>
-
-      {estoque.config && (
-        <div style={{ fontSize: 11, color: '#5f7da0', marginTop: 4 }}>
-          base {nf.format(estoque.config.estoqueInicial)} em {estoque.config.dataReferencia} · +entradas −saídas
-        </div>
-      )}
-
-      {estoque.capacidade > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 12, color: '#8ca5c8' }}>Ocupação</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: corOcup }}>
-              {pct != null ? `${pct}%` : '—'} · {nf.format(estoque.estoqueAtual)} / {nf.format(estoque.capacidade)} cap.
-            </span>
-          </div>
-          <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 999,
-              width: `${Math.min(100, Math.max(0, pct ?? 0))}%`,
-              background: corOcup, transition: 'width .4s'
-            }} />
-          </div>
-        </div>
-      )}
-
-      {podeGerenciar && !editando && (
-        <button onClick={abrir} style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: '#8ca5c8', background: 'rgba(255,255,255,0.04)', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
-          {estoque.config ? 'Editar configuração' : 'Configurar estoque'}
-        </button>
-      )}
-
-      {editando && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 4 }}>Estoque inicial</div>
-              <input type="number" min={0} value={estoqueIni} onChange={e => setEstoqueIni(e.target.value)} autoFocus
-                style={{ width: '100%', background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13 }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 4 }}>Capacidade total</div>
-              <input type="number" min={0} value={capacidade} onChange={e => setCapacidade(e.target.value)}
-                style={{ width: '100%', background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13 }} />
-            </div>
+  if (editando) {
+    return (
+      <div style={{ background: '#0f2138', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: 12, gridColumn: 'span 2' }}>
+        <div style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 8 }}>Configurar estoque</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 10, color: '#5f7da0', marginBottom: 3 }}>Estoque inicial</div>
+            <input type="number" min={0} value={estoqueIni} onChange={e => setEstoqueIni(e.target.value)} autoFocus
+              style={{ width: '100%', background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '5px 8px', color: '#e6eef7', fontSize: 12 }} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 4 }}>Data de referência (início da contagem)</div>
-            <input type="date" value={dataRef} onChange={e => setDataRef(e.target.value)}
-              style={{ background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13 }} />
+            <div style={{ fontSize: 10, color: '#5f7da0', marginBottom: 3 }}>Capacidade total</div>
+            <input type="number" min={0} value={capacidade} onChange={e => setCapacidade(e.target.value)}
+              style={{ width: '100%', background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '5px 8px', color: '#e6eef7', fontSize: 12 }} />
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button onClick={salvar} disabled={isPending}
-              style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}>
-              Salvar
-            </button>
-            <button onClick={() => setEditando(false)}
-              style={{ fontSize: 12, color: '#5f7da0', background: 'none', border: 'none', cursor: 'pointer' }}>
-              cancelar
-            </button>
-            {erro && <span style={{ fontSize: 12, color: '#f87171' }}>{erro}</span>}
+          <div>
+            <div style={{ fontSize: 10, color: '#5f7da0', marginBottom: 3 }}>Data de referência</div>
+            <input type="date" value={dataRef} onChange={e => setDataRef(e.target.value)}
+              style={{ background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, padding: '5px 8px', color: '#e6eef7', fontSize: 12, width: '100%' }} />
           </div>
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={salvar} disabled={isPending}
+            style={{ fontSize: 11, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '5px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}>
+            Salvar
+          </button>
+          <button onClick={() => setEditando(false)}
+            style={{ fontSize: 11, color: '#5f7da0', background: 'none', border: 'none', cursor: 'pointer' }}>
+            cancelar
+          </button>
+          {erro && <span style={{ fontSize: 11, color: '#f87171' }}>{erro}</span>}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ background: '#0f2138', border: `1px solid ${corOcup}55`, borderRadius: 14, padding: 12, minWidth: 0 }}>
+      <div style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>Estoque atual — Depot</div>
+      <div style={{ fontSize: 'clamp(17px, 3.5vw, 22px)', fontWeight: 700, color: '#e6eef7', lineHeight: 1.25 }}>
+        {nf.format(estoque.estoqueAtual)}
+        <span style={{ fontSize: 11, fontWeight: 400, color: '#5f7da0', marginLeft: 5 }}>containers</span>
+      </div>
+      {estoque.capacidade > 0 ? (
+        <>
+          <div style={{ fontSize: 10, color: corOcup, marginTop: 2, fontWeight: 600 }}>
+            {pct != null ? `${pct}% ocupação` : '—'} · cap. {nf.format(estoque.capacidade)}
+          </div>
+          <div style={{ marginTop: 5, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 999, width: `${Math.min(100, Math.max(0, pct ?? 0))}%`, background: corOcup }} />
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize: 10, color: '#5f7da0', marginTop: 2 }}>
+          {estoque.config ? `base ${nf.format(estoque.config.estoqueInicial)} em ${estoque.config.dataReferencia}` : 'sem configuração'}
+        </div>
+      )}
+      {podeGerenciar && (
+        <button onClick={abrir} style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: '#5f7da0', background: 'rgba(255,255,255,0.04)', padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+          editar
+        </button>
       )}
     </div>
   )
@@ -340,9 +330,10 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
         </div>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
+      {/* KPIs + Estoque */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
         {kpis.map(k => <Kpi key={k.label} k={k} />)}
+        <EstoqueCard estoque={estoque} podeGerenciar={podeGerenciar} />
       </div>
 
       {/* Abas */}
@@ -372,9 +363,6 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
         <p style={{ color: '#8ca5c8', fontSize: 13 }}>Você não tem abas liberadas no BI. Fale com o administrador.</p>
       ) : current === 'visao-geral' ? (
         <div style={{ display: 'grid', gap: 14 }}>
-          {/* Estoque + ocupação */}
-          <EstoqueCard estoque={estoque} podeGerenciar={podeGerenciar} />
-
           {/* Cards de comparação hoje vs mesmo dia mês passado */}
           {comparacaoDia && (
             <div>
