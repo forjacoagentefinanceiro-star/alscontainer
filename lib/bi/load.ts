@@ -37,6 +37,19 @@ export type ComparacaoDia = {
   faturamento: ComparacaoMetrica
 }
 
+export type ConfigEstoque = {
+  estoqueInicial: number
+  dataReferencia: string  // 'YYYY-MM-DD'
+  capacidade: number      // 0 = não configurado
+}
+
+export type EstoqueInfo = {
+  estoqueAtual: number
+  capacidade: number
+  pctOcupacao: number | null
+  config: ConfigEstoque | null
+}
+
 export type BiData = {
   empty: boolean
   ano: number
@@ -50,6 +63,7 @@ export type BiData = {
   faturamentoAnual: Grupo | null
   metasPorMes: Record<string, number>
   comparacaoDia: ComparacaoDia | null
+  estoque: EstoqueInfo
 }
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -142,8 +156,10 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   // usadas exclusivamente para comparacaoDia — evita duplicação com linhasLatest.
   const linhasHistorico = (rowsHistorico ?? []) as Linha[]
 
+  const estoqueVazio: EstoqueInfo = { estoqueAtual: 0, capacidade: 0, pctOcupacao: null, config: null }
+
   if (!linhasLatest.length) {
-    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {}, comparacaoDia: null }
+    return { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {}, comparacaoDia: null, estoque: estoqueVazio }
   }
 
   const ymdMeta = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date())
@@ -322,6 +338,31 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
   const atualizadoRaw = linhasLatest.reduce((max, l) => (l.captured_at > max ? l.captured_at : max), '')
   const atualizado = atualizadoRaw ? new Date(atualizadoRaw).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'
 
+  // Estoque atual = estoque_inicial + entradas desde data_referencia - saidas desde data_referencia
+  let estoque: EstoqueInfo = estoqueVazio
+  try {
+    const { data: estoqueRow } = await supabase.from('bi_config_estoque').select('*').eq('id', 1).maybeSingle()
+    if (estoqueRow) {
+      const cfg: ConfigEstoque = {
+        estoqueInicial: Number(estoqueRow.estoque_inicial ?? 0),
+        dataReferencia: String(estoqueRow.data_referencia),
+        capacidade: Number(estoqueRow.capacidade ?? 0),
+      }
+      const [anoRef, mesRefNum] = cfg.dataReferencia.split('-').map(Number)
+      const mIdxRef = mesRefNum - 1  // 0-based (janeiro=0)
+      let entradasDesdeRef = 0, saidasDesdeRef = 0
+      for (const [eixo, v] of entradasMes) {
+        if (anoRef < ano || (anoRef === ano && mesIdx(eixo) >= mIdxRef)) entradasDesdeRef += v
+      }
+      for (const [eixo, v] of saidasMes) {
+        if (anoRef < ano || (anoRef === ano && mesIdx(eixo) >= mIdxRef)) saidasDesdeRef += v
+      }
+      const estoqueAtual = Math.max(0, cfg.estoqueInicial + entradasDesdeRef - saidasDesdeRef)
+      const pctOcupacao = cfg.capacidade > 0 ? Math.round((estoqueAtual / cfg.capacidade) * 1000) / 10 : null
+      estoque = { estoqueAtual, capacidade: cfg.capacidade, pctOcupacao, config: cfg }
+    }
+  } catch { /* ignora se tabela ainda não existe */ }
+
   // Comparação "hoje vs mesmo dia do mês passado"
   const mesHoje = nomeMesDaData(dataHoje)
   const mesPassadoNome = nomeMesDaData(dataMesPassado)
@@ -365,5 +406,5 @@ export async function loadBiData(supabase: SupabaseClient): Promise<BiData> {
     faturamento: calcMetrica(fatHoje, fatPassado),
   }
 
-  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, metasPorMes, comparacaoDia }
+  return { empty: false, ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, metasPorMes, comparacaoDia, estoque }
 }

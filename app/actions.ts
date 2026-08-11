@@ -608,6 +608,24 @@ export async function getBarragensMonitoramento(): Promise<BarragemPonto[]> {
   return (data ?? []) as BarragemPonto[]
 }
 
+// ---- Configuração de estoque (BI) ----
+export async function setConfigEstoque(estoqueInicial: number, dataReferencia: string, capacidade: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: prof } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
+  const role = prof?.role as string | undefined
+  if (role !== 'admin' && role !== 'editor') return { error: 'Sem permissão.' }
+  if (!Number.isInteger(estoqueInicial) || estoqueInicial < 0) return { error: 'Estoque inicial inválido.' }
+  if (!Number.isInteger(capacidade) || capacidade < 0) return { error: 'Capacidade inválida.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataReferencia)) return { error: 'Data de referência inválida.' }
+  const { error } = await supabase.from('bi_config_estoque')
+    .upsert({ id: 1, estoque_inicial: estoqueInicial, data_referencia: dataReferencia, capacidade }, { onConflict: 'id' })
+  if (error) return { error: error.message }
+  revalidatePath('/bi')
+  return { error: null }
+}
+
 // ---- Meta de faturamento do mês (BI) ----
 // define a meta de um mês específico (qualquer mês, não só o atual — útil para navegar e ajustar meses anteriores)
 export async function setMetaMes(ano: number, mes: number, valor: number) {

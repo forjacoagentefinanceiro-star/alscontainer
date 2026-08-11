@@ -4,9 +4,9 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
-import type { Categoria, KpiT, Conferencia, Grupo, FaturamentoResumo } from '@/lib/bi/load'
+import type { Categoria, KpiT, Conferencia, Grupo, FaturamentoResumo, EstoqueInfo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
-import { setMetaMes } from '@/app/actions'
+import { setMetaMes, setConfigEstoque } from '@/app/actions'
 import type { ComparacaoDia, ComparacaoMetrica } from '@/lib/bi/load'
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -118,6 +118,117 @@ function MetaEditor({ ano, mes, metaMes, podeGerenciar }: { ano: number; mes: nu
   )
 }
 
+function EstoqueCard({ estoque, podeGerenciar }: { estoque: EstoqueInfo; podeGerenciar: boolean }) {
+  const [editando, setEditando] = useState(false)
+  const [estoqueIni, setEstoqueIni] = useState(String(estoque.config?.estoqueInicial ?? 0))
+  const [dataRef, setDataRef] = useState(estoque.config?.dataReferencia ?? new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }))
+  const [capacidade, setCapacidade] = useState(String(estoque.config?.capacidade ?? 0))
+  const [erro, setErro] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  const pct = estoque.pctOcupacao
+  const corOcup = pct == null ? '#5f7da0' : pct >= 90 ? '#ef4444' : pct >= 75 ? '#f59e0b' : '#7DC242'
+
+  function abrir() {
+    setEstoqueIni(String(estoque.config?.estoqueInicial ?? 0))
+    setDataRef(estoque.config?.dataReferencia ?? new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }))
+    setCapacidade(String(estoque.config?.capacidade ?? 0))
+    setErro(null)
+    setEditando(true)
+  }
+
+  function salvar() {
+    const ini = parseInt(estoqueIni)
+    const cap = parseInt(capacidade)
+    if (!Number.isInteger(ini) || ini < 0) { setErro('Estoque inicial inválido.'); return }
+    if (!Number.isInteger(cap) || cap < 0) { setErro('Capacidade inválida.'); return }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataRef)) { setErro('Data inválida.'); return }
+    setErro(null)
+    startTransition(async () => {
+      const res = await setConfigEstoque(ini, dataRef, cap)
+      if (res.error) { setErro(res.error); return }
+      setEditando(false)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div style={{ background: '#0f2138', border: `1px solid ${corOcup}44`, borderRadius: 16, padding: 18 }}>
+      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>
+        Estoque atual — Depot
+      </div>
+      <div style={{ fontSize: 'clamp(24px,4vw,32px)', fontWeight: 700, color: '#e6eef7', lineHeight: 1.1 }}>
+        {nf.format(estoque.estoqueAtual)}
+        <span style={{ fontSize: 14, fontWeight: 400, color: '#5f7da0', marginLeft: 6 }}>containers</span>
+      </div>
+
+      {estoque.config && (
+        <div style={{ fontSize: 11, color: '#5f7da0', marginTop: 4 }}>
+          base {nf.format(estoque.config.estoqueInicial)} em {estoque.config.dataReferencia} · +entradas −saídas
+        </div>
+      )}
+
+      {estoque.capacidade > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 12, color: '#8ca5c8' }}>Ocupação</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: corOcup }}>
+              {pct != null ? `${pct}%` : '—'} · {nf.format(estoque.estoqueAtual)} / {nf.format(estoque.capacidade)} cap.
+            </span>
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 999,
+              width: `${Math.min(100, Math.max(0, pct ?? 0))}%`,
+              background: corOcup, transition: 'width .4s'
+            }} />
+          </div>
+        </div>
+      )}
+
+      {podeGerenciar && !editando && (
+        <button onClick={abrir} style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: '#8ca5c8', background: 'rgba(255,255,255,0.04)', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+          {estoque.config ? 'Editar configuração' : 'Configurar estoque'}
+        </button>
+      )}
+
+      {editando && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 4 }}>Estoque inicial</div>
+              <input type="number" min={0} value={estoqueIni} onChange={e => setEstoqueIni(e.target.value)} autoFocus
+                style={{ width: '100%', background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 4 }}>Capacidade total</div>
+              <input type="number" min={0} value={capacidade} onChange={e => setCapacidade(e.target.value)}
+                style={{ width: '100%', background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13 }} />
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#5f7da0', marginBottom: 4 }}>Data de referência (início da contagem)</div>
+            <input type="date" value={dataRef} onChange={e => setDataRef(e.target.value)}
+              style={{ background: '#0d1b2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#e6eef7', fontSize: 13 }} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={salvar} disabled={isPending}
+              style={{ fontSize: 12, fontWeight: 600, color: '#0d1b2e', background: '#7DC242', padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}>
+              Salvar
+            </button>
+            <button onClick={() => setEditando(false)}
+              style={{ fontSize: 12, color: '#5f7da0', background: 'none', border: 'none', cursor: 'pointer' }}>
+              cancelar
+            </button>
+            {erro && <span style={{ fontSize: 12, color: '#f87171' }}>{erro}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ComparacaoCard({ label, metrica, formato }: { label: string; metrica: ComparacaoMetrica; formato: 'numero' | 'brl' }) {
   const fmt = formato === 'brl' ? brl.format : nf.format
   const corDelta = metrica.delta == null ? '#5f7da0' : metrica.delta > 0 ? '#7DC242' : metrica.delta < 0 ? '#f87171' : '#5f7da0'
@@ -176,9 +287,9 @@ function ConfCard({ c }: { c: Conferencia }) {
   )
 }
 
-export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar, metasPorMes, comparacaoDia }: {
+export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferencia, faturamentoResumo, faturamentoMensal, faturamentoAnual, abasPermitidas, podeGerenciar, metasPorMes, comparacaoDia, estoque }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]; conferencia: Conferencia[]; faturamentoResumo: FaturamentoResumo | null; faturamentoMensal: Grupo | null; faturamentoAnual: Grupo | null; abasPermitidas: string[] | null
-  podeGerenciar: boolean; metasPorMes: Record<string, number>; comparacaoDia: ComparacaoDia | null
+  podeGerenciar: boolean; metasPorMes: Record<string, number>; comparacaoDia: ComparacaoDia | null; estoque: EstoqueInfo
 }) {
   // navegação por mês na aba Faturamento (dentro do ano corrente, que é o que o robô extrai)
   // comparação por mês normalizado: os dados de faturamento (escala) e de movimentação (websag) podem vir com capitalização/acentos diferentes
@@ -261,6 +372,9 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
         <p style={{ color: '#8ca5c8', fontSize: 13 }}>Você não tem abas liberadas no BI. Fale com o administrador.</p>
       ) : current === 'visao-geral' ? (
         <div style={{ display: 'grid', gap: 14 }}>
+          {/* Estoque + ocupação */}
+          <EstoqueCard estoque={estoque} podeGerenciar={podeGerenciar} />
+
           {/* Cards de comparação hoje vs mesmo dia mês passado */}
           {comparacaoDia && (
             <div>
