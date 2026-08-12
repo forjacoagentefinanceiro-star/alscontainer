@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [desacordos, usosSemChecklist, problemas, barra] = podeGerenciar
     ? await Promise.all([getDesacordosAtivos(setor), getUsosSemChecklist(setor), getProblemasAtivos(setor), getBarraStatus()])
     : [[], [], [], null]
-  const tarefasAlerta = isAdmin ? await getDespachaAlertCounts(setor) : null
+  const tarefasAlerta = isAdmin ? await getDespachaAlertCounts() : null
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f0f2f5' }}>
