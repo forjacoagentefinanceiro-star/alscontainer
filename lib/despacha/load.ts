@@ -14,11 +14,13 @@ export type DespachaAlertCounts = {
 
 // Só aviso: conta as novas solicitações públicas (QR Code) ainda aguardando
 // tratativa, com alguns títulos para preview.
-export async function getDespachaAlertCounts(): Promise<DespachaAlertCounts | null> {
+// setor: quando fornecido, filtra apenas tarefas do setor do perfil do admin.
+export async function getDespachaAlertCounts(setor?: string | null): Promise<DespachaAlertCounts | null> {
   const res = await despachaFetch<DespachaTask[]>('/tasks?status=pendente&limit=50')
   if (!res.success) return null
 
-  const novasSolicitacoes = res.data.filter(t => t.source === 'publico' && t.needs_approval)
+  let novasSolicitacoes = res.data.filter(t => t.source === 'publico' && t.needs_approval)
+  if (setor) novasSolicitacoes = novasSolicitacoes.filter(t => !t.sector || t.sector.trim() === setor.trim())
   return {
     novas: novasSolicitacoes.length,
     titulos: novasSolicitacoes.slice(0, 5).map(t => t.title),

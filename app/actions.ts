@@ -598,14 +598,19 @@ export type BarragemPonto = {
 }
 
 export async function getBarragensMonitoramento(): Promise<BarragemPonto[]> {
-  const { createAdminClient } = await import('@/lib/supabase/admin')
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('barragens_monitoramento')
-    .select('*')
-    .order('nome')
-  if (error) console.error('[getBarragensMonitoramento]', error.message)
-  return (data ?? []) as BarragemPonto[]
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('barragens_monitoramento')
+      .select('*')
+      .order('nome')
+    if (error) console.error('[getBarragensMonitoramento]', error.message)
+    return (data ?? []) as BarragemPonto[]
+  } catch (e) {
+    console.warn('[getBarragensMonitoramento] erro:', e)
+    return []
+  }
 }
 
 // ---- Configuração de estoque (BI) ----
@@ -816,9 +821,10 @@ export type ResumoEquipamentos = {
 }
 
 // Retorna nomes dos equipamentos visíveis ao usuário atual, ou null se sem restrição de setor.
-// Admin: pode usar setorOverride livremente (filtro manual na UI); sem override vê tudo.
-// Editor SEM setor no perfil: mesmo comportamento do admin.
-// Qualquer role COM setor no perfil: sempre filtrado pelo setor (override ignorado — segurança).
+// Admin COM setor no perfil: setor do perfil é fixo (override ignorado).
+// Admin SEM setor no perfil: setorOverride opcional, senão vê tudo.
+// Editor/qualquer role COM setor no perfil: sempre filtrado pelo setor do perfil (segurança).
+// Editor SEM setor: setorOverride opcional, senão vê tudo.
 async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<string[] | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -827,10 +833,11 @@ async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<s
   const role = (prof as { role?: string; setor?: string } | null)?.role ?? null
   const setor = (prof as { role?: string; setor?: string } | null)?.setor ?? null
 
-  // Admin sem setor no perfil: override opcional, senão vê tudo
   if (role === 'admin') {
-    if (!setorOverride) return null
-    const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', setorOverride)
+    // setor do perfil tem prioridade sobre override — é a escolha permanente do admin
+    const efetivo = setor ?? setorOverride
+    if (!efetivo) return null
+    const { data: emps } = await supabase.from('empilhadeiras').select('nome').eq('setor', efetivo)
     return (emps ?? []).map(e => e.nome as string)
   }
 
@@ -857,9 +864,11 @@ async function notificarTelegramSetor(mensagem: string, setorNome: string | null
   if (!token) return
   const chatIds = new Set<string>()
 
-  // Global sempre incluído — mantém comportamento original que já funcionava
+  // Env var global só entra em alertas sem setor específico.
+  // Quando há setor, a filtragem acontece via user_profiles (abaixo) para
+  // não vazar alertas de outros setores para admins com setor fixo.
   const globalId = process.env.TELEGRAM_CHAT_ID
-  if (globalId) chatIds.add(globalId)
+  if (globalId && !setorNome) chatIds.add(globalId)
 
   // Editores do setor com telegram_chat_id configurado
   if (setorNome) {
@@ -870,14 +879,19 @@ async function notificarTelegramSetor(mensagem: string, setorNome: string | null
     for (const ed of editores ?? []) chatIds.add(ed.telegram_chat_id as string)
   }
 
-  // Admins com telegram_chat_id pessoal (filtrado por telegram_setores se configurado)
+  // Admins com telegram_chat_id pessoal (filtrado por setor do perfil e/ou telegram_setores)
   const { data: admins } = await supabase
-    .from('user_profiles').select('telegram_chat_id, telegram_setores')
+    .from('user_profiles').select('telegram_chat_id, telegram_setores, setor')
     .eq('role', 'admin').eq('approved', true)
     .not('telegram_chat_id', 'is', null)
   for (const adm of admins ?? []) {
     const ts = adm.telegram_setores as string[] | null
-    if (!ts || !ts.length || (setorNome ? ts.includes(setorNome) : true)) {
+    const adSetor = adm.setor as string | null
+    // setor do perfil do admin restringe quais alertas ele recebe
+    const passaSetor = !adSetor || !setorNome || adSetor === setorNome
+    // telegram_setores é um filtro adicional (lista explícita)
+    const passaTgSetores = !ts || !ts.length || (setorNome ? ts.includes(setorNome) : true)
+    if (passaSetor && passaTgSetores) {
       chatIds.add(adm.telegram_chat_id as string)
     }
   }
@@ -1817,9 +1831,9 @@ export async function reportarProblema(checklistId: string, descricao: string, p
 
 export type ProblemaEquipamento = OperacaoEvento & { equipamento: string; operador: string }
 
-export async function getProblemasAtivos(): Promise<ProblemaEquipamento[]> {
+export async function getProblemasAtivos(setorOverride?: string | null): Promise<ProblemaEquipamento[]> {
   const supabase = await createClient()
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorOverride)
   let q = supabase
     .from('operacao_eventos')
     .select('*, checklists(equipamento, operador)')
@@ -1949,9 +1963,9 @@ export async function setChecklistExcluirIndicadores(checklistId: string, exclui
 }
 
 // ---- Alertas de desacordo (pendências do checklist, para admin/gestor) ----
-export async function getDesacordosAtivos(): Promise<Checklist[]> {
+export async function getDesacordosAtivos(setorOverride?: string | null): Promise<Checklist[]> {
   const supabase = await createClient()
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorOverride)
   let q = supabase.from('checklists').select('*').eq('tem_pendencia', true).eq('pendencia_resolvida', false).order('created_at', { ascending: false }).limit(50)
   if (filtroNomes) q = q.in('equipamento', filtroNomes)
   const { data } = await q
@@ -1979,9 +1993,9 @@ export type UsoSemChecklist = {
   horimetro: number | null; motivo: string | null; horas_gap: number | null; created_at: string
 }
 
-export async function getUsosSemChecklist(): Promise<UsoSemChecklist[]> {
+export async function getUsosSemChecklist(setorOverride?: string | null): Promise<UsoSemChecklist[]> {
   const supabase = await createClient()
-  const filtroNomes = await filtroEquipamentosSetor()
+  const filtroNomes = await filtroEquipamentosSetor(setorOverride)
   let q = supabase
     .from('operacao_eventos')
     .select('id, checklist_id, horimetro, motivo, horas_gap, created_at, checklists(equipamento, operador)')

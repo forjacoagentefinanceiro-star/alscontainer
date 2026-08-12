@@ -15,7 +15,7 @@ export default async function TvPage() {
   const [ano, mesN] = mesAtual.split('-').map(Number)
   const inicio = new Date(`${ano}-${String(mesN).padStart(2, '0')}-01T00:00:00-03:00`).toISOString()
 
-  const [d, dash, ciclo, cfgCiclo, barra, barragens] = await Promise.all([
+  const results = await Promise.allSettled([
     loadBiData(supabase),
     getDashboardEquipamentos(inicio, null),
     getHorasCicloAtual(),
@@ -23,6 +23,12 @@ export default async function TvPage() {
     getBarraStatus(),
     getBarragensMonitoramento(),
   ])
+  const d        = results[0].status === 'fulfilled' ? results[0].value : { empty: true, ano: new Date().getFullYear(), atualizado: '—', kpis: [], trend: [], categorias: [], conferencia: [], faturamentoResumo: null, faturamentoMensal: null, faturamentoAnual: null, metasPorMes: {}, comparacaoDia: null, estoque: { estoqueAtual: 0, capacidade: 0, pctOcupacao: null, config: null } }
+  const dash     = results[1].status === 'fulfilled' ? results[1].value : undefined
+  const ciclo    = results[2].status === 'fulfilled' ? results[2].value : undefined
+  const cfgCiclo = results[3].status === 'fulfilled' ? results[3].value : undefined
+  const barra    = results[4].status === 'fulfilled' ? results[4].value : null
+  const barragens = results[5].status === 'fulfilled' ? results[5].value : []
 
   if (d.empty) {
     return (

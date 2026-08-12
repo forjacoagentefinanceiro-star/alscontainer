@@ -1,4 +1,4 @@
-import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo, getIndicadoresPorPrestador, getSetores } from '@/app/actions'
+import { getDashboardEquipamentos, getHorasCicloAtual, getConsumoMensal, getConfigCiclo, getIndicadoresPorPrestador, getSetores, getMyProfile } from '@/app/actions'
 import { IndicadoresFiltro } from '@/components/IndicadoresFiltro'
 import { SetorFiltro } from '@/components/SetorFiltro'
 import { IndicadoresCharts } from '@/components/IndicadoresCharts'
@@ -7,6 +7,7 @@ import { LiveRefresh } from '@/components/LiveRefresh'
 import { MetaHorasCicloEditor } from '@/components/MetaHorasCicloEditor'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -71,14 +72,20 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
     : new Date(`${ano}-${String(mesN + 1).padStart(2, '0')}-01T00:00:00-03:00`).toISOString()
   const fim = mes === mesAtual ? null : fimISO
   const mesLabel = `${NOMES_MES[mesN - 1]} ${ano}`
-  const setor = setorParam || null
+
+  // Perfil carregado antes para determinar setor efetivo
+  const perfil = await getMyProfile()
+  // Setor do perfil tem prioridade sobre URL param — é a escolha permanente do usuário
+  const setor = perfil?.setor ?? setorParam ?? null
+  // Seletor de setor visível apenas quando o setor não está fixo no perfil
+  const podeFiltrárSetor = !perfil?.setor
 
   const results = await Promise.allSettled([
     getDashboardEquipamentos(inicio, fim, setor),
     getHorasCicloAtual(setor),
     getConsumoMensal(6, setor),
     getConfigCiclo(setor),
-    import('@/app/actions').then(m => m.getMyProfile()),
+    Promise.resolve(perfil),
     getIndicadoresPorPrestador(inicio, fim, setor),
     getSetores(),
   ])
@@ -92,7 +99,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
   const ciclo    = results[1].status === 'fulfilled' ? results[1].value : vciclo
   const consumoMensal = results[2].status === 'fulfilled' ? results[2].value : { meses: [], equipamentos: [], pontos: [] }
   const cfgCiclo = results[3].status === 'fulfilled' ? results[3].value : { metaHoras: 0, diaInicio: 23 }
-  const perfil   = results[4].status === 'fulfilled' ? results[4].value : null
+  // results[4] = perfil (já carregado acima, reutilizado no allSettled para consistência)
   const prestadores = results[5].status === 'fulfilled' ? results[5].value : []
   const setores  = results[6].status === 'fulfilled' ? results[6].value : []
   const { metaHoras, diaInicio } = cfgCiclo
@@ -112,15 +119,15 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
 
       <div className="flex items-center gap-4 flex-wrap mb-3">
         <IndicadoresFiltro />
-        {gestor && setores.length > 0 && (
+        {gestor && setores.length > 0 && podeFiltrárSetor && (
           <SetorFiltro setores={setores} setorAtual={setor ?? undefined} />
         )}
+        {setor && !podeFiltrárSetor && (
+          <div className="text-xs font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5" style={{ background: '#eff6ff', color: '#1B4F8A', border: '1px solid #bfdbfe' }}>
+            Setor fixo: <strong>{setor}</strong>
+          </div>
+        )}
       </div>
-      {setor && (
-        <div className="mb-4 text-xs font-medium px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5" style={{ background: '#eff6ff', color: '#1B4F8A', border: '1px solid #bfdbfe' }}>
-          <span>Setor:</span> <strong>{setor}</strong>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-6xl mb-3">
         <CicloCard horasTrabalhadas={ciclo.horasTrabalhadas} mesLabel={ciclo.mesLabel} meta={metaHoras} diaInicio={diaInicio} gestor={gestor} setor={setor} />
