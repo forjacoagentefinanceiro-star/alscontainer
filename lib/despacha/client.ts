@@ -14,8 +14,11 @@ export async function despachaFetch<T>(path: string, init?: RequestInit): Promis
   const isRead = !init?.method || init.method === 'GET'
 
   try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 3000)
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
+      signal: controller.signal,
       ...(isRead ? { next: { revalidate: 60 } } : { cache: 'no-store' }),
       headers: {
         'X-API-Key': apiKey,
@@ -23,6 +26,7 @@ export async function despachaFetch<T>(path: string, init?: RequestInit): Promis
         ...init?.headers,
       },
     })
+    clearTimeout(timer)
     const body = await res.json()
     if (!res.ok || !body.success) {
       return { success: false, error: body?.error ?? `Erro ${res.status}` }

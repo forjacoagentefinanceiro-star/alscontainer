@@ -28,6 +28,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const setor = (profile as Record<string, unknown> | null)?.setor as string | null ?? null
   const podeGerenciar = role === 'admin' || role === 'editor'
   const isAdmin = role === 'admin'
+
+  // Inicia DespachaApp em paralelo com as queries do Supabase (evita wait serial)
+  const despachaPromise = isAdmin
+    ? getDespachaAlertCounts().catch(() => null)
+    : Promise.resolve(null)
+
   let desacordos: Awaited<ReturnType<typeof getDesacordosAtivos>> = []
   let usosSemChecklist: Awaited<ReturnType<typeof getUsosSemChecklist>> = []
   let problemas: Awaited<ReturnType<typeof getProblemasAtivos>> = []
@@ -44,10 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (res[2].status === 'fulfilled') problemas = res[2].value
     if (res[3].status === 'fulfilled') barra = res[3].value
   }
-  let tarefasAlerta: Awaited<ReturnType<typeof getDespachaAlertCounts>> = null
-  if (isAdmin) {
-    try { tarefasAlerta = await getDespachaAlertCounts() } catch { tarefasAlerta = null }
-  }
+  const tarefasAlerta = await despachaPromise
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f0f2f5' }}>
