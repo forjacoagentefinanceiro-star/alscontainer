@@ -28,10 +28,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const setor = (profile as Record<string, unknown> | null)?.setor as string | null ?? null
   const podeGerenciar = role === 'admin' || role === 'editor'
   const isAdmin = role === 'admin'
-  const [desacordos, usosSemChecklist, problemas, barra] = podeGerenciar
-    ? await Promise.all([getDesacordosAtivos(setor), getUsosSemChecklist(setor), getProblemasAtivos(setor), getBarraStatus()])
-    : [[], [], [], null]
-  const tarefasAlerta = isAdmin ? await getDespachaAlertCounts() : null
+  let desacordos: Awaited<ReturnType<typeof getDesacordosAtivos>> = []
+  let usosSemChecklist: Awaited<ReturnType<typeof getUsosSemChecklist>> = []
+  let problemas: Awaited<ReturnType<typeof getProblemasAtivos>> = []
+  let barra: Awaited<ReturnType<typeof getBarraStatus>> = null
+  if (podeGerenciar) {
+    const res = await Promise.allSettled([
+      getDesacordosAtivos(setor),
+      getUsosSemChecklist(setor),
+      getProblemasAtivos(setor),
+      getBarraStatus(),
+    ])
+    if (res[0].status === 'fulfilled') desacordos = res[0].value
+    if (res[1].status === 'fulfilled') usosSemChecklist = res[1].value
+    if (res[2].status === 'fulfilled') problemas = res[2].value
+    if (res[3].status === 'fulfilled') barra = res[3].value
+  }
+  let tarefasAlerta: Awaited<ReturnType<typeof getDespachaAlertCounts>> = null
+  if (isAdmin) {
+    try { tarefasAlerta = await getDespachaAlertCounts() } catch { tarefasAlerta = null }
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f0f2f5' }}>
