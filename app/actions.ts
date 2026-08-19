@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient, OPERADOR_DOMINIO } from '@/lib/supabase/admin'
 import { notificarTelegram } from '@/lib/telegram'
@@ -825,7 +826,7 @@ export type ResumoEquipamentos = {
 // Admin SEM setor no perfil: setorOverride opcional, senão vê tudo.
 // Editor/qualquer role COM setor no perfil: sempre filtrado pelo setor do perfil (segurança).
 // Editor SEM setor: setorOverride opcional, senão vê tudo.
-async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<string[] | null> {
+const filtroEquipamentosSetor = cache(async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<string[] | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -855,7 +856,7 @@ async function filtroEquipamentosSetor(setorOverride?: string | null): Promise<s
   }
 
   return null
-}
+})
 
 // Envia alerta Telegram ao TELEGRAM_CHAT_ID global (sempre) + editores do setor + admins configurados.
 // Admin: telegram_setores null = recebe todos os setores; array = só os listados.
@@ -1967,7 +1968,10 @@ export async function getDesacordosAtivos(setorOverride?: string | null): Promis
   const supabase = await createClient()
   const filtroNomes = await filtroEquipamentosSetor(setorOverride)
   let q = supabase.from('checklists').select('*').eq('tem_pendencia', true).eq('pendencia_resolvida', false).order('created_at', { ascending: false }).limit(50)
-  if (filtroNomes) q = q.in('equipamento', filtroNomes)
+  if (filtroNomes) {
+    if (!filtroNomes.length) return []
+    q = q.in('equipamento', filtroNomes)
+  }
   const { data } = await q
   const lista = (data ?? []) as Checklist[]
   if (!lista.length) return lista
