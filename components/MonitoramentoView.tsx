@@ -189,9 +189,13 @@ function RioCard({ ponto }: { ponto: BarragemPonto }) {
                 style={{ left: `${Math.round((cota.valor / 9.0) * 100)}%`, background: cota.cor }} />
             ))}
           </div>
-          <div className="flex justify-between mt-1">
+          <div className="relative h-3 mt-1">
             {cotas.map(cota => (
-              <span key={cota.valor} className="text-[9px]" style={{ color: cota.cor }}>
+              <span key={cota.valor} className="absolute text-[9px]" style={{
+                left: `${Math.round((cota.valor / 9.0) * 100)}%`,
+                transform: 'translateX(-50%)',
+                color: cota.cor,
+              }}>
                 {cota.valor}m
               </span>
             ))}
