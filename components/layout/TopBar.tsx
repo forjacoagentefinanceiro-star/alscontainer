@@ -26,6 +26,8 @@ function classCor(status: string): StatusCor {
   const s = status.toLowerCase()
   if (s.includes('fechad'))
     return { bg: '#fef2f2', border: '#fca5a5', label: 'FECHADA', icon: '🔴', textColor: '#991b1b', dot: '#ef4444' }
+  if (s.includes('impraticáv') || s.includes('impraticav'))
+    return { bg: '#fef2f2', border: '#fca5a5', label: 'IMPRATICÁVEL', icon: '🔴', textColor: '#991b1b', dot: '#ef4444' }
   if (s.includes('restri'))
     return { bg: '#fffbeb', border: '#fde68a', label: 'PRATICÁVEL c/ restrições', icon: '🟡', textColor: '#92400e', dot: '#f59e0b' }
   if (s.includes('praticáv') || s.includes('praticav'))
