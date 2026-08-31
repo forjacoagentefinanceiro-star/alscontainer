@@ -352,20 +352,33 @@ async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
 
     const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
       const txt = document.body.innerText ?? "";
+      const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
 
-      // Grafana stat: o nível é o número mais proeminente na página (< 20 m)
+      // Estratégia 1: valor logo após a linha "Nível do Rio" na tabela "Situação Atual"
+      // Evita pegar o nível do banner de previsão que aparece antes na página
       let nivel: string | null = null;
-      const pats = [
-        /(\d{1,2}[,.]\d{2})\s*m\b/i,
-        /nível[^\d]{0,30}(\d{1,2}[,.]\d+)/i,
-        /rio[^\d]{0,30}(\d{1,2}[,.]\d+)/i,
-        /(\d{1,2}[,.]\d+)/,
-      ];
-      for (const pat of pats) {
-        const m = txt.match(pat);
-        if (m) {
-          const n = parseFloat(m[1].replace(",", "."));
-          if (n > 0 && n < 20) { nivel = m[1]; break; }
+      for (let i = 0; i < lines.length; i++) {
+        if (/^n[ií]vel do rio$/i.test(lines[i])) {
+          for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+            const m = lines[j].match(/^(\d{1,2}[,.]\d{2})\s*m?$/i);
+            if (m) {
+              const n = parseFloat(m[1].replace(",", "."));
+              if (n > 0 && n < 20) { nivel = m[1]; break; }
+            }
+          }
+          if (nivel) break;
+        }
+      }
+
+      // Estratégia 2: fallback — primeiro X,XXm que não está numa linha de previsão
+      if (!nivel) {
+        for (const line of lines) {
+          if (/previs[aã]o|alcance|projeç/i.test(line)) continue; // pula linhas de banner
+          const m = line.match(/(\d{1,2}[,.]\d{2})\s*m\b/i);
+          if (m) {
+            const n = parseFloat(m[1].replace(",", "."));
+            if (n > 0 && n < 20) { nivel = m[1]; break; }
+          }
         }
       }
 
