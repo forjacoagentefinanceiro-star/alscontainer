@@ -141,13 +141,15 @@ function RioCard({ ponto }: { ponto: BarragemPonto }) {
   const c = cor(status)
   const nivel = ponto.nivel_m ? parseFloat(ponto.nivel_m.replace(',', '.')) : null
 
-  // Cotas do Rio Itajaí em Blumenau
+  // Cotas do Rio Itajaí em Blumenau (máx histórico ~17m; escala até 20m)
+  const MAX_RIO = 20.0
   const cotas = [
-    { label: 'Atenção',     valor: 5.5,  cor: '#d97706' },
-    { label: 'Alerta',      valor: 7.0,  cor: '#ea580c' },
-    { label: 'Emergência',  valor: 9.0,  cor: '#dc2626' },
+    { label: 'Atenção',    valor: 5.5,  cor: '#d97706' },
+    { label: 'Alerta',     valor: 7.0,  cor: '#ea580c' },
+    { label: 'Emergência', valor: 9.0,  cor: '#dc2626' },
+    { label: '20m',        valor: 20.0, cor: '#6b7280' },
   ]
-  const pctBarra = nivel ? Math.min(100, Math.round((nivel / 9.0) * 100)) : null
+  const pctBarra = nivel ? Math.min(100, Math.round((nivel / MAX_RIO) * 100)) : null
 
   return (
     <div className="rounded-xl p-4" style={{ background: c.bg, border: `1px solid ${c.border}` }}>
@@ -186,13 +188,13 @@ function RioCard({ ponto }: { ponto: BarragemPonto }) {
             {cotas.map(cota => (
               <div key={cota.valor}
                 className="absolute top-0 bottom-0 w-px"
-                style={{ left: `${Math.round((cota.valor / 9.0) * 100)}%`, background: cota.cor }} />
+                style={{ left: `${Math.round((cota.valor / MAX_RIO) * 100)}%`, background: cota.cor }} />
             ))}
           </div>
           <div className="relative h-3 mt-1">
             {cotas.map(cota => (
               <span key={cota.valor} className="absolute text-[9px]" style={{
-                left: `${Math.round((cota.valor / 9.0) * 100)}%`,
+                left: `${Math.round((cota.valor / MAX_RIO) * 100)}%`,
                 transform: 'translateX(-50%)',
                 color: cota.cor,
               }}>
