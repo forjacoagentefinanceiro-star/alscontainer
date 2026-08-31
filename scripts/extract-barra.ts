@@ -16,9 +16,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const SITE = "https://praticoszp21.com.br/";
 const TG_TOKEN = process.env.TELEGRAM_TOKEN ?? "";
-// TELEGRAM_BARRA_CHAT_IDS: destinatários da notificação de mudança da barra (vírgula separados).
-// Fallback para TELEGRAM_CHAT_ID se não configurado.
-const TG_CHATS_BARRA = (process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
+// Destinatários: TELEGRAM_BARRA_CHAT_IDS → TELEGRAM_BARRAGENS_CHAT_IDS → TELEGRAM_CHAT_ID
+const TG_CHATS_BARRA = (process.env.TELEGRAM_BARRA_CHAT_IDS || process.env.TELEGRAM_BARRAGENS_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
   .split(",").map(s => s.trim()).filter(Boolean);
 // TELEGRAM_CHAT_ID continua sendo usado apenas para notificação de falha no workflow
 const TG_CHAT = process.env.TELEGRAM_CHAT_ID ?? "";
