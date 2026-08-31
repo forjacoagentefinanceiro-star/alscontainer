@@ -247,12 +247,12 @@ async function extrairBarragensDCSC(browser: Browser): Promise<Ponto[]> {
 
   try {
     console.log("[barragens] acessando", DASHBOARD_URL);
-    await page.goto(DASHBOARD_URL, { waitUntil: "networkidle", timeout: 60000 });
-    // Aguarda o conteúdo React renderizar (cards com "Montante" visíveis)
+    await page.goto(DASHBOARD_URL, { waitUntil: "load", timeout: 60000 });
+    // Aguarda React renderizar os cards (elemento "Montante" aparece quando os dados carregam)
     await page.waitForSelector('text=Montante', { timeout: 30000 }).catch(() =>
       console.warn("[barragens] timeout aguardando cards — lendo DOM assim mesmo")
     );
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
     // Tentativa 1: API JSON interceptada
     for (const { url, data } of apiCaptures) {
