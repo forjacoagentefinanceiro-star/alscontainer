@@ -18,9 +18,10 @@ function fmtHora(iso: string | null): string {
   })
 }
 
-function statusBarra(profundidade: string): 'fechado' | 'restrito' | 'praticavel' | 'desconhecido' {
+function statusBarra(profundidade: string): 'fechado' | 'impraticavel' | 'restrito' | 'praticavel' | 'desconhecido' {
   const s = profundidade.toLowerCase()
   if (s.includes('fechad')) return 'fechado'
+  if (s.includes('impraticáv') || s.includes('impraticav')) return 'impraticavel'
   if (s.includes('restri') || s.includes('condicion')) return 'restrito'
   if (s.includes('praticáv') || s.includes('praticav')) return 'praticavel'
   return 'desconhecido'
@@ -32,6 +33,7 @@ const COR_STATUS: Record<string, { bg: string; border: string; dot: string; labe
   alerta:      { bg: '#fff7ed', border: '#fed7aa', dot: '#ea580c', label: 'Alerta',      text: '#c2410c' },
   emergencia:  { bg: '#fef2f2', border: '#fecaca', dot: '#dc2626', label: 'Crítica',     text: '#b91c1c' },
   praticavel:  { bg: '#f0fdf4', border: '#86efac', dot: '#16a34a', label: 'Praticável',  text: '#15803d' },
+  impraticavel:{ bg: '#fef2f2', border: '#fecaca', dot: '#dc2626', label: 'Impraticável', text: '#b91c1c' },
   restrito:    { bg: '#fefce8', border: '#fde68a', dot: '#d97706', label: 'Restrito',    text: '#92400e' },
   fechado:     { bg: '#fef2f2', border: '#fecaca', dot: '#dc2626', label: 'Fechado',     text: '#b91c1c' },
   desconhecido:{ bg: '#f9fafb', border: '#e5e7eb', dot: '#9ca3af', label: 'Sem dados',   text: '#6b7280' },
