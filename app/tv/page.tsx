@@ -43,6 +43,7 @@ export default async function TvPage() {
       ano={d.ano} atualizado={d.atualizado} kpis={d.kpis} trend={d.trend} categorias={d.categorias}
       equipamentos={dash} ciclo={ciclo} configCiclo={cfgCiclo}
       barra={barra} barragens={barragens}
+      estoque={d.estoque}
     />
   )
 }

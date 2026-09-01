@@ -52,15 +52,42 @@ function Card({ titulo, sub, children }: { titulo: string; sub?: string; childre
 // ─── Slide Clima ────────────────────────────────────────────────────────────
 
 const COR_CLIMA = {
-  normal:       { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', dot: '#22c55e', label: 'Normal',     text: '#4ade80' },
-  atencao:      { bg: 'rgba(217,119,6,0.15)',   border: '#d97706', dot: '#f59e0b', label: 'Atenção',    text: '#fbbf24' },
-  alerta:       { bg: 'rgba(234,88,12,0.15)',   border: '#ea580c', dot: '#f97316', label: 'Alerta',     text: '#fb923c' },
-  emergencia:   { bg: 'rgba(220,38,38,0.15)',   border: '#dc2626', dot: '#ef4444', label: 'Crítica',    text: '#f87171' },
-  praticavel:   { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', dot: '#22c55e', label: 'Praticável', text: '#4ade80' },
-  restrito:     { bg: 'rgba(217,119,6,0.15)',   border: '#d97706', dot: '#f59e0b', label: 'Restrito',   text: '#fbbf24' },
-  fechado:      { bg: 'rgba(220,38,38,0.15)',   border: '#dc2626', dot: '#ef4444', label: 'Fechado',    text: '#f87171' },
-  desconhecido: { bg: 'rgba(156,163,175,0.1)', border: '#374151', dot: '#6b7280', label: 'Sem dados',  text: '#9ca3af' },
+  normal:       { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', dot: '#22c55e', label: 'Normal',       text: '#4ade80' },
+  atencao:      { bg: 'rgba(217,119,6,0.15)',  border: '#d97706', dot: '#f59e0b', label: 'Atenção',      text: '#fbbf24' },
+  alerta:       { bg: 'rgba(234,88,12,0.15)',  border: '#ea580c', dot: '#f97316', label: 'Alerta',       text: '#fb923c' },
+  emergencia:   { bg: 'rgba(220,38,38,0.15)',  border: '#dc2626', dot: '#ef4444', label: 'Crítica',      text: '#f87171' },
+  praticavel:   { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', dot: '#22c55e', label: 'Praticável',   text: '#4ade80' },
+  impraticavel: { bg: 'rgba(220,38,38,0.15)',  border: '#dc2626', dot: '#ef4444', label: 'Impraticável', text: '#f87171' },
+  restrito:     { bg: 'rgba(217,119,6,0.15)',  border: '#d97706', dot: '#f59e0b', label: 'Restrito',     text: '#fbbf24' },
+  fechado:      { bg: 'rgba(220,38,38,0.15)',  border: '#dc2626', dot: '#ef4444', label: 'Fechado',      text: '#f87171' },
+  desconhecido: { bg: 'rgba(156,163,175,0.1)', border: '#374151', dot: '#6b7280', label: 'Sem dados',    text: '#9ca3af' },
 } as const
+
+const RIO_CONFIG_CLIMA: Record<string, { max: number; label: string; cotas: { valor: number; cor: string; label: string }[] }> = {
+  rio_blumenau: {
+    max: 20.0, label: 'Rio Itajaí · Blumenau',
+    cotas: [
+      { valor: 5.5, cor: '#d97706', label: 'Atenção 5.5m' },
+      { valor: 7.0, cor: '#ea580c', label: 'Alerta 7m' },
+      { valor: 9.0, cor: '#dc2626', label: 'Emergência 9m' },
+    ],
+  },
+  rio_brusque: {
+    max: 12.0, label: 'Rio Itajaí-Mirim · Brusque',
+    cotas: [
+      { valor: 3.5, cor: '#d97706', label: 'Atenção 3.5m' },
+      { valor: 6.0, cor: '#dc2626', label: 'Emergência 6m' },
+    ],
+  },
+  rio_murta: {
+    max: 3.0, label: 'Ribeirão da Murta · Itajaí',
+    cotas: [
+      { valor: 1.22, cor: '#d97706', label: 'Atenção 1.22m' },
+      { valor: 1.42, cor: '#ea580c', label: 'Alerta 1.42m' },
+      { valor: 1.62, cor: '#dc2626', label: 'Emergência 1.62m' },
+    ],
+  },
+}
 
 type CorClimaKey = keyof typeof COR_CLIMA
 function corClima(s: string | null): typeof COR_CLIMA[CorClimaKey] {
@@ -70,6 +97,7 @@ function corClima(s: string | null): typeof COR_CLIMA[CorClimaKey] {
 function statusBarraClima(profundidade: string): string {
   const s = profundidade.toLowerCase()
   if (s.includes('fechad')) return 'fechado'
+  if (s.includes('impraticáv') || s.includes('impraticav')) return 'impraticavel'
   if (s.includes('restri') || s.includes('condicion')) return 'restrito'
   if (s.includes('praticáv') || s.includes('praticav')) return 'praticavel'
   return 'desconhecido'
@@ -83,13 +111,13 @@ function fmtHoraClima(iso: string | null): string {
 }
 
 function SlideClima({ barra, barragens }: { barra: BarraStatus | null; barragens: BarragemPonto[] }) {
-  const rio = barragens.find(p => p.tipo === 'rio')
+  const rios = barragens.filter(p => p.tipo === 'rio')
   const barragensLista = barragens.filter(p => p.tipo === 'barragem')
 
   const statusBarraChan = barra ? statusBarraClima(barra.profundidade) : 'desconhecido'
   const todosStatus = [
     statusBarraChan,
-    ...(rio ? [rio.status ?? 'desconhecido'] : []),
+    ...rios.map(r => r.status ?? 'desconhecido'),
     ...barragensLista.map(p => p.status ?? 'desconhecido'),
   ]
   const ordem = ['emergencia', 'alerta', 'atencao', 'normal', 'desconhecido']
@@ -99,12 +127,6 @@ function SlideClima({ barra, barragens }: { barra: BarraStatus | null; barragens
 
   const cBarra = corClima(statusBarraChan)
   const barraCondicao = barra?.profundidade?.split('·')[0]?.trim() ?? '—'
-
-  const cRio = corClima(rio?.status ?? null)
-  const nivelRio = rio?.nivel_m ?? '—'
-  const pctRio = rio?.nivel_m
-    ? Math.min(100, Math.round((parseFloat(rio.nivel_m.replace(',', '.')) / 9.0) * 100))
-    : null
 
   return (
     <div>
@@ -120,8 +142,8 @@ function SlideClima({ barra, barragens }: { barra: BarraStatus | null; barragens
         </div>
       )}
 
-      {/* Barra + Rio lado a lado */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(10px,1.2vw,18px)' }}>
+      {/* Barra + todos os rios */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(10px,1.2vw,18px)' }}>
         <div style={{ background: cBarra.bg, border: `2px solid ${cBarra.border}`, borderRadius: 16, padding: 'clamp(12px,1.4vw,20px)' }}>
           <div style={{ fontSize: 'clamp(10px,0.85vw,13px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>Barra do Itajaí</div>
           <div style={{ fontSize: 'clamp(20px,2.4vw,34px)', fontWeight: 700, color: cBarra.text }}>{barraCondicao}</div>
@@ -135,30 +157,49 @@ function SlideClima({ barra, barragens }: { barra: BarraStatus | null; barragens
           )}
         </div>
 
-        {rio && (
-          <div style={{ background: cRio.bg, border: `2px solid ${cRio.border}`, borderRadius: 16, padding: 'clamp(12px,1.4vw,20px)' }}>
-            <div style={{ fontSize: 'clamp(10px,0.85vw,13px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>Rio Itajaí · Blumenau</div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-              <div style={{ fontSize: 'clamp(32px,4vw,60px)', fontWeight: 900, color: cRio.text, lineHeight: 1 }}>{nivelRio}</div>
-              <div style={{ fontSize: 'clamp(16px,1.8vw,24px)', fontWeight: 700, color: cRio.text, marginBottom: 3 }}>m</div>
-            </div>
-            {pctRio !== null && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                  <div style={{ height: 6, borderRadius: 999, background: cRio.dot, width: `${pctRio}%` }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 'clamp(9px,0.7vw,11px)' }}>
-                  <span style={{ color: '#d97706' }}>5.5m atenção</span>
-                  <span style={{ color: '#ea580c' }}>7.0m alerta</span>
-                  <span style={{ color: '#dc2626' }}>9.0m emergência</span>
-                </div>
+        {rios.map(rio => {
+          const cfg = RIO_CONFIG_CLIMA[rio.id] ?? RIO_CONFIG_CLIMA.rio_blumenau
+          const cRio = corClima(rio.status ?? null)
+          const nivelNum = rio.nivel_m ? parseFloat(rio.nivel_m.replace(',', '.')) : null
+          const pct = nivelNum != null ? Math.min(100, Math.round((nivelNum / cfg.max) * 100)) : null
+          return (
+            <div key={rio.id} style={{ background: cRio.bg, border: `2px solid ${cRio.border}`, borderRadius: 16, padding: 'clamp(12px,1.4vw,20px)' }}>
+              <div style={{ fontSize: 'clamp(10px,0.85vw,13px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0', marginBottom: 6 }}>
+                {cfg.label}
               </div>
-            )}
-            <span style={{ display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 999, border: `1px solid ${cRio.border}`, color: cRio.text, fontWeight: 700, fontSize: 'clamp(10px,0.8vw,12px)' }}>
-              {cRio.label}
-            </span>
-          </div>
-        )}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+                <div style={{ fontSize: 'clamp(32px,4vw,60px)', fontWeight: 900, color: cRio.text, lineHeight: 1 }}>{rio.nivel_m ?? '—'}</div>
+                <div style={{ fontSize: 'clamp(16px,1.8vw,24px)', fontWeight: 700, color: cRio.text, marginBottom: 3 }}>m</div>
+              </div>
+              {pct != null && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                    <div style={{ height: 6, borderRadius: 999, background: cRio.dot, width: `${pct}%` }} />
+                    {cfg.cotas.map(c => (
+                      <div key={c.valor} style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: c.cor, left: `${Math.round((c.valor / cfg.max) * 100)}%` }} />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', marginTop: 4 }}>
+                    {cfg.cotas.map(c => (
+                      <span key={c.valor} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 'clamp(9px,0.65vw,11px)', color: c.cor }}>
+                        <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 2, background: c.cor }} />
+                        {c.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <span style={{ display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 999, border: `1px solid ${cRio.border}`, color: cRio.text, fontWeight: 700, fontSize: 'clamp(10px,0.8vw,12px)' }}>
+                {cRio.label}
+              </span>
+              {rio.hora_leitura && (
+                <div style={{ fontSize: 'clamp(9px,0.75vw,11px)', color: '#5f7da0', marginTop: 6 }}>
+                  {fmtHoraClima(rio.hora_leitura)}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Barragens */}
@@ -297,10 +338,11 @@ function SlideEquipamentos({ dash, ciclo, cfg }: { dash: DashboardEquipamentos; 
 
 const SLIDE_DURATION = 20 // segundos por slide
 
-export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipamentos, ciclo, configCiclo, barra, barragens }: {
+export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipamentos, ciclo, configCiclo, barra, barragens, estoque }: {
   ano: number; atualizado: string; kpis: KpiT[]; trend: Ponto[]; categorias: Categoria[]
   equipamentos?: DashboardEquipamentos; ciclo?: CicloHoras; configCiclo?: ConfigCiclo
   barra?: BarraStatus | null; barragens?: BarragemPonto[]
+  estoque?: { estoqueAtual: number; capacidade: number; pctOcupacao: number | null }
 }) {
   const [hora, setHora] = useState('')
   const [telaCheia, setTelaCheia] = useState(false)
@@ -369,7 +411,7 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
             <div style={{ color: '#5f7da0', fontSize: 'clamp(11px,0.9vw,14px)', marginTop: 2 }}>
               {SLIDES[slide] === 'BI Depot' ? `e-Professional (websag) · ano ${ano} · atualizado ${atualizado}`
                 : SLIDES[slide] === 'Equipamentos' ? 'Indicadores de frota · mês atual'
-                : 'Barra do Itajaí · Barragens SC · Rio Itajaí em Blumenau'}
+                : 'Barra do Itajaí · Barragens SC · Rios monitorados'}
             </div>
           </div>
         </div>
@@ -401,6 +443,25 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
       {/* Conteúdo do slide */}
       {SLIDES[slide] === 'BI Depot' ? (
         <>
+          {/* Total containers no pátio */}
+          {estoque != null && estoque.estoqueAtual > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(12px,1.4vw,20px)' }}>
+              <div style={{ background: '#0f2138', border: '2px solid #7DC242', borderRadius: 16, padding: 'clamp(14px,1.6vw,24px)' }}>
+                <div style={{ fontSize: 'clamp(11px,0.9vw,14px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>Containers no pátio</div>
+                <div style={{ fontSize: 'clamp(40px,5vw,72px)', fontWeight: 900, color: '#7DC242', lineHeight: 1.05 }}>{estoque.estoqueAtual}</div>
+                {estoque.capacidade > 0 && (
+                  <>
+                    <div style={{ fontSize: 'clamp(11px,0.85vw,13px)', color: '#5f7da0', marginTop: 2 }}>
+                      cap. {estoque.capacidade} · {estoque.pctOcupacao != null ? `${estoque.pctOcupacao}% ocupado` : ''}
+                    </div>
+                    <div style={{ marginTop: 8, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ height: 6, borderRadius: 999, background: '#7DC242', width: `${Math.min(100, estoque.pctOcupacao ?? 0)}%`, transition: 'width 0.5s' }} />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(12px,1.4vw,20px)' }}>
             {kpis.map(k => <Tile key={k.label} label={k.label} value={k.value} sub={k.sub} accent={k.accent} />)}
           </div>
