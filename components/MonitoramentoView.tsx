@@ -223,13 +223,10 @@ function RioCard({ ponto }: { ponto: BarragemPonto }) {
                 style={{ left: `${Math.round((cota.valor / MAX_RIO) * 100)}%`, background: cota.cor }} />
             ))}
           </div>
-          <div className="relative h-3 mt-1">
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1.5">
             {cotas.map(cota => (
-              <span key={cota.valor} className="absolute text-[9px]" style={{
-                left: `${Math.round((cota.valor / MAX_RIO) * 100)}%`,
-                transform: 'translateX(-50%)',
-                color: cota.cor,
-              }}>
+              <span key={cota.valor} className="flex items-center gap-1 text-[9px]" style={{ color: cota.cor }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-sm" style={{ background: cota.cor }} />
                 {cota.valor}m
               </span>
             ))}
