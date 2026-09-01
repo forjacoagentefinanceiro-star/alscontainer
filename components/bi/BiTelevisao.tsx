@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { IndicadorBar, TendenciaLinha } from './BiCharts'
+import { TendenciaLinha } from './BiCharts'
 import type { Categoria, KpiT } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
 import type { DashboardEquipamentos, CicloHoras, ConfigCiclo, BarraStatus, BarragemPonto } from '@/app/actions'
@@ -382,13 +382,6 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
     return () => clearInterval(t)
   }, [slide, totalSlides])
 
-  // TV: 4 cards — entrada/saída por armador + entrada/saída por tipo 20'/40'
-  // Remove apenas os totais simples de TEUs (código tem TEUS mas não tem ARMADOR)
-  const movCat = categorias.find(c => c.key === 'movimentacao')
-  const destaques = movCat
-    ? movCat.grupos.filter(g => !/TEUS/i.test(g.code) || /ARMADOR/i.test(g.code))
-    : categorias.map(c => c.grupos[0]).filter(Boolean).slice(0, 4)
-
   return (
     <main style={{ minHeight: '100vh', background: '#0d1b2e', color: '#e6eef7', padding: 'clamp(14px,1.8vw,28px)', fontFamily: 'inherit' }}>
 
@@ -465,20 +458,11 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px,1fr))', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(12px,1.4vw,20px)' }}>
             {kpis.map(k => <Tile key={k.label} label={k.label} value={k.value} sub={k.sub} accent={k.accent} />)}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'clamp(10px,1.2vw,18px)', marginBottom: 'clamp(10px,1.2vw,18px)' }}>
-            {trend.length > 0 && (
-              <Card titulo="Entradas × Saídas por mês">
-                <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} />
-              </Card>
-            )}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,380px),1fr))', gap: 'clamp(10px,1.2vw,18px)' }}>
-            {destaques.map(g => (
-              <Card key={g.code} titulo={g.titulo} sub={g.medida}>
-                <IndicadorBar data={g.data} series={g.series} />
-              </Card>
-            ))}
-          </div>
+          {trend.length > 0 && (
+            <Card titulo="Entradas × Saídas por mês">
+              <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} height={440} />
+            </Card>
+          )}
         </>
       ) : SLIDES[slide] === 'Equipamentos' && temEquipamentos ? (
         <SlideEquipamentos dash={equipamentos!} ciclo={ciclo!} cfg={configCiclo!} />

@@ -100,9 +100,9 @@ export function IndicadorBar({ data, series }: { data: Ponto[]; series: Serie[] 
 }
 
 /** Linha de tendência (ex.: entradas × saídas por mês). */
-export function TendenciaLinha({ data, series }: { data: Ponto[]; series: Serie[] }) {
+export function TendenciaLinha({ data, series, height = 260 }: { data: Ponto[]; series: Serie[]; height?: number }) {
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
         <defs>
           {series.map((s, i) => (
