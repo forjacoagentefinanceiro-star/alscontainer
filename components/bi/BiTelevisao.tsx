@@ -460,7 +460,7 @@ export function BiTelevisao({ ano, atualizado, kpis, trend, categorias, equipame
           </div>
           {trend.length > 0 && (
             <Card titulo="Entradas × Saídas por mês">
-              <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} height={440} />
+              <TendenciaLinha data={trend} series={['Entradas', 'Saídas']} height={360} />
             </Card>
           )}
         </>
