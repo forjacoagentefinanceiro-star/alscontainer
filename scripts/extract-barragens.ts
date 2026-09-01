@@ -12,8 +12,9 @@
 import { chromium, type Response, type Browser } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
-const DASHBOARD_URL = "https://monitoramento.defesacivil.sc.gov.br/barragens";
-const RIO_URL       = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
+const DASHBOARD_URL  = "https://monitoramento.defesacivil.sc.gov.br/barragens";
+const RIO_URL        = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
+const RIO_BRUSQUE_URL = "https://defesacivil.brusque.sc.gov.br/monitoramento";
 const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
@@ -80,6 +81,15 @@ function statusRio(nivelM: number | null): string {
   return "normal";
 }
 
+// Thresholds do Rio Itajaí-Mirim em Brusque (escala diferente do principal em Blumenau)
+function statusRioBrusque(nivelM: number | null): string {
+  if (nivelM === null) return "desconhecido";
+  if (nivelM >= 6.0) return "emergencia";
+  if (nivelM >= 4.5) return "alerta";
+  if (nivelM >= 3.0) return "atencao";
+  return "normal";
+}
+
 function statusBarragem(pct: number | null): string {
   if (pct === null) return "desconhecido";
   if (pct >= 90) return "emergencia";
@@ -108,7 +118,7 @@ function mudancaSignificativa(ant: Record<string, string | null>, atual: Ponto):
 
   if (atual.tipo === "rio") {
     const a = num(ant.nivel_m), b = num(atual.nivel_m);
-    const stAt = statusRio(b);
+    const stAt = atual.id === "rio_brusque" ? statusRioBrusque(b) : statusRio(b);
     const delta = stAt === "normal"   ? DELTA_RIO_NORMAL
                 : stAt === "atencao"  ? DELTA_RIO_ATENCAO
                 : 0; // alerta/emergencia: qualquer diferença dispara
@@ -338,6 +348,82 @@ async function extrairBarragensDCSC(browser: Browser): Promise<Ponto[]> {
   }
 }
 
+// Extrai o nível do Rio Itajaí-Mirim em Brusque (Defesa Civil Brusque)
+async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
+  const page = await browser.newPage();
+  page.setDefaultTimeout(30000);
+
+  try {
+    console.log("[brusque] acessando", RIO_BRUSQUE_URL);
+    await page.goto(RIO_BRUSQUE_URL, { waitUntil: "load", timeout: 40000 });
+    await page.waitForTimeout(3000);
+
+    const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
+      const txt = document.body.innerText ?? "";
+      const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
+
+      let nivel: string | null = null;
+
+      // Estratégia 1: valor na mesma linha de "Nível do Rio"
+      // Ex: "Nível do Rio ponte: 5,08 m ▲ 4,00 cm"
+      for (const line of lines) {
+        if (/n[ií]vel\s+do\s+rio/i.test(line)) {
+          const m = line.match(/(\d{1,2}[,.]\d{2})\s*m\b/i);
+          if (m) {
+            const n = parseFloat(m[1].replace(",", "."));
+            if (n > 0 && n < 30) { nivel = m[1]; break; }
+          }
+        }
+      }
+
+      // Estratégia 2: valor nas linhas seguintes ao label "Nível do Rio"
+      if (!nivel) {
+        for (let i = 0; i < lines.length; i++) {
+          if (/n[ií]vel\s+do\s+rio/i.test(lines[i])) {
+            for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+              const m = lines[j].match(/^(\d{1,2}[,.]\d{2})\s*m?\b/i);
+              if (m) {
+                const n = parseFloat(m[1].replace(",", "."));
+                if (n > 0 && n < 30) { nivel = m[1]; break; }
+              }
+            }
+            if (nivel) break;
+          }
+        }
+      }
+
+      let hora: string | null = null;
+      const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
+      if (mH) hora = mH[1];
+
+      return { nivel, hora };
+    });
+
+    if (!dados.nivel) {
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+      console.warn("[brusque] ⚠️ nenhum nível. Texto:\n", txt);
+      return [];
+    }
+
+    console.log(`[brusque] nivel=${dados.nivel}m @ ${dados.hora}`);
+    return [{
+      id:                 "rio_brusque",
+      nome:               "Rio Itajaí-Mirim em Brusque",
+      nivel_m:            dados.nivel,
+      capacidade_pct:     null,
+      comportas_abertas:  null,
+      comportas_fechadas: null,
+      hora_leitura:       parseHoraDefesaCivil(dados.hora),
+      tipo:               "rio",
+    }];
+  } catch (err) {
+    console.error("[brusque] erro:", err);
+    return [];
+  } finally {
+    await page.close();
+  }
+}
+
 // Extrai o nível do Rio Itajaí em Blumenau (Grafana Defesa Civil Blumenau)
 async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
   // Blumenau usa certificado autoassinado — ignora SSL
@@ -415,13 +501,14 @@ async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
   }
 }
 
-// Orquestra as duas extrações no mesmo browser
+// Orquestra as extrações no mesmo browser
 async function extrair(): Promise<Ponto[]> {
   const browser = await chromium.launch({ headless: true });
   try {
     const barragens = await extrairBarragensDCSC(browser);
-    const rio       = await extrairRioBlumenau(browser);
-    return [...barragens, ...rio];
+    const rioBlumenau = await extrairRioBlumenau(browser);
+    const rioBrusque  = await extrairRioBrusque(browser);
+    return [...barragens, ...rioBlumenau, ...rioBrusque];
   } finally {
     await browser.close();
   }
@@ -491,7 +578,7 @@ async function main() {
   for (const p of pontos) {
     const ant = mapa[p.id] as Record<string, string | null> | undefined;
     const statusAtual = p.tipo === "rio"
-      ? statusRio(num(p.nivel_m))
+      ? (p.id === "rio_brusque" ? statusRioBrusque(num(p.nivel_m)) : statusRio(num(p.nivel_m)))
       : statusBarragem(num(p.capacidade_pct));
 
     const { mudou, detalhes } = ant

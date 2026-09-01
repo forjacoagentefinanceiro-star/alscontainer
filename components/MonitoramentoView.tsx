@@ -4,8 +4,9 @@ import { useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { BarraStatus, BarragemPonto } from '@/app/actions'
 
-const GRAFANA_URL = 'https://monitoramento.defesacivil.sc.gov.br/barragens'
-const PRATICOS_URL = 'https://praticoszp21.com.br/'
+const GRAFANA_URL   = 'https://monitoramento.defesacivil.sc.gov.br/barragens'
+const PRATICOS_URL  = 'https://praticoszp21.com.br/'
+const BRUSQUE_URL   = 'https://defesacivil.brusque.sc.gov.br/monitoramento'
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -134,21 +135,43 @@ function BarraCard({ barra }: { barra: BarraStatus | null }) {
   )
 }
 
-// ── Rio Blumenau ───────────────────────────────────────────────────────────────
+// ── Configuração de cotas por rio ──────────────────────────────────────────────
+
+const RIO_CONFIG: Record<string, {
+  max: number
+  sectionTitle: string
+  cotas: { label: string; valor: number; cor: string }[]
+}> = {
+  rio_blumenau: {
+    max: 20.0,
+    sectionTitle: 'Nível do Rio — Blumenau',
+    cotas: [
+      { label: 'Atenção',    valor: 5.5,  cor: '#d97706' },
+      { label: 'Alerta',     valor: 7.0,  cor: '#ea580c' },
+      { label: 'Emergência', valor: 9.0,  cor: '#dc2626' },
+      { label: '20m',        valor: 20.0, cor: '#6b7280' },
+    ],
+  },
+  rio_brusque: {
+    max: 12.0,
+    sectionTitle: 'Nível do Rio — Brusque',
+    cotas: [
+      { label: 'Atenção',    valor: 3.0,  cor: '#d97706' },
+      { label: 'Alerta',     valor: 4.5,  cor: '#ea580c' },
+      { label: 'Emergência', valor: 6.0,  cor: '#dc2626' },
+      { label: '12m',        valor: 12.0, cor: '#6b7280' },
+    ],
+  },
+}
+
+// ── Rio ────────────────────────────────────────────────────────────────────────
 
 function RioCard({ ponto }: { ponto: BarragemPonto }) {
   const status = ponto.status ?? 'desconhecido'
   const c = cor(status)
   const nivel = ponto.nivel_m ? parseFloat(ponto.nivel_m.replace(',', '.')) : null
-
-  // Cotas do Rio Itajaí em Blumenau (máx histórico ~17m; escala até 20m)
-  const MAX_RIO = 20.0
-  const cotas = [
-    { label: 'Atenção',    valor: 5.5,  cor: '#d97706' },
-    { label: 'Alerta',     valor: 7.0,  cor: '#ea580c' },
-    { label: 'Emergência', valor: 9.0,  cor: '#dc2626' },
-    { label: '20m',        valor: 20.0, cor: '#6b7280' },
-  ]
+  const config = RIO_CONFIG[ponto.id] ?? RIO_CONFIG.rio_blumenau
+  const { max: MAX_RIO, cotas } = config
   const pctBarra = nivel ? Math.min(100, Math.round((nivel / MAX_RIO) * 100)) : null
 
   return (
@@ -157,7 +180,7 @@ function RioCard({ ponto }: { ponto: BarragemPonto }) {
         <div className="flex items-center gap-3">
           <Dot status={status} />
           <div>
-            <p className="text-sm font-bold" style={{ color: '#1a2a3a' }}>Rio Itajaí em Blumenau</p>
+            <p className="text-sm font-bold" style={{ color: '#1a2a3a' }}>{ponto.nome}</p>
             {ponto.hora_leitura && (
               <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>Leitura: {ponto.hora_leitura}</p>
             )}
@@ -286,13 +309,13 @@ export function MonitoramentoView({
     return () => clearInterval(id)
   }, [refresh])
 
-  const rio = barragens.find(p => p.tipo === 'rio')
+  const rios = barragens.filter(p => p.tipo === 'rio')
   const barragensLista = barragens.filter(p => p.tipo === 'barragem')
 
   // Status geral: pior status entre todos os pontos
   const todosStatus = [
     statusBarra(barra?.profundidade ?? ''),
-    ...(rio ? [rio.status ?? 'desconhecido'] : []),
+    ...rios.map(r => r.status ?? 'desconhecido'),
     ...barragensLista.map(p => p.status ?? 'desconhecido'),
   ]
   const ordem = ['emergencia', 'alerta', 'atencao', 'normal', 'desconhecido']
@@ -319,14 +342,17 @@ export function MonitoramentoView({
         <BarraCard barra={barra} />
       </div>
 
-      {/* Rio Blumenau */}
-      {rio && (
-        <div>
-          <SectionTitle>Nível do Rio — Blumenau</SectionTitle>
-          <RioCard ponto={rio} />
-        </div>
-      )}
-      {!rio && barragens.length === 0 && (
+      {/* Rios monitorados */}
+      {rios.map(rio => {
+        const cfg = RIO_CONFIG[rio.id] ?? RIO_CONFIG.rio_blumenau
+        return (
+          <div key={rio.id}>
+            <SectionTitle>{cfg.sectionTitle}</SectionTitle>
+            <RioCard ponto={rio} />
+          </div>
+        )
+      })}
+      {rios.length === 0 && barragens.length === 0 && (
         <div className="rounded-xl p-6 text-center" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
           <p className="text-sm" style={{ color: '#9ca3af' }}>
             Aguardando primeira execução do workflow de barragens.
@@ -359,6 +385,11 @@ export function MonitoramentoView({
           className="text-xs px-3 py-1.5 rounded-lg"
           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
           Práticos Itajaí →
+        </a>
+        <a href={BRUSQUE_URL} target="_blank" rel="noreferrer"
+          className="text-xs px-3 py-1.5 rounded-lg"
+          style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          Defesa Civil Brusque →
         </a>
         <span className="text-xs px-3 py-1.5 rounded-lg" style={{ background: '#f9fafb', color: '#9ca3af' }}>
           Refresh automático a cada 5 min
