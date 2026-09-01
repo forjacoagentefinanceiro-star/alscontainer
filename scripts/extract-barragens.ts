@@ -14,7 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL  = "https://monitoramento.defesacivil.sc.gov.br/barragens";
 const RIO_URL        = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
-const RIO_BRUSQUE_URL = "https://defesacivil.brusque.sc.gov.br/monitoramento";
+const RIO_BRUSQUE_URL = "https://defesacivil.itajai.sc.gov.br/monitoramento/nivel-rios";
 const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
@@ -81,12 +81,12 @@ function statusRio(nivelM: number | null): string {
   return "normal";
 }
 
-// Thresholds do Rio Itajaí-Mirim em Brusque (escala diferente do principal em Blumenau)
+// Thresholds do Rio Itajaí-Mirim em Brusque (fonte: Defesa Civil Itajaí)
+// Atenção=3.50m | Emergência=6.00m (sem nível intermediário de alerta)
 function statusRioBrusque(nivelM: number | null): string {
   if (nivelM === null) return "desconhecido";
   if (nivelM >= 6.0) return "emergencia";
-  if (nivelM >= 4.5) return "alerta";
-  if (nivelM >= 3.0) return "atencao";
+  if (nivelM >= 3.5) return "atencao";
   return "normal";
 }
 
@@ -348,66 +348,73 @@ async function extrairBarragensDCSC(browser: Browser): Promise<Ponto[]> {
   }
 }
 
-// Extrai o nível do Rio Itajaí-Mirim em Brusque (Defesa Civil Brusque)
+// Extrai o nível do Rio Itajaí-Mirim em Brusque
+// Fonte: Defesa Civil Itajaí — página unificada com tabs por cidade
 async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
-  // Site usa certificado autoassinado — ignora SSL (igual ao Blumenau)
-  const ctx  = await browser.newContext({ ignoreHTTPSErrors: true });
-  const page = await ctx.newPage();
-  page.setDefaultTimeout(30000);
+  const page = await browser.newPage();
+  page.setDefaultTimeout(45000);
+
+  // Intercepção de API JSON (mesma estratégia das barragens)
+  const apiCaptures: { url: string; data: unknown }[] = [];
+  page.on("response", async (res: Response) => {
+    try {
+      const ct = res.headers()["content-type"] ?? "";
+      if (!ct.includes("json")) return;
+      const data = await res.json().catch(() => null);
+      if (!data) return;
+      apiCaptures.push({ url: res.url(), data });
+      console.log(`[brusque-api] ${res.status()} ${res.url()} → ${JSON.stringify(data).slice(0, 200)}`);
+    } catch { /* silencioso */ }
+  });
 
   try {
     console.log("[brusque] acessando", RIO_BRUSQUE_URL);
-    await page.goto(RIO_BRUSQUE_URL, { waitUntil: "load", timeout: 40000 });
-    await page.waitForTimeout(3000);
+    await page.goto(RIO_BRUSQUE_URL, { waitUntil: "load", timeout: 45000 });
 
+    // Clica na aba BRUSQUE (garantia — pode já estar ativa ou não)
+    const tabBrusque = page.locator("text=BRUSQUE").first();
+    if (await tabBrusque.isVisible({ timeout: 8000 }).catch(() => false)) {
+      await tabBrusque.click();
+      console.log("[brusque] aba BRUSQUE clicada");
+    }
+
+    // Aguarda os dados carregarem — espera o texto "Nível do Rio" aparecer
+    await page.waitForSelector("text=Nível do Rio", { timeout: 15000 }).catch(() =>
+      console.warn("[brusque] timeout aguardando 'Nível do Rio' — lendo DOM assim mesmo")
+    );
+    await page.waitForTimeout(1000);
+
+    // Tenta API JSON interceptada primeiro
+    for (const { url, data } of apiCaptures) {
+      const arr = Array.isArray(data) ? data : (typeof data === "object" && data !== null ? Object.values(data as object).find(v => Array.isArray(v)) : null);
+      if (!arr) continue;
+      for (const item of arr as Record<string, unknown>[]) {
+        const nome = String(item.cidade ?? item.nome ?? item.city ?? "").toLowerCase();
+        if (!nome.includes("brusque")) continue;
+        const nivelRaw = item.nivel ?? item.nivel_rio ?? item.nivel_m ?? item.value;
+        if (nivelRaw == null) continue;
+        const nivel = String(nivelRaw).replace(".", ",");
+        const hora  = String(item.data_hora ?? item.hora ?? item.timestamp ?? "");
+        console.log(`[brusque] API JSON: nivel=${nivel}m url=${url}`);
+        return [{ id: "rio_brusque", nome: "Rio Itajaí-Mirim em Brusque", nivel_m: nivel, capacidade_pct: null, comportas_abertas: null, comportas_fechadas: null, hora_leitura: parseHoraDefesaCivil(hora || null), tipo: "rio" }];
+      }
+    }
+
+    // Fallback: DOM — "Nível do Rio: 3,95 m" / "Data e hora da medição: DD/MM/YYYY HH:MM"
     const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
       const txt = document.body.innerText ?? "";
-      const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
-
-      let nivel: string | null = null;
-
-      // Estratégia 1: valor na mesma linha de "Nível do Rio"
-      // Ex: "Nível do Rio ponte: 5,08 m ▲ 4,00 cm"
-      for (const line of lines) {
-        if (/n[ií]vel\s+do\s+rio/i.test(line)) {
-          const m = line.match(/(\d{1,2}[,.]\d{2})\s*m\b/i);
-          if (m) {
-            const n = parseFloat(m[1].replace(",", "."));
-            if (n > 0 && n < 30) { nivel = m[1]; break; }
-          }
-        }
-      }
-
-      // Estratégia 2: valor nas linhas seguintes ao label "Nível do Rio"
-      if (!nivel) {
-        for (let i = 0; i < lines.length; i++) {
-          if (/n[ií]vel\s+do\s+rio/i.test(lines[i])) {
-            for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-              const m = lines[j].match(/^(\d{1,2}[,.]\d{2})\s*m?\b/i);
-              if (m) {
-                const n = parseFloat(m[1].replace(",", "."));
-                if (n > 0 && n < 30) { nivel = m[1]; break; }
-              }
-            }
-            if (nivel) break;
-          }
-        }
-      }
-
-      let hora: string | null = null;
+      const mN = txt.match(/N[ií]vel\s+do\s+Rio[:\s]+(\d{1,2}[,.]\d{2})\s*m/i);
       const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
-      if (mH) hora = mH[1];
-
-      return { nivel, hora };
+      return { nivel: mN?.[1] ?? null, hora: mH?.[1] ?? null };
     });
 
     if (!dados.nivel) {
-      const txt = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 800));
       console.warn("[brusque] ⚠️ nenhum nível. Texto:\n", txt);
       return [];
     }
 
-    console.log(`[brusque] nivel=${dados.nivel}m @ ${dados.hora}`);
+    console.log(`[brusque] DOM: nivel=${dados.nivel}m @ ${dados.hora}`);
     return [{
       id:                 "rio_brusque",
       nome:               "Rio Itajaí-Mirim em Brusque",
@@ -422,7 +429,7 @@ async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
     console.error("[brusque] erro:", err);
     return [];
   } finally {
-    await ctx.close();
+    await page.close();
   }
 }
 

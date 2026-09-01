@@ -6,7 +6,7 @@ import type { BarraStatus, BarragemPonto } from '@/app/actions'
 
 const GRAFANA_URL   = 'https://monitoramento.defesacivil.sc.gov.br/barragens'
 const PRATICOS_URL  = 'https://praticoszp21.com.br/'
-const BRUSQUE_URL   = 'https://defesacivil.brusque.sc.gov.br/monitoramento'
+const BRUSQUE_URL   = 'https://defesacivil.itajai.sc.gov.br/monitoramento/nivel-rios'
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -156,8 +156,7 @@ const RIO_CONFIG: Record<string, {
     max: 12.0,
     sectionTitle: 'Nível do Rio — Brusque',
     cotas: [
-      { label: 'Atenção',    valor: 3.0,  cor: '#d97706' },
-      { label: 'Alerta',     valor: 4.5,  cor: '#ea580c' },
+      { label: 'Atenção',    valor: 3.5,  cor: '#d97706' },
       { label: 'Emergência', valor: 6.0,  cor: '#dc2626' },
       { label: '12m',        valor: 12.0, cor: '#6b7280' },
     ],
