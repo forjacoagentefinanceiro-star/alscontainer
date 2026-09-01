@@ -191,12 +191,13 @@ export function MonitoramentoTv({ barra, barragens }: {
                   <div style={{ position: 'relative', height: 7, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', inset: '0 auto 0 0', borderRadius: 999, background: cRio.dot, width: `${pct}%`, transition: 'width 0.5s' }} />
                     {cfg.cotas.map(c => (
-                      <div key={c.valor} style={{ position: 'absolute', top: 0, bottom: 0, width: 1, background: c.cor, left: `${Math.round((c.valor / cfg.max) * 100)}%` }} />
+                      <div key={c.valor} style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: c.cor, left: `${Math.round((c.valor / cfg.max) * 100)}%` }} />
                     ))}
                   </div>
-                  <div style={{ position: 'relative', height: 14, marginTop: 2 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', marginTop: 5 }}>
                     {cfg.cotas.map(c => (
-                      <span key={c.valor} style={{ position: 'absolute', fontSize: 'clamp(8px,0.6vw,10px)', color: c.cor, left: `${Math.round((c.valor / cfg.max) * 100)}%`, transform: 'translateX(-50%)' }}>
+                      <span key={c.valor} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'clamp(9px,0.65vw,11px)', color: c.cor }}>
+                        <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 2, background: c.cor, flexShrink: 0 }} />
                         {c.label}
                       </span>
                     ))}
