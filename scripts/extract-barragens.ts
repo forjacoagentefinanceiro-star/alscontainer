@@ -350,7 +350,9 @@ async function extrairBarragensDCSC(browser: Browser): Promise<Ponto[]> {
 
 // Extrai o nível do Rio Itajaí-Mirim em Brusque (Defesa Civil Brusque)
 async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
-  const page = await browser.newPage();
+  // Site usa certificado autoassinado — ignora SSL (igual ao Blumenau)
+  const ctx  = await browser.newContext({ ignoreHTTPSErrors: true });
+  const page = await ctx.newPage();
   page.setDefaultTimeout(30000);
 
   try {
@@ -420,7 +422,7 @@ async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
     console.error("[brusque] erro:", err);
     return [];
   } finally {
-    await page.close();
+    await ctx.close();
   }
 }
 
