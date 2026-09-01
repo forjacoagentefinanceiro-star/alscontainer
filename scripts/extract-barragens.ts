@@ -90,6 +90,16 @@ function statusRioBrusque(nivelM: number | null): string {
   return "normal";
 }
 
+// Thresholds do Ribeirão da Murta em Itajaí (fonte: Defesa Civil Itajaí)
+// Atenção=1.22m | Alerta=1.42m | Emergência=1.62m
+function statusRioMurta(nivelM: number | null): string {
+  if (nivelM === null) return "desconhecido";
+  if (nivelM >= 1.62) return "emergencia";
+  if (nivelM >= 1.42) return "alerta";
+  if (nivelM >= 1.22) return "atencao";
+  return "normal";
+}
+
 function statusBarragem(pct: number | null): string {
   if (pct === null) return "desconhecido";
   if (pct >= 90) return "emergencia";
@@ -118,7 +128,9 @@ function mudancaSignificativa(ant: Record<string, string | null>, atual: Ponto):
 
   if (atual.tipo === "rio") {
     const a = num(ant.nivel_m), b = num(atual.nivel_m);
-    const stAt = atual.id === "rio_brusque" ? statusRioBrusque(b) : statusRio(b);
+    const stAt = atual.id === "rio_brusque" ? statusRioBrusque(b)
+               : atual.id === "rio_murta"   ? statusRioMurta(b)
+               : statusRio(b);
     const delta = stAt === "normal"   ? DELTA_RIO_NORMAL
                 : stAt === "atencao"  ? DELTA_RIO_ATENCAO
                 : 0; // alerta/emergencia: qualquer diferença dispara
@@ -510,14 +522,105 @@ async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
   }
 }
 
+// Extrai o nível do Ribeirão da Murta em Itajaí (DC-09 — Ponte Rua Lidia Puel Peixer)
+// Mesma página da Defesa Civil Itajaí, aba ITAJAÍ
+async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
+  const page = await browser.newPage();
+  page.setDefaultTimeout(45000);
+
+  const apiCaptures: { url: string; data: unknown }[] = [];
+  page.on("response", async (res: Response) => {
+    try {
+      const ct = res.headers()["content-type"] ?? "";
+      if (!ct.includes("json")) return;
+      const data = await res.json().catch(() => null);
+      if (!data) return;
+      apiCaptures.push({ url: res.url(), data });
+    } catch { /* silencioso */ }
+  });
+
+  try {
+    console.log("[murta] acessando", RIO_BRUSQUE_URL);
+    await page.goto(RIO_BRUSQUE_URL, { waitUntil: "load", timeout: 45000 });
+
+    // Clica na aba ITAJAÍ
+    const tabItajai = page.locator("text=ITAJAÍ").first();
+    if (await tabItajai.isVisible({ timeout: 8000 }).catch(() => false)) {
+      await tabItajai.click();
+      console.log("[murta] aba ITAJAÍ clicada");
+    }
+
+    await page.waitForSelector("text=Murta", { timeout: 15000 }).catch(() =>
+      page.waitForSelector("text=Nível do Rio", { timeout: 5000 }).catch(() =>
+        console.warn("[murta] timeout aguardando content")
+      )
+    );
+    await page.waitForTimeout(1000);
+
+    // Tenta API JSON — procura item com "murta" ou "DC-09"
+    for (const { url, data } of apiCaptures) {
+      const items = Array.isArray(data) ? data
+        : (typeof data === "object" && data !== null
+            ? (Object.values(data as object).find(v => Array.isArray(v)) as unknown[] | undefined)
+            : null);
+      if (!items) continue;
+      for (const item of items as Record<string, unknown>[]) {
+        const nome = String(item.estacao ?? item.nome ?? item.name ?? item.descricao ?? "").toLowerCase();
+        if (!nome.includes("murta") && !nome.includes("dc-09") && !nome.includes("dc09")) continue;
+        const nivelRaw = item.nivel ?? item.nivel_rio ?? item.nivel_m ?? item.value;
+        if (nivelRaw == null) continue;
+        const nivel = String(nivelRaw).replace(".", ",");
+        const hora  = String(item.data_hora ?? item.hora ?? item.timestamp ?? "");
+        console.log(`[murta] API JSON: nivel=${nivel}m url=${url}`);
+        return [{ id: "rio_murta", nome: "Ribeirão da Murta em Itajaí", nivel_m: nivel, capacidade_pct: null, comportas_abertas: null, comportas_fechadas: null, hora_leitura: parseHoraDefesaCivil(hora || null), tipo: "rio" }];
+      }
+    }
+
+    // Fallback DOM — procura seção com "Murta" e extrai "Nível do Rio:" próximo
+    const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
+      const txt = document.body.innerText ?? "";
+      const idx = txt.search(/ribeir[aã]o da murta|dc-?09/i);
+      if (idx < 0) return { nivel: null, hora: null };
+      const bloco = txt.slice(idx, idx + 500);
+      const mN = bloco.match(/N[ií]vel\s+do\s+Rio[:\s]+(\d{1,2}[,.]\d{2})\s*m/i);
+      const mH = bloco.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
+      return { nivel: mN?.[1] ?? null, hora: mH?.[1] ?? null };
+    });
+
+    if (!dados.nivel) {
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 800));
+      console.warn("[murta] ⚠️ nenhum nível. Texto:\n", txt);
+      return [];
+    }
+
+    console.log(`[murta] DOM: nivel=${dados.nivel}m @ ${dados.hora}`);
+    return [{
+      id:                 "rio_murta",
+      nome:               "Ribeirão da Murta em Itajaí",
+      nivel_m:            dados.nivel,
+      capacidade_pct:     null,
+      comportas_abertas:  null,
+      comportas_fechadas: null,
+      hora_leitura:       parseHoraDefesaCivil(dados.hora),
+      tipo:               "rio",
+    }];
+  } catch (err) {
+    console.error("[murta] erro:", err);
+    return [];
+  } finally {
+    await page.close();
+  }
+}
+
 // Orquestra as extrações no mesmo browser
 async function extrair(): Promise<Ponto[]> {
   const browser = await chromium.launch({ headless: true });
   try {
-    const barragens = await extrairBarragensDCSC(browser);
+    const barragens   = await extrairBarragensDCSC(browser);
     const rioBlumenau = await extrairRioBlumenau(browser);
     const rioBrusque  = await extrairRioBrusque(browser);
-    return [...barragens, ...rioBlumenau, ...rioBrusque];
+    const rioMurta    = await extrairRioMurta(browser);
+    return [...barragens, ...rioBlumenau, ...rioBrusque, ...rioMurta];
   } finally {
     await browser.close();
   }
@@ -587,7 +690,9 @@ async function main() {
   for (const p of pontos) {
     const ant = mapa[p.id] as Record<string, string | null> | undefined;
     const statusAtual = p.tipo === "rio"
-      ? (p.id === "rio_brusque" ? statusRioBrusque(num(p.nivel_m)) : statusRio(num(p.nivel_m)))
+      ? (p.id === "rio_brusque" ? statusRioBrusque(num(p.nivel_m))
+       : p.id === "rio_murta"   ? statusRioMurta(num(p.nivel_m))
+       : statusRio(num(p.nivel_m)))
       : statusBarragem(num(p.capacidade_pct));
 
     const { mudou, detalhes } = ant

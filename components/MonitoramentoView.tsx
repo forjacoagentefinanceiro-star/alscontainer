@@ -144,7 +144,7 @@ const RIO_CONFIG: Record<string, {
 }> = {
   rio_blumenau: {
     max: 20.0,
-    sectionTitle: 'Nível do Rio — Blumenau',
+    sectionTitle: 'Blumenau',
     cotas: [
       { label: 'Atenção',    valor: 5.5,  cor: '#d97706' },
       { label: 'Alerta',     valor: 7.0,  cor: '#ea580c' },
@@ -154,11 +154,21 @@ const RIO_CONFIG: Record<string, {
   },
   rio_brusque: {
     max: 12.0,
-    sectionTitle: 'Nível do Rio — Brusque',
+    sectionTitle: 'Brusque',
     cotas: [
       { label: 'Atenção',    valor: 3.5,  cor: '#d97706' },
       { label: 'Emergência', valor: 6.0,  cor: '#dc2626' },
       { label: '12m',        valor: 12.0, cor: '#6b7280' },
+    ],
+  },
+  rio_murta: {
+    max: 3.0,
+    sectionTitle: 'Ribeirão da Murta',
+    cotas: [
+      { label: 'Atenção',    valor: 1.22, cor: '#d97706' },
+      { label: 'Alerta',     valor: 1.42, cor: '#ea580c' },
+      { label: 'Emergência', valor: 1.62, cor: '#dc2626' },
+      { label: '3m',         valor: 3.0,  cor: '#6b7280' },
     ],
   },
 }
@@ -324,7 +334,7 @@ export function MonitoramentoView({
   const temAlerta = piorStatus === 'alerta' || piorStatus === 'emergencia'
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-4 max-w-4xl">
 
       {/* Banner de alerta ativo */}
       {temAlerta && (
@@ -341,57 +351,50 @@ export function MonitoramentoView({
         <BarraCard barra={barra} />
       </div>
 
-      {/* Rios monitorados */}
-      {rios.map(rio => {
-        const cfg = RIO_CONFIG[rio.id] ?? RIO_CONFIG.rio_blumenau
-        return (
-          <div key={rio.id}>
-            <SectionTitle>{cfg.sectionTitle}</SectionTitle>
-            <RioCard ponto={rio} />
+      {/* Rios — grid 2+ colunas */}
+      {rios.length > 0 && (
+        <div>
+          <SectionTitle>Nível dos Rios</SectionTitle>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            {rios.map(rio => <RioCard key={rio.id} ponto={rio} />)}
           </div>
-        )
-      })}
+        </div>
+      )}
       {rios.length === 0 && barragens.length === 0 && (
         <div className="rounded-xl p-6 text-center" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-          <p className="text-sm" style={{ color: '#9ca3af' }}>
-            Aguardando primeira execução do workflow de barragens.
-          </p>
-          <a href="https://github.com" target="_blank" rel="noreferrer"
-            className="text-xs mt-1 block" style={{ color: '#1d4ed8' }}>
-            GitHub Actions → Monitorar barragens e nível do rio
-          </a>
+          <p className="text-sm" style={{ color: '#9ca3af' }}>Aguardando primeira execução do workflow de barragens.</p>
         </div>
       )}
 
-      {/* Barragens */}
+      {/* Barragens — grid 2+ colunas */}
       {barragensLista.length > 0 && (
         <div>
           <SectionTitle>Barragens</SectionTitle>
-          <div className="space-y-3">
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {barragensLista.map(p => <BarragemCard key={p.id} ponto={p} />)}
           </div>
         </div>
       )}
 
-      {/* Rodapé com fontes */}
-      <div className="flex flex-wrap gap-3 pt-2">
+      {/* Rodapé */}
+      <div className="flex flex-wrap gap-2 pt-1">
         <a href={GRAFANA_URL} target="_blank" rel="noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg"
+          className="text-xs px-2.5 py-1 rounded-lg"
           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
           Defesa Civil SC →
         </a>
         <a href={PRATICOS_URL} target="_blank" rel="noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg"
+          className="text-xs px-2.5 py-1 rounded-lg"
           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
           Práticos Itajaí →
         </a>
         <a href={BRUSQUE_URL} target="_blank" rel="noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg"
+          className="text-xs px-2.5 py-1 rounded-lg"
           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-          Defesa Civil Brusque →
+          Defesa Civil Itajaí →
         </a>
-        <span className="text-xs px-3 py-1.5 rounded-lg" style={{ background: '#f9fafb', color: '#9ca3af' }}>
-          Refresh automático a cada 5 min
+        <span className="text-xs px-2.5 py-1 rounded-lg" style={{ background: '#f9fafb', color: '#9ca3af' }}>
+          Refresh a cada 5 min
         </span>
       </div>
     </div>
