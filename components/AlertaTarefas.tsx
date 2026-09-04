@@ -3,24 +3,30 @@
 import { useState, useEffect } from 'react'
 
 const DESPACHA_APP_URL = 'https://despachaapp.com.br'
-const STORAGE_KEY = 'alerta_tarefas_dismissed_count'
+const STORAGE_KEY = 'alerta_tarefas_dismissed_ids'
 
 // Aviso simples (read-only): sinaliza novas solicitações via QR Code.
-// Some ao clicar "Entendi"; reaparece se o número de solicitações aumentar.
-export function AlertaTarefas({ novas, titulos }: { novas: number; titulos: string[] }) {
+// Some ao clicar "Entendi"; reaparece sempre que chegarem tarefas com IDs ainda não vistos.
+export function AlertaTarefas({ novas, titulos, ids }: { novas: number; titulos: string[]; ids: string[] }) {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
+    if (!novas || !ids.length) { setDismissed(true); return }
     try {
-      const saved = parseInt(localStorage.getItem(STORAGE_KEY) ?? '0', 10)
-      if (saved >= novas) setDismissed(true)
+      const seen: string[] = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+      const temNova = ids.some(id => !seen.includes(id))
+      if (!temNova) setDismissed(true)
     } catch { /* localStorage indisponível */ }
-  }, [novas])
+  }, [novas, ids])
 
   if (!novas || dismissed) return null
 
   function handleEntendi() {
-    try { localStorage.setItem(STORAGE_KEY, String(novas)) } catch { /* silencioso */ }
+    try {
+      const seen: string[] = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+      const merged = Array.from(new Set([...seen, ...ids])).slice(-200)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+    } catch { /* silencioso */ }
     setDismissed(true)
   }
 

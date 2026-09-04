@@ -10,6 +10,7 @@ export async function getDespachaProviders(): Promise<DespachaProvider[]> {
 export type DespachaAlertCounts = {
   novas: number
   titulos: string[]
+  ids: string[]
 }
 
 // Só aviso: conta as novas solicitações públicas (QR Code) ainda aguardando aprovação.
@@ -22,6 +23,7 @@ export async function getDespachaAlertCounts(): Promise<DespachaAlertCounts | nu
   return {
     novas: novasSolicitacoes.length,
     titulos: novasSolicitacoes.slice(0, 5).map(t => t.title),
+    ids: novasSolicitacoes.map(t => t.id),
   }
 }
 
