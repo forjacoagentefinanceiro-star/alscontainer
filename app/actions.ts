@@ -746,11 +746,16 @@ export async function addChecklist(payload: {
   let gapHoras: number | null = null
   let gapDe: number | null = null
   if (payload.horimetro != null) {
+    // recalcula antes de ler para garantir que o cache reflete o último encerramento (evita falsos positivos quando
+    // o checklist anterior foi encerrado sem horímetro final e corrigido depois)
+    await recalcHorimetro(supabase, payload.equipamento)
     const atual = await horimetroDaMaquina(supabase, payload.equipamento)
     if (atual != null && payload.horimetro < atual)
       return { error: `Horímetro ${payload.horimetro} é menor que o último lançado (${atual}) para ${payload.equipamento}.` }
     // horímetro inicial maior que o último lançado = a máquina rodou entre o fim da operação anterior e esta abertura, sem checklist algum cobrindo o período
-    if (atual != null && payload.horimetro > atual) { gapHoras = Math.round((payload.horimetro - atual) * 10) / 10; gapDe = atual }
+    // threshold mínimo de 1h para evitar alertas por variação normal de horímetro (motor em resfriamento, etc.)
+    const diff = atual != null ? Math.round((payload.horimetro - atual) * 10) / 10 : null
+    if (diff != null && diff >= 1.0) { gapHoras = diff; gapDe = atual }
   }
   const { parado, ...checklistPayload } = payload
   const { data: novo, error } = await supabase.from('checklists').insert({ ...checklistPayload, turno, user_id: user.id, tem_pendencia }).select('id').single()
@@ -1634,7 +1639,7 @@ export async function encerrarOperacao(checklistId: string, horimetroFinal: numb
   if (error) return { error: error.message }
   if (!upd?.length) return { error: 'Não foi possível salvar (sem permissão de UPDATE no banco).' }
   await supabase.from('operacao_eventos').insert({ checklist_id: checklistId, tipo: 'encerramento', horimetro: horimetroFinal, origem: 'app', user_id: user.id })
-  if (horimetroFinal != null && equip) await recalcHorimetro(supabase, equip)
+  if (equip) await recalcHorimetro(supabase, equip)
   revalidatePath('/checklist')
   return { error: null }
 }
