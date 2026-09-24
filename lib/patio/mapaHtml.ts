@@ -121,6 +121,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
       <div class="seg" role="radiogroup" aria-label="Colorir por">
         <label><input type="radio" name="modo" id="mArm" value="arm" checked><span>Por armador</span></label>
         <label><input type="radio" name="modo" id="mSit" value="sit"><span>Por situação</span></label>
+        <label><input type="radio" name="modo" id="mOf" value="of"><span>Por oficina</span></label>
       </div>
       <span class="sp"></span>
       <button id="bGeral" title="Tira o destaque, fecha a pilha e mostra o mapa inteiro (Esc)">⟲ Visão geral</button>
@@ -269,8 +270,10 @@ let EXTRAS=[];            // pilhas novas desenhadas pelo pátio
 let modo='arm', foco=null, sel=null, editing=false, zoom=1, novo=null, novoModo=false;
 const NS='http://www.w3.org/2000/svg';
 const el=(t,at)=>{const e=document.createElementNS(NS,t);for(const k in at)e.setAttribute(k,at[k]);return e};
-const colorOf=s=>modo==='arm'?ARM[s.a].c:SIT[s.s].c;
-const keyOf=s=>modo==='arm'?s.a:s.s;
+// modo "Por oficina": cor da oficina de destino (distribuição dos avariados), independente do armador
+const OFM={OF1:{n:'Oficina 1',c:'#22c3e6'},OF2:{n:'Oficina 2',c:'#ff7a45'},OF3:{n:'Oficina 3',c:'#c77dff'},NAO:{n:'Não vai para oficina',c:'#3a444a'}};
+const keyOf=s=>modo==='arm'?s.a:modo==='sit'?s.s:(s._of&&OFM['OF'+s._of]?'OF'+s._of:'NAO');
+const colorOf=s=>modo==='arm'?ARM[s.a].c:modo==='sit'?SIT[s.s].c:OFM[keyOf(s)].c;
 const EW=18, EH=15;       // tamanho no mapa de uma pilha nova de 40'
 const svg=document.getElementById('map');
 
@@ -310,7 +313,7 @@ function pintar(G,u){
   }else{
     const r=el('rect',{x:-w/2,y:-h/2,width:w,height:h,fill:livre?'rgba(255,255,255,.06)':colorOf(s),stroke:livre?'#fff':'#0008','stroke-width':livre?1.2:.8});
     if(livre) r.setAttribute('stroke-dasharray','3 2');
-    if(keyOf(s)==='oficina'||keyOf(s)==='OFICINA') r.setAttribute('fill','url(#hatch)');
+    if(keyOf(s)==='oficina'||keyOf(s)==='OFICINA'||(modo==='of'&&s.a==='oficina')) r.setAttribute('fill','url(#hatch)');
     const esp=!livre&&s.a!=='oficina'&&(s.pilha==='vazia'||s.pilha==='parcial');
     if(esp){r.setAttribute('fill','rgba(0,0,0,.45)');r.setAttribute('stroke',colorOf(s));r.setAttribute('stroke-width',2)}
     G.append(r);
@@ -325,6 +328,7 @@ function pintar(G,u){
 }
 
 function draw(){
+  analise();
   const L=document.getElementById('layer'); L.innerHTML='';
   for(const u of unidades()){
     const G=el('g',{class:'slot',transform:\`translate(\${u.x} \${u.y}) rotate(\${u.ang})\`,tabindex:0,role:'button','aria-label':nomePos(u)});
@@ -350,7 +354,7 @@ function draw(){
     G.append(el('rect',{x:-w/2,y:-EH/2,width:w,height:EH,fill:'rgba(242,194,48,.35)',stroke:'#f2c230','stroke-width':2,'stroke-dasharray':'3 2'}));
     L.append(G);
   }
-  drawEdit(); analise();
+  drawEdit(); if(modo==='of') legend();
 }
 
 function drawEdit(){
@@ -595,14 +599,16 @@ async function carregar(forcar){
 }
 
 function legend(){
-  const M=modo==='arm'?ARM:SIT, cnt={}, pos={};
+  const M=modo==='arm'?ARM:modo==='sit'?SIT:OFM, cnt={}, pos={};
   for(const {s} of unidades()){
-    const k=keyOf(s); pos[k]=(pos[k]||0)+1; cnt[k]=(cnt[k]||0)+(s.q||0);
+    // no modo oficina, pilha avariada sem quantidade conta pela média (igual à distribuição)
+    const q=modo==='of'&&s._of&&s.q==null?ANA_MEDIA:(s.q||0);
+    const k=keyOf(s); pos[k]=(pos[k]||0)+1; cnt[k]=(cnt[k]||0)+q;
     if(s.split&&modo==='arm'){pos[s.split.a]=(pos[s.split.a]||0)+1;cnt[s.split.a]=(cnt[s.split.a]||0)+s.split.q}
   }
-  $('legT').textContent=modo==='arm'?'Armadores':'Situação';
+  $('legT').textContent=modo==='arm'?'Armadores':modo==='sit'?'Situação':'Oficina de destino (avariados)';
   const L=$('legend'); L.innerHTML='';
-  Object.keys(M).filter(k=>pos[k]).sort((x,y)=>(cnt[y]-cnt[x])||(pos[y]-pos[x])).forEach(k=>{
+  Object.keys(M).filter(k=>pos[k]).sort((x,y)=>modo==='of'?0:(cnt[y]-cnt[x])||(pos[y]-pos[x])).forEach(k=>{
     const it=document.createElement('div'); it.className='it'+(foco&&foco!==k?' dim':''); it.tabIndex=0; it.setAttribute('role','button');
     const sw=(k==='livre'||k==='LIVRE')?'<span class="sw livre"></span>':(k==='oficina'||k==='OFICINA')?'<span class="sw" style="background:repeating-linear-gradient(45deg,#f2c230 0 3px,#3a3000 3px 6px)"></span>':\`<span class="sw" style="background:\${M[k].c}"></span>\`;
     it.innerHTML=\`\${sw}<span>\${M[k].n}</span>\`;
@@ -692,6 +698,7 @@ bNova.onclick=()=>{novoModo=!novoModo;bNova.classList.toggle('on',novoModo);bNov
 
 // ---------- análise de oficinas ----------
 const MPX=0.8, ARMS=['maersk','hapag','evergreen','login','one'], IGN=new Set(['valle','cheio','livre','oficina']);
+let ANA_MEDIA=0;
 const centers=()=>unidades().map(u=>({s:u.s,x:u.x,y:u.y,nome:nomePos(u)}));
 // Distribuição dos AVARIADOS entre as oficinas:
 //  1) cada oficina recebe ~1/3 do volume (±10%) — nenhuma fica ociosa;
@@ -734,13 +741,15 @@ function analise(){
   const ofs=Object.keys(OF).sort().map(k=>({k,x:OF[k].reduce((a,c)=>a+c.x,0)/OF[k].length,y:OF[k].reduce((a,c)=>a+c.y,0)/OF[k].length}));
   const A=$('ana'); A.innerHTML='';
   ofs.forEach(o=>{A.append(el('circle',{cx:o.x,cy:o.y,r:11,fill:'#f2c230',stroke:'#111','stroke-width':2}));const tx=el('text',{x:o.x,y:o.y+3.5,'text-anchor':'middle','font-size':10,'font-weight':700,fill:'#111'});tx.textContent=o.k;A.append(tx)});
+  C.forEach(c=>{delete c.s._of});
   const av=C.filter(c=>ARMS.includes(c.s.a)&&c.s.s==='AV');
   const known=av.filter(c=>c.s.q!=null), avgQ=known.length?Math.round(known.reduce((a,c)=>a+c.s.q,0)/known.length):0;
-  const est=av.filter(c=>c.s.q==null).length;
+  const est=av.filter(c=>c.s.q==null).length; ANA_MEDIA=avgQ;
   $('anaEst').textContent=est?\`\${est} pilha(s) avariada(s) sem quantidade entram com \${avgQ} (média das outras).\`:'';
   if(!ofs.length||!av.length){$('anaOut').innerHTML='<p class="hint">Sem avariados ou sem oficinas no mapa.</p>';return}
-  const units=av.map(c=>({a:c.s.a,w:c.s.q??avgQ,x:c.x,y:c.y,nome:c.nome,d:ofs.map(o=>Math.hypot(o.x-c.x,o.y-c.y)*MPX)}));
+  const units=av.map(c=>({s:c.s,a:c.s.a,w:c.s.q??avgQ,x:c.x,y:c.y,nome:c.nome,d:ofs.map(o=>Math.hypot(o.x-c.x,o.y-c.y)*MPX)}));
   const {asg,T,tot}=distribuir(units,ofs.length);
+  units.forEach((u,i)=>{u.s._of=ofs[asg[i]].k});
   // resumo por armador e por oficina
   const R={}, load=ofs.map(()=>0); let dist=0, distMin=0;
   units.forEach((u,i)=>{
