@@ -33,6 +33,9 @@ h1 small{display:block;font-size:12px;font-weight:500;color:var(--mute);letter-s
 @media (max-width:900px){.wrap{grid-template-columns:1fr}}
 .mapbox{background:#000;border:1px solid var(--line);border-radius:6px;overflow:auto;position:relative;max-height:80vh}
 .mapbox svg{display:block;width:calc(100% * var(--z,1));height:auto;touch-action:none}
+.mapbox{cursor:grab}
+.mapbox.arrastando{cursor:grabbing;user-select:none}
+.mapbox.arrastando .slot{cursor:grabbing}
 .toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
 button,.seg label{font:inherit;font-size:13px;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:5px 10px;cursor:pointer}
 button:hover{border-color:var(--mute)}
@@ -621,8 +624,30 @@ p.append(el('rect',{width:5,height:5,fill:'#3a3000'}),el('rect',{width:2.5,heigh
 
 document.querySelectorAll('input[name=modo]').forEach(r=>r.addEventListener('change',()=>{modo=r.value;foco=null;legend();draw()}));
 const box=$('mapbox');
-const setZ=z=>{zoom=Math.max(1,Math.min(4,z));box.style.setProperty('--z',zoom)};
+// zoom mantendo o ponto (px,py) do quadro no lugar — padrão: centro
+const setZ=(z,px,py)=>{
+  const r=box.getBoundingClientRect(); px??=r.width/2; py??=r.height/2;
+  const fx=(box.scrollLeft+px)/box.scrollWidth, fy=(box.scrollTop+py)/box.scrollHeight;
+  zoom=Math.max(1,Math.min(5,z)); box.style.setProperty('--z',zoom);
+  box.scrollLeft=fx*box.scrollWidth-px; box.scrollTop=fy*box.scrollHeight-py;
+};
 zIn.onclick=()=>setZ(zoom*1.4); zOut.onclick=()=>setZ(zoom/1.4);
+box.addEventListener('wheel',ev=>{ev.preventDefault();const r=box.getBoundingClientRect();setZ(zoom*(ev.deltaY<0?1.2:1/1.2),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
+// arrastar o mapa (mouse ou dedo); clique curto continua selecionando a pilha
+let pan=null, panMoveu=false;
+box.addEventListener('pointerdown',ev=>{
+  if(drag||ev.button!==0||ev.target.closest('.handle')) return;
+  pan={x:ev.clientX,y:ev.clientY,sl:box.scrollLeft,st:box.scrollTop,id:ev.pointerId}; panMoveu=false;
+});
+box.addEventListener('pointermove',ev=>{
+  if(!pan||drag||ev.pointerId!==pan.id) return;
+  const dx=ev.clientX-pan.x, dy=ev.clientY-pan.y;
+  if(!panMoveu){ if(Math.hypot(dx,dy)<6) return; panMoveu=true; box.setPointerCapture?.(pan.id); box.classList.add('arrastando') }
+  box.scrollLeft=pan.sl-dx; box.scrollTop=pan.st-dy;
+});
+const fimPan=()=>{ if(!pan) return; pan=null; box.classList.remove('arrastando'); if(panMoveu) setTimeout(()=>panMoveu=false,0) };
+box.addEventListener('pointerup',fimPan); box.addEventListener('pointercancel',fimPan);
+box.addEventListener('click',ev=>{ if(panMoveu){ev.stopPropagation();ev.preventDefault()} },true);
 bEdit.onclick=()=>{editing=!editing;bEdit.classList.toggle('on',editing);bEdit.textContent=editing?'Concluir ajuste':'Ajustar ruas';editCard.hidden=!editing;drawEdit()};
 bReset.onclick=()=>{GEO=JSON.parse(JSON.stringify(GEO0));save();draw()};
 bCopy.onclick=()=>{
