@@ -123,6 +123,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
         <label><input type="radio" name="modo" id="mSit" value="sit"><span>Por situação</span></label>
       </div>
       <span class="sp"></span>
+      <button id="bGeral" title="Tira o destaque, fecha a pilha e mostra o mapa inteiro (Esc)">⟲ Visão geral</button>
       <button id="zOut" aria-label="Diminuir zoom">−</button>
       <button id="zIn" aria-label="Aumentar zoom">+</button>
       <button id="bNova" hidden>+ Nova pilha</button>
@@ -435,7 +436,7 @@ function detail(){
   const s=u.s;
   const qtd=s.split?\`\${s.q} + \${s.split.q}\`:(s.q==null?'<span class="warn">não informada</span>':s.q);
   const arm=s.split?\`\${ARM[s.a].n} + \${ARM[s.split.a].n}\`:ARM[s.a].n;
-  let h=\`<h2>\${esc(u.rua.replace(' ',' · lado '))}\${u.extra?' · pilha nova':''}</h2>
+  let h=\`<h2 style="display:flex;justify-content:space-between;align-items:center">\${esc(u.rua.replace(' ',' · lado '))}\${u.extra?' · pilha nova':''}<button type="button" id="dFechar" style="padding:1px 8px;font-size:12px;text-transform:none;letter-spacing:0">✕ Fechar</button></h2>
    <div class="pos mono">\${esc(nomePos(u))}</div>
    <table class="mono">
     <tr><td>Quantidade</td><td>\${qtd}</td></tr>
@@ -459,6 +460,7 @@ function detail(){
     </form>\`;
   }
   D.innerHTML=h;
+  $('dFechar').onclick=()=>{sel=null;detail();draw()};
   if(!API) return;
   ligarTamanho();
   $('fEdit').addEventListener('submit',ev=>{ev.preventDefault();salvarUnidade(u)});
@@ -680,6 +682,15 @@ bCopy.onclick=()=>{
   const fb=()=>{copyBox.hidden=false;copyBox.value=txt;copyBox.select();copyMsg.textContent='Selecionei o texto abaixo: copie com Ctrl+C e cole na conversa.'};
   if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>{copyMsg.textContent='Copiado. Cole na conversa para eu fixar no mapa.'},fb); else fb();
 };
+function visaoGeral(){
+  foco=null; sel=null; novo=null;
+  if(novoModo){novoModo=false;bNova.classList.remove('on');bNova.textContent='+ Nova pilha';svg.style.cursor=''}
+  setZ(zMin()); box.scrollTo(0,0); legend(); detail(); draw();
+}
+bGeral.onclick=visaoGeral;
+addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!drag)visaoGeral()});
+// clique numa área vazia do mapa fecha a pilha selecionada
+svg.addEventListener('click',ev=>{if(novoModo||editing||ev.target.closest('.slot'))return;if(sel){sel=null;detail();draw()}});
 bNova.hidden=!API;
 bNova.onclick=()=>{novoModo=!novoModo;bNova.classList.toggle('on',novoModo);bNova.textContent=novoModo?'Toque no mapa onde fica…':'+ Nova pilha';svg.style.cursor=novoModo?'crosshair':'';if(novoModo){sel=null;novo=null;detail();draw()}};
 
