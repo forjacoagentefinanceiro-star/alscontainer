@@ -45,7 +45,7 @@ function validar(b: Record<string, unknown>): Linha | string {
   const pilha = b.pilha == null || b.pilha === '' ? null : String(b.pilha)
   const tamanho = b.tamanho === '20' ? '20' : '40'
   const qtd = numOuNull(b.qtd, 0, 999)
-  const x = numOuNull(b.x, 0, 1024), y = numOuNull(b.y, 0, 628), ang = numOuNull(b.ang, -360, 360)
+  const x = numOuNull(b.x, 0, 1024), y = numOuNull(b.y, -60, 628), ang = numOuNull(b.ang, -360, 360)
   if (!ARMADORES.includes(armador)) return 'Armador inválido'
   if (!SITUACOES.includes(situacao)) return 'Situação inválida'
   if (pilha != null && !PILHAS.includes(pilha)) return 'Pilha inválida'
