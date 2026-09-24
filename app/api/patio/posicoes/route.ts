@@ -76,6 +76,12 @@ export async function POST(req: Request) {
 
   const supabase = await createClient()
   const agora = new Date().toISOString()
+
+  // estado anterior, para a auditoria mostrar antes → depois
+  const CAMPOS = 'chave, armador, situacao, pilha, qtd, obs, tamanho, x, y, ang'
+  const { data: atuais } = await supabase.from('patio_posicoes').select(CAMPOS).in('chave', [...rows.map(r => r.chave), ...remover])
+  const antesPor = new Map((atuais ?? []).map(a => [a.chave as string, a as Record<string, unknown>]))
+
   if (rows.length) {
     const { error } = await supabase.from('patio_posicoes').upsert(
       rows.map(r => ({ ...r, atualizado_por: profile.id, atualizado_email: profile.email, atualizado_em: agora })),
@@ -88,10 +94,24 @@ export async function POST(req: Request) {
     if (error) return Response.json({ error: error.message }, { status: 500 })
   }
 
-  await supabase.from('patio_historico').insert([
-    ...rows.map(r => ({ chave: r.chave, armador: r.armador, situacao: r.situacao, pilha: r.pilha, qtd: r.qtd, obs: r.obs, tamanho: r.tamanho, acao: 'alterou', usuario: profile.id, usuario_email: profile.email })),
-    ...remover.map(chave => ({ chave, acao: 'removeu', usuario: profile.id, usuario_email: profile.email })),
-  ])
+  const soLugarMudou = (a: Record<string, unknown>, r: Linha) =>
+    (['armador', 'situacao', 'pilha', 'qtd', 'obs', 'tamanho'] as const).every(k => (a[k] ?? null) === (r[k] ?? null))
+  const historico = [
+    ...rows.map(r => {
+      const antes = antesPor.get(r.chave) ?? null
+      const acao = !antes ? (r.x != null ? 'criou' : 'alterou') : soLugarMudou(antes, r) ? 'moveu' : 'alterou'
+      const { chave, ...depois } = r
+      return { chave, armador: r.armador, situacao: r.situacao, pilha: r.pilha, qtd: r.qtd, obs: r.obs, tamanho: r.tamanho, acao, antes, depois, usuario: profile.id, usuario_email: profile.email }
+    }),
+    // só registra remoção do que existia (juntar 20'→40' manda remover lados que podem não existir)
+    ...remover.filter(chave => antesPor.has(chave)).map(chave => ({ chave, acao: 'removeu', antes: antesPor.get(chave), depois: null, usuario: profile.id, usuario_email: profile.email })),
+  ]
+  if (historico.length) {
+    let { error } = await supabase.from('patio_historico').insert(historico)
+    // banco sem as colunas antes/depois (migration 20260924d ainda não rodada): grava sem elas para não perder o registro
+    if (error) ({ error } = await supabase.from('patio_historico').insert(historico.map(h => { const s: Record<string, unknown> = { ...h }; delete s.antes; delete s.depois; return s })))
+    if (error) console.error('[patio historico]', error.message)
+  }
 
   return Response.json({ ok: true })
 }

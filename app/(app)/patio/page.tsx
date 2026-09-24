@@ -18,6 +18,15 @@ export default async function PatioPage() {
             Posições por rua, armador e situação · qual oficina usar para cada armador
           </p>
         </div>
+        <div className="flex gap-2 flex-wrap justify-end">
+        {profile.role === 'admin' && (
+          <Link
+            href="/patio/historico"
+            style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: '#1B4F8A', padding: '7px 14px', borderRadius: 999, textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
+            Histórico de alterações
+          </Link>
+        )}
         <Link
           href="/api/patio/mapa"
           target="_blank"
@@ -25,6 +34,7 @@ export default async function PatioPage() {
         >
           Tela cheia ↗
         </Link>
+        </div>
       </div>
       <iframe
         src="/api/patio/mapa"
