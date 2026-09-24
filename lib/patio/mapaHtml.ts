@@ -116,6 +116,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
       <span class="sp"></span>
       <button id="zOut" aria-label="Diminuir zoom">−</button>
       <button id="zIn" aria-label="Aumentar zoom">+</button>
+      <button id="bNova" hidden>+ Nova pilha</button>
       <button id="bEdit">Ajustar ruas</button>
     </div>
     <div class="mapbox" id="mapbox">
@@ -137,7 +138,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
     <div class="card">
       <h2 id="legT">Armadores</h2>
       <div class="legend" id="legend"></div>
-      <p class="hint" style="margin-top:8px">Clique num item para destacar só ele. Pilha: bloco cheio = completa, metade = parcial, só contorno = vazia.</p>
+      <p class="hint" style="margin-top:8px">Clique num item para destacar só ele. Pilha: bloco cheio = completa, metade = parcial, só contorno = vazia. Linha branca no meio = pilha de 20' (lados A e B).</p>
     </div>
     <div class="card" id="anaCard">
       <h2>Qual oficina usar</h2>
@@ -179,7 +180,7 @@ const SIT={
 };
 // p: posição, q: qtd (null = não informada), a: armador, t: tipo/grade, s: situação, o: obs, raw: texto original
 const S=(p,q,a,s,t,raw,o)=>({p,q,a,s,t:t||'',raw,o:o||''});
-const DATA={
+let DATA={
  'R1 D':[
   S('D1',7,'cheio','CHEIO','','7 CHEIO'),S('D2',10,'cheio','CHEIO','','10 CHEIO'),S('D3',11,'cheio','CHEIO','','11 CHEIO'),
   S('D4',19,'cheio','CHEIO','','19 CHEIO'),S('D5',34,'cheio','CHEIO','','34 CHEIO'),
@@ -257,55 +258,91 @@ let GEO=JSON.parse(JSON.stringify(GEO0));
 try{const s=JSON.parse(localStorage.getItem(LS)||'null'); if(s) for(const k in s) if(GEO[k]&&s[k].pts) GEO[k]=s[k];}catch(e){}
 const save=()=>{try{localStorage.setItem(LS,JSON.stringify(GEO))}catch(e){}};
 
-let modo='arm', foco=null, sel=null, editing=false, zoom=1;
+const DATA0=JSON.parse(JSON.stringify(DATA));
+let EXTRAS=[];            // pilhas novas desenhadas pelo pátio
+let modo='arm', foco=null, sel=null, editing=false, zoom=1, novo=null, novoModo=false;
 const NS='http://www.w3.org/2000/svg';
 const el=(t,at)=>{const e=document.createElementNS(NS,t);for(const k in at)e.setAttribute(k,at[k]);return e};
 const colorOf=s=>modo==='arm'?ARM[s.a].c:SIT[s.s].c;
 const keyOf=s=>modo==='arm'?s.a:s.s;
+const EW=18, EH=15;       // tamanho no mapa de uma pilha nova de 40'
+const svg=document.getElementById('map');
+
+function geoRua(rua){
+  const P=GEO[rua].pts, seg=[]; let len=0;
+  for(let k=1;k<P.length;k++){const l=Math.hypot(P[k][0]-P[k-1][0],P[k][1]-P[k-1][1]);seg.push({p:P[k-1],q:P[k],s:len,l});len+=l}
+  const at=d=>{const S=seg.find(x=>d<=x.s+x.l)||seg[seg.length-1],f=S.l?(d-S.s)/S.l:0;
+    return [S.p[0]+(S.q[0]-S.p[0])*f,S.p[1]+(S.q[1]-S.p[1])*f,Math.atan2(S.q[1]-S.p[1],S.q[0]-S.p[0])*180/Math.PI]};
+  return {P,len,at};
+}
+
+// Cada pilha desenhável: 40' = uma unidade; 20' = duas (lado A e B), cada uma com seus dados
+function unidades(){
+  const U=[];
+  const push=(base,chave,rua,cx,cy,ang,w,extra)=>{
+    if(base.tam==='20'&&base.halves){
+      const dx=Math.cos(ang*Math.PI/180)*w/4, dy=Math.sin(ang*Math.PI/180)*w/4;
+      ['A','B'].forEach((H,k)=>{const sg=k?1:-1;U.push({chave:chave+'.'+H,rua,s:base.halves[H],base,baseChave:chave,half:H,x:cx+sg*dx,y:cy+sg*dy,ang,w:w/2,extra})});
+    }else U.push({chave,rua,s:base,base,baseChave:chave,half:null,x:cx,y:cy,ang,w,extra});
+  };
+  for(const rua in DATA){
+    const list=DATA[rua], g=geoRua(rua), step=g.len/list.length, w=Math.max(step-1.6,3);
+    list.forEach((s,i)=>{const [cx,cy,ang]=g.at((i+.5)*step);push(s,rua+'|'+s.p,rua,cx,cy,ang,w,false)});
+  }
+  EXTRAS.forEach(e=>push(e,e.chave,e.rua,e.x,e.y,e.ang,EW,true));
+  return U;
+}
+const numPos=p=>p.replace(/^[DE]/,'');
+const nomePos=u=>\`\${u.rua.split(' ')[0]} \${u.half?u.base.p+'.'+u.half:u.s.p}\`;
+
+function pintar(G,u){
+  const s=u.s, w=u.w, h=EH;
+  const livre=keyOf(s)==='livre'||keyOf(s)==='LIVRE';
+  if(s.split && modo==='arm'){
+    G.append(el('rect',{x:-w/2,y:-h/2,width:w/2,height:h,fill:ARM[s.a].c,stroke:'#0008','stroke-width':.8}));
+    G.append(el('rect',{x:0,y:-h/2,width:w/2,height:h,fill:ARM[s.split.a].c,stroke:'#0008','stroke-width':.8}));
+  }else{
+    const r=el('rect',{x:-w/2,y:-h/2,width:w,height:h,fill:livre?'rgba(255,255,255,.06)':colorOf(s),stroke:livre?'#fff':'#0008','stroke-width':livre?1.2:.8});
+    if(livre) r.setAttribute('stroke-dasharray','3 2');
+    if(keyOf(s)==='oficina'||keyOf(s)==='OFICINA') r.setAttribute('fill','url(#hatch)');
+    const esp=!livre&&s.a!=='oficina'&&(s.pilha==='vazia'||s.pilha==='parcial');
+    if(esp){r.setAttribute('fill','rgba(0,0,0,.45)');r.setAttribute('stroke',colorOf(s));r.setAttribute('stroke-width',2)}
+    G.append(r);
+    if(esp&&s.pilha==='parcial') G.append(el('rect',{x:-w/2+1,y:0,width:w-2,height:h/2-1,fill:colorOf(s)}));
+  }
+  if(u.half) G.append(el('line',{x1:u.half==='A'?w/2:-w/2,y1:-h/2,x2:u.half==='A'?w/2:-w/2,y2:h/2,stroke:'#fff','stroke-width':1.2}));
+  const txt=u.half?(w>=13?numPos(u.base.p)+u.half:u.half):numPos(s.p);
+  if(w>=8){
+    const t=el('text',{x:0,y:3.2,'text-anchor':'middle','font-size':Math.min(8.5,Math.max(6,w*.42)),fill:(livre||s.pilha==='vazia'||s.pilha==='parcial')?'#fff':'#0b0e10','font-weight':600});
+    t.textContent=txt; G.append(t);
+  }
+}
 
 function draw(){
   const L=document.getElementById('layer'); L.innerHTML='';
+  for(const u of unidades()){
+    const G=el('g',{class:'slot',transform:\`translate(\${u.x} \${u.y}) rotate(\${u.ang})\`,tabindex:0,role:'button','aria-label':nomePos(u)});
+    const dim=foco && keyOf(u.s)!==foco && !(u.s.split && modo==='arm' && u.s.split.a===foco);
+    if(dim) G.classList.add('dim');
+    if(sel===u.chave) G.classList.add('sel');
+    pintar(G,u);
+    const pick=()=>{sel=u.chave;novo=null;detail();draw()};
+    G.addEventListener('click',pick);
+    G.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}});
+    L.append(G);
+  }
   for(const rua in DATA){
-    const list=DATA[rua], P=GEO[rua].pts, seg=[];
-    let len=0;
-    for(let k=1;k<P.length;k++){const l=Math.hypot(P[k][0]-P[k-1][0],P[k][1]-P[k-1][1]);seg.push({p:P[k-1],q:P[k],s:len,l});len+=l}
-    const at=d=>{const S=seg.find(x=>d<=x.s+x.l)||seg[seg.length-1],f=S.l?(d-S.s)/S.l:0;
-      return [S.p[0]+(S.q[0]-S.p[0])*f,S.p[1]+(S.q[1]-S.p[1])*f,Math.atan2(S.q[1]-S.p[1],S.q[0]-S.p[0])*180/Math.PI]};
-    const n=list.length, step=len/n, w=Math.max(step-1.6,3), h=15;
-    list.forEach((s,i)=>{
-      const [cx,cy,ang]=at((i+.5)*step);
-      const G=el('g',{class:'slot',transform:\`translate(\${cx} \${cy}) rotate(\${ang})\`,tabindex:0,role:'button','aria-label':\`\${rua.replace(' ','')} \${s.p}\`});
-      const dim=foco && keyOf(s)!==foco && !(s.split && modo==='arm' && s.split.a===foco);
-      if(dim) G.classList.add('dim');
-      if(sel && sel.rua===rua && sel.i===i) G.classList.add('sel');
-      const livre=keyOf(s)==='livre'||keyOf(s)==='LIVRE';
-      if(s.split && modo==='arm'){
-        G.append(el('rect',{x:-w/2,y:-h/2,width:w/2,height:h,fill:ARM[s.a].c,stroke:'#0008','stroke-width':.8}));
-        G.append(el('rect',{x:0,y:-h/2,width:w/2,height:h,fill:ARM[s.split.a].c,stroke:'#0008','stroke-width':.8}));
-      }else{
-        const r=el('rect',{x:-w/2,y:-h/2,width:w,height:h,fill:livre?'rgba(255,255,255,.06)':colorOf(s),stroke:livre?'#fff':'#0008','stroke-width':livre?1.2:.8});
-        if(livre) r.setAttribute('stroke-dasharray','3 2');
-        if(keyOf(s)==='oficina'||keyOf(s)==='OFICINA'){r.setAttribute('fill','url(#hatch)')}
-        const esp=!livre&&s.a!=='oficina'&&(s.pilha==='vazia'||s.pilha==='parcial');
-        if(esp){r.setAttribute('fill','rgba(0,0,0,.45)');r.setAttribute('stroke',colorOf(s));r.setAttribute('stroke-width',2)}
-        G.append(r);
-        if(esp&&s.pilha==='parcial') G.append(el('rect',{x:-w/2+1,y:0,width:w-2,height:h/2-1,fill:colorOf(s)}));
-      }
-      if(w>=13){
-        const t=el('text',{x:0,y:3.2,'text-anchor':'middle','font-size':Math.min(8.5,w*.42),fill:(livre||s.pilha==='vazia'||s.pilha==='parcial')?'#fff':'#0b0e10','font-weight':600});
-        t.textContent=s.p.replace(/^[DE]/,''); G.append(t);
-      }
-      const pick=()=>{sel={rua,i};detail();draw()};
-      G.addEventListener('click',pick);
-      G.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}});
-      L.append(G);
-    });
-    // rótulo da rua antes da posição 1
-    const [ax,ay]=P[0],ul=Math.hypot(P[1][0]-ax,P[1][1]-ay)||1, lx=ax-(P[1][0]-ax)/ul*16, ly=ay-(P[1][1]-ay)/ul*16;
+    const {P}=geoRua(rua), [ax,ay]=P[0], ul=Math.hypot(P[1][0]-ax,P[1][1]-ay)||1, lx=ax-(P[1][0]-ax)/ul*16, ly=ay-(P[1][1]-ay)/ul*16;
     const nome=rua.includes('banheiro')?'Banheiro':rua.split(' ').slice(0,2).join('·'), bw=nome.length*6+10;
     const bg=el('rect',{x:lx-bw/2,y:ly-8,width:bw,height:15,rx:3,fill:'#0b0e10',opacity:.85});
     const t=el('text',{x:lx,y:ly+3.5,'text-anchor':'middle','font-size':9.5,fill:'#f2c230','font-weight':600});
     t.textContent=nome; L.append(bg,t);
+  }
+  if(novo){
+    const G=el('g',{transform:\`translate(\${novo.x} \${novo.y}) rotate(\${novo.ang})\`});
+    const w=EW;
+    G.append(el('rect',{x:-w/2,y:-EH/2,width:w,height:EH,fill:'rgba(242,194,48,.35)',stroke:'#f2c230','stroke-width':2,'stroke-dasharray':'3 2'}));
+    L.append(G);
   }
   drawEdit(); analise();
 }
@@ -323,7 +360,6 @@ function drawEdit(){
     });
   }
 }
-const svg=document.getElementById('map');
 function toSvg(ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
 let drag=null;
 function startDrag(ev,rua,k){ev.preventDefault();drag={rua,k};svg.setPointerCapture?.(ev.pointerId)}
@@ -331,86 +367,217 @@ svg.addEventListener('pointermove',ev=>{if(!drag)return;const p=toSvg(ev);GEO[dr
 const endDrag=()=>{if(drag){drag=null;save()}};
 svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
 
+// ---------- edição (só dentro do ALS Container) ----------
 const API=/^\\/api\\/patio\\/mapa/.test(location.pathname)?'/api/patio/posicoes':null;
 const PILHA={completa:'Completa',parcial:'Parcial',vazia:'Vazia'};
+const SIT_FORM=['OK','AV','SOF'];
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+
+function camposForm(s){
+  const opt=(M,v)=>Object.keys(M).map(k=>\`<option value="\${k}"\${k===v?' selected':''}>\${M[k].n}</option>\`).join('');
+  return \`<label class="l">Armador<select id="eArm">\${opt(ARM,s.a)}</select></label>
+    <label class="l">Situação<select id="eSit">\${SIT_FORM.includes(s.s)?'':'<option value="" selected>—</option>'}\${SIT_FORM.map(k=>\`<option value="\${k}"\${k===s.s?' selected':''}>\${SIT[k].n}</option>\`).join('')}</select></label>
+    <div class="l">Pilha
+      <div class="seg" role="radiogroup" aria-label="Pilha" style="margin-top:3px">
+        \${Object.keys(PILHA).map(k=>\`<label><input type="radio" name="ePilha" id="eP_\${k}" value="\${k}"\${s.pilha===k?' checked':''}><span>\${PILHA[k]}</span></label>\`).join('')}
+      </div></div>
+    <div class="row">
+      <label class="l">Quantidade<input type="number" id="eQtd" min="0" max="999" inputmode="numeric" value="\${s.q??''}"></label>
+      <label class="l">Nota<input type="text" id="eObs" maxlength="200" value="\${esc(s.nota)}"></label>
+    </div>\`;
+}
+function campoTamanho(tam){
+  return \`<div class="l">Tamanho da pilha
+      <div class="seg" role="radiogroup" aria-label="Tamanho" style="margin-top:3px">
+        <label><input type="radio" name="eTam" id="eT40" value="40"\${tam!=='20'?' checked':''}><span>40'</span></label>
+        <label><input type="radio" name="eTam" id="eT20" value="20"\${tam==='20'?' checked':''}><span>20' (divide em A e B)</span></label>
+      </div></div>
+    <div class="l" id="eLadoBox" hidden>Lado em uso
+      <div class="seg" role="radiogroup" aria-label="Lado" style="margin-top:3px">
+        <label><input type="radio" name="eLado" id="eLA" value="A" checked><span>Lado A</span></label>
+        <label><input type="radio" name="eLado" id="eLB" value="B"><span>Lado B</span></label>
+      </div><span class="hint" style="margin-top:4px">O outro lado fica livre. Depois dá para editar cada lado.</span></div>\`;
+}
+function lerForm(){
+  const armador=$('eArm').value;
+  let situacao=$('eSit').value;
+  if(armador==='livre') situacao='LIVRE'; else if(armador==='oficina') situacao='OFICINA'; else if(armador==='cheio') situacao='CHEIO';
+  if(!situacao) throw new Error('escolha a situação');
+  const pilha=(document.querySelector('input[name=ePilha]:checked')||{}).value||null;
+  return {armador,situacao,pilha,qtd:$('eQtd').value===''?null:Number($('eQtd').value),obs:$('eObs').value};
+}
+function ligarTamanho(){
+  const upd=()=>{const b=$('eLadoBox');if(b)b.hidden=!$('eT20')?.checked};
+  document.querySelectorAll('input[name=eTam]').forEach(r=>r.addEventListener('change',upd)); upd();
+}
+
 function detail(){
-  const D=document.getElementById('det');
-  if(!sel){return}
-  const s=DATA[sel.rua][sel.i];
+  const D=$('det');
+  if(novo) return detalheNovo();
+  const u=sel&&unidades().find(x=>x.chave===sel);
+  if(!u){sel=null;D.innerHTML='<h2>Posição</h2><p class="hint">Toque numa posição do mapa para ver o que tem nela e alterar armador, situação e pilha.</p>';return}
+  const s=u.s;
   const qtd=s.split?\`\${s.q} + \${s.split.q}\`:(s.q==null?'<span class="warn">não informada</span>':s.q);
   const arm=s.split?\`\${ARM[s.a].n} + \${ARM[s.split.a].n}\`:ARM[s.a].n;
-  let h=\`<h2>\${sel.rua.replace(' ',' · lado ')}</h2>
-   <div class="pos mono">\${sel.rua.split(' ')[0]} \${s.p}</div>
+  let h=\`<h2>\${esc(u.rua.replace(' ',' · lado '))}\${u.extra?' · pilha nova':''}</h2>
+   <div class="pos mono">\${esc(nomePos(u))}</div>
    <table class="mono">
     <tr><td>Quantidade</td><td>\${qtd}</td></tr>
     <tr><td>Armador</td><td>\${arm}</td></tr>
     <tr><td>Situação</td><td>\${SIT[s.s].n}</td></tr>
     <tr><td>Pilha</td><td>\${s.pilha?PILHA[s.pilha]:'—'}</td></tr>
+    <tr><td>Tamanho</td><td>\${u.half?\`20' · lado \${u.half}\`:"40'"}</td></tr>
     \${s.t?\`<tr><td>Tipo / grade</td><td>\${esc(s.t)}</td></tr>\`:''}
     \${s.o?\`<tr><td>Obs.</td><td>\${esc(s.o)}</td></tr>\`:''}
     \${s.nota?\`<tr><td>Nota do pátio</td><td>\${esc(s.nota)}</td></tr>\`:''}
    </table>
-   \${s.upd?\`<div class="upd">Atualizado por \${esc(s.upd.email)} em \${new Date(s.upd.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>\`:\`<div class="raw mono">Levantamento 24/09: \${esc(s.raw)}</div>\`}\`;
+   \${s.upd?\`<div class="upd">Atualizado por \${esc(s.upd.email)} em \${new Date(s.upd.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>\`:(s.raw?\`<div class="raw mono">Levantamento 24/09: \${esc(s.raw)}</div>\`:'')}\`;
   if(API){
-    const opt=(M,v)=>Object.keys(M).map(k=>\`<option value="\${k}"\${k===v?' selected':''}>\${M[k].n}</option>\`).join('');
     h+=\`<form class="fedit" id="fEdit">
-      <label class="l">Armador<select id="eArm">\${opt(ARM,s.a)}</select></label>
-      <label class="l">Situação<select id="eSit" required>\${['OK','AV','SOF'].includes(s.s)?'':'<option value="" selected disabled>Escolha…</option>'}\${['OK','AV','SOF'].map(k=>\`<option value="\${k}"\${k===s.s?' selected':''}>\${SIT[k].n}</option>\`).join('')}</select></label>
-      <div class="l" style="font-size:12px;color:var(--mute)">Pilha
-        <div class="seg" role="radiogroup" aria-label="Pilha" style="margin-top:3px">
-          \${Object.keys(PILHA).map(k=>\`<label><input type="radio" name="ePilha" id="eP_\${k}" value="\${k}"\${s.pilha===k?' checked':''}><span>\${PILHA[k]}</span></label>\`).join('')}
-        </div></div>
-      <div class="row">
-        <label class="l">Quantidade<input type="number" id="eQtd" min="0" max="999" inputmode="numeric" value="\${s.q??''}"></label>
-        <label class="l">Nota<input type="text" id="eObs" maxlength="200" value="\${esc(s.nota)}"></label>
-      </div>
+      \${u.half?\`<div class="l">Pilha de 20' · editando o lado \${u.half}<button type="button" id="eJuntar" style="margin-top:4px">Voltar para 40' (fica com os dados deste lado)</button></div>\`:campoTamanho('40')}
+      \${camposForm(s)}
+      \${u.extra&&!u.half?\`<div class="row"><button type="button" id="eGirE">Girar ⟲</button><button type="button" id="eGirD">Girar ⟳</button></div>\`:''}
       <button type="submit" id="eSalvar">Salvar posição</button>
+      \${u.extra?\`<button type="button" id="eRemover">Remover esta pilha nova</button>\`:''}
       <div class="msg" id="eMsg"></div>
     </form>\`;
   }
   D.innerHTML=h;
-  const F=document.getElementById('fEdit');
-  if(F) F.addEventListener('submit',salvar);
+  if(!API) return;
+  ligarTamanho();
+  $('fEdit').addEventListener('submit',ev=>{ev.preventDefault();salvarUnidade(u)});
+  if($('eJuntar')) $('eJuntar').onclick=()=>juntar(u);
+  if($('eGirE')) $('eGirE').onclick=()=>{u.base.ang=((u.base.ang||0)-15);draw()};
+  if($('eGirD')) $('eGirD').onclick=()=>{u.base.ang=((u.base.ang||0)+15);draw()};
+  if($('eRemover')) $('eRemover').onclick=ev=>{
+    const b=ev.currentTarget;
+    if(b.dataset.confirma){enviar({remover:[u.baseChave,u.baseChave+'.A',u.baseChave+'.B']},null);return}
+    b.dataset.confirma='1'; b.textContent='Toque de novo para confirmar a remoção'; b.style.borderColor='var(--s-av)';
+  };
 }
-async function salvar(ev){
-  ev.preventDefault();
-  const s=DATA[sel.rua][sel.i], msg=document.getElementById('eMsg'), btn=document.getElementById('eSalvar');
-  const pilha=(document.querySelector('input[name=ePilha]:checked')||{}).value||null;
-  const body={chave:sel.rua+'|'+s.p,armador:eArm.value,situacao:eSit.value,pilha,qtd:eQtd.value===''?null:Number(eQtd.value),obs:eObs.value};
-  btn.disabled=true; msg.textContent='Salvando…'; msg.style.color='var(--mute)';
+
+function extrasXY(u){return u.extra?{x:u.base.x,y:u.base.y,ang:u.base.ang||0}:{}}
+function salvarUnidade(u){
+  let f; try{f=lerForm()}catch(e){return msg('Não salvou: '+e.message,true)}
+  if(u.half) return enviar({rows:[{chave:u.chave,...f,tamanho:'20'}]},u.chave);
+  const tam=$('eT20').checked?'20':'40';
+  const base={chave:u.baseChave,...f,tamanho:tam,...extrasXY(u)};
+  if(tam==='20'){
+    const lado=$('eLB').checked?'B':'A', outro=lado==='A'?'B':'A';
+    return enviar({rows:[base,{chave:u.baseChave+'.'+lado,...f,tamanho:'20'},
+      {chave:u.baseChave+'.'+outro,armador:'livre',situacao:'LIVRE',pilha:null,qtd:null,obs:'',tamanho:'20'}]},u.baseChave+'.'+lado);
+  }
+  enviar({rows:[base]},u.baseChave);
+}
+function juntar(u){
+  let f; try{f=lerForm()}catch(e){return msg('Não salvou: '+e.message,true)}
+  enviar({rows:[{chave:u.baseChave,...f,tamanho:'40',...extrasXY(u)}],remover:[u.baseChave+'.A',u.baseChave+'.B']},u.baseChave);
+}
+function msg(t,erro){const m=$('eMsg');if(m){m.textContent=t;m.style.color=erro?'var(--s-av)':'var(--s-ok)'}}
+async function enviar(body,proxSel){
+  const btns=document.querySelectorAll('#fEdit button'); btns.forEach(b=>b.disabled=true);
+  msg('Salvando…');
   try{
     const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(j.error||('Erro '+r.status));
-    aplicar([j.posicao]); detail();
-    const m=document.getElementById('eMsg'); if(m){m.textContent='Salvo. Todos já veem a alteração.';m.style.color='var(--s-ok)'}
-  }catch(e){msg.textContent='Não salvou: '+e.message;msg.style.color='var(--s-av)';btn.disabled=false}
+    novo=null; sel=proxSel;
+    await carregar(true);
+    msg(proxSel?'Salvo. Todos já veem a alteração.':'Pilha removida.');
+  }catch(e){msg('Não salvou: '+e.message,true);btns.forEach(b=>b.disabled=false)}
 }
+
+// ---------- pilha nova ----------
+function ruaMaisPerto(x,y){
+  let best=null;
+  for(const rua in GEO){const P=GEO[rua].pts;for(let k=1;k<P.length;k++){
+    const [x1,y1]=P[k-1],[x2,y2]=P[k],dx=x2-x1,dy=y2-y1,L2=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/L2));
+    const d=Math.hypot(x-(x1+t*dx),y-(y1+t*dy));
+    if(!best||d<best.d) best={d,rua,ang:Math.round(Math.atan2(dy,dx)*180/Math.PI)};
+  }}
+  return best;
+}
+function detalheNovo(){
+  const D=$('det'), r=novo.perto;
+  const [rN,lado]=(r?r.rua:'R1 D').split(' ');
+  D.innerHTML=\`<h2>Pilha nova</h2>
+    <p class="hint">Confira o lugar no mapa (contorno amarelo). Dê o nome da posição como no levantamento, ex.: R1 D28.</p>
+    <form class="fedit" id="fEdit">
+      <div class="row">
+        <label class="l">Rua<input type="text" id="nRua" value="\${esc(rN)}" maxlength="4" style="text-transform:uppercase"></label>
+        <label class="l">Lado<select id="nLado"><option value="D"\${lado==='D'?' selected':''}>D</option><option value="E"\${lado==='E'?' selected':''}>E</option></select></label>
+      </div>
+      <label class="l">Número da posição<input type="text" id="nNum" maxlength="4" inputmode="numeric" placeholder="ex.: 28"></label>
+      \${campoTamanho('40')}
+      \${camposForm({a:'maersk',s:'OK',q:null,pilha:'completa',nota:''})}
+      <div class="row"><button type="button" id="eGirE">Girar ⟲</button><button type="button" id="eGirD">Girar ⟳</button></div>
+      <button type="submit" id="eSalvar">Criar pilha</button>
+      <button type="button" id="nCancelar">Cancelar</button>
+      <div class="msg" id="eMsg"></div>
+    </form>\`;
+  ligarTamanho();
+  $('eGirE').onclick=()=>{novo.ang-=15;draw()};
+  $('eGirD').onclick=()=>{novo.ang+=15;draw()};
+  $('nCancelar').onclick=()=>{novo=null;detail();draw()};
+  $('fEdit').addEventListener('submit',ev=>{
+    ev.preventDefault();
+    const rua=$('nRua').value.trim().toUpperCase(), ld=$('nLado').value, num=$('nNum').value.trim().toUpperCase();
+    if(!/^R\\d{1,2}$/.test(rua)) return msg('Rua deve ser como R1, R5…',true);
+    if(!/^[0-9]{1,3}[A-Z]?$/.test(num)) return msg('Número deve ser como 28',true);
+    const chave=\`\${rua} \${ld}|\${ld}\${num}\`, nome=\`\${rua} \${ld}\${num}\`;
+    if(unidades().some(u=>nomePos({...u,half:null,s:u.base})===nome)) return msg(\`Já existe a posição \${nome}\`,true);
+    let f; try{f=lerForm()}catch(e){return msg('Não salvou: '+e.message,true)}
+    const tam=$('eT20').checked?'20':'40', xy={x:Math.round(novo.x),y:Math.round(novo.y),ang:novo.ang};
+    if(tam==='20'){
+      const lado=$('eLB').checked?'B':'A', outro=lado==='A'?'B':'A';
+      return enviar({rows:[{chave,...f,tamanho:'20',...xy},{chave:chave+'.'+lado,...f,tamanho:'20'},
+        {chave:chave+'.'+outro,armador:'livre',situacao:'LIVRE',pilha:null,qtd:null,obs:'',tamanho:'20'}]},chave+'.'+lado);
+    }
+    enviar({rows:[{chave,...f,tamanho:'40',...xy}]},chave);
+  });
+}
+svg.addEventListener('click',ev=>{
+  if(!novoModo) return;
+  ev.stopPropagation(); ev.preventDefault();
+  const p=toSvg(ev), r=ruaMaisPerto(p.x,p.y);
+  novo={x:p.x,y:p.y,ang:r?r.ang:0,perto:r}; novoModo=false; sel=null;
+  bNova.classList.remove('on'); bNova.textContent='+ Nova pilha'; svg.style.cursor='';
+  detail(); draw();
+},true);
+
+// ---------- dados do banco ----------
 function aplicar(rows){
-  for(const p of rows){
-    const k=p.chave.indexOf('|'), rua=p.chave.slice(0,k), pos=p.chave.slice(k+1);
-    const s=(DATA[rua]||[]).find(x=>x.p===pos); if(!s) continue;
-    s.a=ARM[p.armador]?p.armador:s.a; s.s=SIT[p.situacao]?p.situacao:s.s; s.pilha=p.pilha||null;
-    s.q=p.qtd; s.nota=p.obs||''; delete s.split; s.upd={email:p.atualizado_email,em:p.atualizado_em};
+  DATA=JSON.parse(JSON.stringify(DATA0)); EXTRAS=[];
+  const by={}; rows.forEach(r=>by[r.chave]=r);
+  const fill=(o,r)=>{o.a=ARM[r.armador]?r.armador:o.a; o.s=SIT[r.situacao]?r.situacao:o.s; o.pilha=r.pilha||null;
+    o.q=r.qtd; o.nota=r.obs||''; delete o.split; o.upd={email:r.atualizado_email,em:r.atualizado_em}};
+  const lados=(o,ch)=>{o.tam=by[ch]?.tamanho==='20'?'20':'40';
+    if(o.tam==='20'){o.halves={};for(const H of ['A','B']){const h={p:o.p+'.'+H,a:'livre',s:'LIVRE',q:null,pilha:null,nota:''};if(by[ch+'.'+H])fill(h,by[ch+'.'+H]);o.halves[H]=h}}};
+  for(const r of rows){
+    if(/\\.[AB]$/.test(r.chave)) continue;
+    const k=r.chave.indexOf('|'), rua=r.chave.slice(0,k), pos=r.chave.slice(k+1);
+    if(r.x!=null){const e={chave:r.chave,rua,p:pos,x:r.x,y:r.y,ang:r.ang||0,t:'',o:'',raw:''};fill(e,r);lados(e,r.chave);EXTRAS.push(e);continue}
+    const s=(DATA[rua]||[]).find(x=>x.p===pos); if(s) fill(s,r);
   }
+  for(const rua in DATA) for(const s of DATA[rua]) lados(s,rua+'|'+s.p);
   totals(); legend(); draw();
 }
-async function carregar(){
+async function carregar(forcar){
   if(!API) return;
-  const F=document.getElementById('fEdit');
-  if(F&&F.contains(document.activeElement)) return; // não atrapalha quem está editando
-  try{const r=await fetch(API,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); aplicar(j.posicoes||[]); if(sel) detail()}catch(e){}
+  const F=$('fEdit');
+  if(!forcar&&(novo||(F&&F.contains(document.activeElement)))) return; // não atrapalha quem está editando
+  try{const r=await fetch(API,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); aplicar(j.posicoes||[]); detail()}catch(e){}
 }
 
 function legend(){
   const M=modo==='arm'?ARM:SIT, cnt={}, pos={};
-  for(const r in DATA) for(const s of DATA[r]){
+  for(const {s} of unidades()){
     const k=keyOf(s); pos[k]=(pos[k]||0)+1; cnt[k]=(cnt[k]||0)+(s.q||0);
     if(s.split&&modo==='arm'){pos[s.split.a]=(pos[s.split.a]||0)+1;cnt[s.split.a]=(cnt[s.split.a]||0)+s.split.q}
   }
-  document.getElementById('legT').textContent=modo==='arm'?'Armadores':'Situação';
-  const L=document.getElementById('legend'); L.innerHTML='';
+  $('legT').textContent=modo==='arm'?'Armadores':'Situação';
+  const L=$('legend'); L.innerHTML='';
   Object.keys(M).filter(k=>pos[k]).sort((x,y)=>(cnt[y]-cnt[x])||(pos[y]-pos[x])).forEach(k=>{
     const it=document.createElement('div'); it.className='it'+(foco&&foco!==k?' dim':''); it.tabIndex=0; it.setAttribute('role','button');
     const sw=(k==='livre'||k==='LIVRE')?'<span class="sw livre"></span>':(k==='oficina'||k==='OFICINA')?'<span class="sw" style="background:repeating-linear-gradient(45deg,#f2c230 0 3px,#3a3000 3px 6px)"></span>':\`<span class="sw" style="background:\${M[k].c}"></span>\`;
@@ -425,7 +592,7 @@ function legend(){
 
 function totals(){
   let t=0,p=0,l=0,sq=0;
-  for(const r in DATA) for(const s of DATA[r]){
+  for(const {s} of unidades()){
     p++; t+=(s.q||0)+(s.split?s.split.q:0);
     if(s.a==='livre') l++; else if(s.q==null && s.a!=='oficina') sq++;
   }
@@ -433,7 +600,7 @@ function totals(){
 }
 
 function ruaList(){
-  const R=document.getElementById('ruaList'); R.innerHTML='';
+  const R=$('ruaList'); R.innerHTML='';
   for(const rua in GEO){
     const d=document.createElement('div'); d.className='r';
     d.innerHTML=\`<span class="mono">\${rua} <span style="color:var(--mute)">(\${DATA[rua].length} pos.)</span></span>\`;
@@ -452,7 +619,7 @@ function ruaList(){
 p.append(el('rect',{width:5,height:5,fill:'#3a3000'}),el('rect',{width:2.5,height:5,fill:'#f2c230'}));defs.append(p);svg.prepend(defs)})();
 
 document.querySelectorAll('input[name=modo]').forEach(r=>r.addEventListener('change',()=>{modo=r.value;foco=null;legend();draw()}));
-const box=document.getElementById('mapbox');
+const box=$('mapbox');
 const setZ=z=>{zoom=Math.max(1,Math.min(4,z));box.style.setProperty('--z',zoom)};
 zIn.onclick=()=>setZ(zoom*1.4); zOut.onclick=()=>setZ(zoom/1.4);
 bEdit.onclick=()=>{editing=!editing;bEdit.classList.toggle('on',editing);bEdit.textContent=editing?'Concluir ajuste':'Ajustar ruas';editCard.hidden=!editing;drawEdit()};
@@ -462,26 +629,18 @@ bCopy.onclick=()=>{
   const fb=()=>{copyBox.hidden=false;copyBox.value=txt;copyBox.select();copyMsg.textContent='Selecionei o texto abaixo: copie com Ctrl+C e cole na conversa.'};
   if(navigator.clipboard) navigator.clipboard.writeText(txt).then(()=>{copyMsg.textContent='Copiado. Cole na conversa para eu fixar no mapa.'},fb); else fb();
 };
+bNova.hidden=!API;
+bNova.onclick=()=>{novoModo=!novoModo;bNova.classList.toggle('on',novoModo);bNova.textContent=novoModo?'Toque no mapa onde fica…':'+ Nova pilha';svg.style.cursor=novoModo?'crosshair':'';if(novoModo){sel=null;novo=null;detail();draw()}};
 
 // ---------- análise de oficinas ----------
 const MPX=0.8, ARMS=['maersk','hapag','evergreen','login','one'], IGN=new Set(['valle','cheio','livre','oficina']);
 let anaF='todos';
-function centers(){
-  const out=[];
-  for(const rua in DATA){
-    const list=DATA[rua], P=GEO[rua].pts, seg=[]; let len=0;
-    for(let k=1;k<P.length;k++){const l=Math.hypot(P[k][0]-P[k-1][0],P[k][1]-P[k-1][1]);seg.push({p:P[k-1],q:P[k],s:len,l});len+=l}
-    const step=len/list.length;
-    list.forEach((s,i)=>{const d=(i+.5)*step,S=seg.find(x=>d<=x.s+x.l)||seg[seg.length-1],f=S.l?(d-S.s)/S.l:0;
-      out.push({rua,i,s,x:S.p[0]+(S.q[0]-S.p[0])*f,y:S.p[1]+(S.q[1]-S.p[1])*f})});
-  }
-  return out;
-}
+const centers=()=>unidades().map(u=>({s:u.s,x:u.x,y:u.y}));
 function analise(){
   const C=centers(), OF={};
-  C.filter(c=>c.s.a==='oficina').forEach(c=>{const k=(c.s.o.match(/Oficina (\\d)/)||[])[1];if(k)(OF[k]=OF[k]||[]).push(c)});
+  C.filter(c=>c.s.a==='oficina').forEach(c=>{const k=((c.s.o||'').match(/Oficina (\\d)/)||[])[1];if(k)(OF[k]=OF[k]||[]).push(c)});
   const ofs=Object.keys(OF).sort().map(k=>({k,x:OF[k].reduce((a,c)=>a+c.x,0)/OF[k].length,y:OF[k].reduce((a,c)=>a+c.y,0)/OF[k].length}));
-  const known=C.filter(c=>!IGN.has(c.s.a)&&c.s.q!=null), avgQ=Math.round(known.reduce((a,c)=>a+c.s.q,0)/known.length);
+  const known=C.filter(c=>!IGN.has(c.s.a)&&c.s.q!=null), avgQ=known.length?Math.round(known.reduce((a,c)=>a+c.s.q,0)/known.length):0;
   const R={}; let est=0;
   ARMS.forEach(a=>R[a]={w:0,pos:0,d:ofs.map(()=>0),near:ofs.map(()=>0),cx:0,cy:0});
   C.forEach(c=>{
@@ -492,11 +651,11 @@ function analise(){
       if(!R[p.a]) return;
       const w=p.q==null?(est++,avgQ):p.q, r=R[p.a]; r.w+=w; r.pos++; r.cx+=c.x*w; r.cy+=c.y*w;
       const ds=ofs.map(o=>Math.hypot(o.x-c.x,o.y-c.y)*MPX);
-      ds.forEach((d,j)=>r.d[j]+=d*w); r.near[ds.indexOf(Math.min(...ds))]+=w;
+      ds.forEach((d,j)=>r.d[j]+=d*w); if(ds.length) r.near[ds.indexOf(Math.min(...ds))]+=w;
     });
   });
-  document.getElementById('anaEst').textContent=\`\${avgQ} por posição, \${est} posições\`;
-  const rows=ARMS.filter(a=>R[a].pos).map(a=>{const r=R[a];r.avg=r.d.map(x=>x/r.w);r.best=r.avg.indexOf(Math.min(...r.avg));r.cx/=r.w;r.cy/=r.w;return[a,r]}).sort((x,y)=>y[1].w-x[1].w);
+  $('anaEst').textContent=\`\${avgQ} por posição, \${est} posições\`;
+  const rows=ARMS.filter(a=>R[a].pos&&R[a].w>0&&ofs.length).map(a=>{const r=R[a];r.avg=r.d.map(x=>x/r.w);r.best=r.avg.indexOf(Math.min(...r.avg));r.cx/=r.w;r.cy/=r.w;return[a,r]}).sort((x,y)=>y[1].w-x[1].w);
   const load=ofs.map(()=>0); rows.forEach(([a,r])=>load[r.best]+=r.w); const tot=load.reduce((a,b)=>a+b,0)||1;
   let h=\`<div style="overflow-x:auto"><table class="atab mono"><tr><th>Armador</th>\${ofs.map(o=>\`<th>Of. \${o.k}</th>\`).join('')}</tr>\`;
   rows.forEach(([a,r])=>{h+=\`<tr><td><span class="sw" style="display:inline-block;vertical-align:-2px;margin-right:5px;background:\${ARM[a].c}"></span>\${ARM[a].n}<small>\${Math.round(r.w)} cont. · \${r.pos} pos.</small></td>\`+
@@ -505,18 +664,17 @@ function analise(){
   h+='<div class="rec">'+rows.map(([a,r])=>{const s=[...r.avg].map((d,j)=>[d,j]).sort((x,y)=>x[0]-y[0]);const dif=s[1]?Math.round(s[1][0]-s[0][0]):0;
     return \`<div><b>\${ARM[a].n}</b> → Oficina \${ofs[r.best].k}\${s[1]?\` <span style="color:var(--mute)">(2ª opção: Of. \${ofs[s[1][1]].k}, +\${dif} m)</span>\`:''}</div>\`}).join('')+'</div>';
   h+='<div class="load">'+ofs.map((o,j)=>\`<span>Of. \${o.k}</span><span class="bar"><i style="width:\${load[j]/tot*100}%"></i></span><span class="mono">\${Math.round(load[j]/tot*100)}%</span>\`).join('')+'</div>';
-  document.getElementById('anaOut').innerHTML=h;
-  // mapa
-  const A=document.getElementById('ana'); A.innerHTML='';
+  $('anaOut').innerHTML=h;
+  const A=$('ana'); A.innerHTML='';
   ofs.forEach(o=>{A.append(el('circle',{cx:o.x,cy:o.y,r:11,fill:'#f2c230',stroke:'#111','stroke-width':2}));const tx=el('text',{x:o.x,y:o.y+3.5,'text-anchor':'middle','font-size':10,'font-weight':700,fill:'#111'});tx.textContent=o.k;A.append(tx)});
-  if(!document.getElementById('anaShow').checked) return;
+  if(!$('anaShow').checked) return;
   rows.forEach(([a,r])=>{const o=ofs[r.best];
     A.append(el('line',{x1:r.cx,y1:r.cy,x2:o.x,y2:o.y,stroke:ARM[a].c,'stroke-width':2.5,'stroke-dasharray':'6 4'}));
     A.append(el('circle',{cx:r.cx,cy:r.cy,r:7,fill:ARM[a].c,stroke:'#fff','stroke-width':2}));});
 }
 document.querySelectorAll('input[name=anaF]').forEach(r=>r.addEventListener('change',()=>{anaF=r.value;analise()}));
-document.getElementById('anaShow').addEventListener('change',analise);
+$('anaShow').addEventListener('change',analise);
 totals(); legend(); draw(); ruaList();
-carregar(); if(API) setInterval(carregar,30000);
+carregar(true); if(API) setInterval(()=>carregar(false),30000);
 </script>
 `
