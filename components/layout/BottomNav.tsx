@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain, Map as MapIcon } from 'lucide-react'
+import { temModulo } from '@/lib/modulos'
 
 export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: string[] | null; setor?: string | null }) {
   const pathname = usePathname()
@@ -35,6 +36,7 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
         ...((isAdmin || isEditor) && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
         ...(podeVer('bi') ? [{ href: '/bi', label: 'BI', icon: BarChart3 }] : []),
         ...(podeVer('monitoramento') ? [{ href: '/monitoramento', label: 'Clima', icon: CloudRain }] : []),
+        ...(temModulo(role, modulos, 'patio') ? [{ href: '/patio', label: 'Pátio', icon: MapIcon }] : []),
         ...(isAdmin ? [
           { href: '/usuarios',       label: 'Usuários',    icon: Users      },
           { href: '/tarefas',        label: 'Indicadores', icon: ListChecks },

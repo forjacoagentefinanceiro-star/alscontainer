@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import type { UserProfile, Setor } from '@/app/actions'
 import { approveUser, updateUserRole, revokeUser, updateUserBiAbas, updateUserModulos, redefinirSenhaOperador, updateUserSetor, updateUserTelegramChatId, updateUserTelegramSetores, testarTelegramUsuario } from '@/app/actions'
 import { BI_ABAS, BI_ABAS_KEYS } from '@/lib/bi/abas'
-import { MODULOS, MODULOS_KEYS } from '@/lib/modulos'
+import { MODULOS, MODULOS_PADRAO_KEYS } from '@/lib/modulos'
 
 const roleLabel = { admin: 'Admin', editor: 'Editor', viewer: 'Visualizador', operador: 'Operador' }
 const roleColor = {
@@ -48,9 +48,11 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
   }
 
   function toggleModulo(u: UserProfile, key: string, checked: boolean) {
-    const atual = u.modulos ?? [...MODULOS_KEYS]
+    const atual = u.modulos ?? [...MODULOS_PADRAO_KEYS]
     const next = checked ? [...new Set([...atual, key])] : atual.filter(k => k !== key)
-    const toSave = next.length === MODULOS.length ? null : next
+    // null = exatamente os módulos padrão (módulos optIn precisam ficar listados)
+    const ehPadrao = next.length === MODULOS_PADRAO_KEYS.length && MODULOS_PADRAO_KEYS.every(k => next.includes(k))
+    const toSave = ehPadrao ? null : next
     setList(prev => prev.map(x => x.id === u.id ? { ...x, modulos: toSave } : x))
     startTransition(async () => { await updateUserModulos(u.id, toSave) })
   }
@@ -188,7 +190,7 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
               const todasAbas   = u.bi_abas == null
               const qtdAbas     = todasAbas ? BI_ABAS.length : u.bi_abas!.length
               const todosModulos = u.modulos == null
-              const qtdModulos  = todosModulos ? MODULOS.length : u.modulos!.length
+              const qtdModulos  = todosModulos ? MODULOS_PADRAO_KEYS.length : u.modulos!.length
               const podeControlarModulos = u.role !== 'admin' && u.role !== 'operador'
               return (
               <div key={u.id}>
@@ -401,7 +403,7 @@ export function UsuariosTab({ users, setores }: { users: UserProfile[]; setores:
                       <p className="text-xs mb-2 font-medium" style={{ color: '#374151' }}>Módulos que este usuário pode acessar:</p>
                       <div className="space-y-2">
                         {MODULOS.map(mod => {
-                          const checked = u.modulos == null || u.modulos.includes(mod.key)
+                          const checked = u.modulos == null ? !mod.optIn : u.modulos.includes(mod.key)
                           return (
                             <label key={mod.key} className="flex items-start gap-2 cursor-pointer">
                               <input type="checkbox" checked={checked} disabled={isPending}

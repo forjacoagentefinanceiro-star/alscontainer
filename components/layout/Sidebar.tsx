@@ -24,7 +24,9 @@ import {
   QrCode,
   DollarSign,
   CloudRain,
+  Map as MapIcon,
 } from 'lucide-react'
+import { temModulo } from '@/lib/modulos'
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard }
 type Section = { label: string; items: Item[] }
@@ -52,6 +54,7 @@ const usuariosItem:          Item = { href: '/usuarios',       label: 'Usuários
 const biItem:                Item = { href: '/bi',             label: 'BI Depot',           icon: BarChart3   }
 const indicadoresTarefasItem:Item = { href: '/tarefas',        label: 'Indicadores Tarefas',icon: ListChecks  }
 const monitoramentoItem:     Item = { href: '/monitoramento',  label: 'Monitoramento',      icon: CloudRain   }
+const patioItem:             Item = { href: '/patio',          label: 'Mapa do Pátio',      icon: MapIcon     }
 
 const gestaoTarefasItems: Item[] = [
   { href: '/tarefas',        label: 'Tarefas', icon: ListChecks  },
@@ -124,6 +127,7 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
         ...(isAdmin ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
         ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
         ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
+        ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: [patioItem] }] : []),
       ]
 
   const pathname = usePathname()
