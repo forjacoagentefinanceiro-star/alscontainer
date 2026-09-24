@@ -32,8 +32,8 @@ h1 small{display:block;font-size:12px;font-weight:500;color:var(--mute);letter-s
 .wrap>*{min-width:0}
 .wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
 @media (max-width:900px){.wrap{grid-template-columns:1fr}}
-.mapbox{background:#000;border:1px solid var(--line);border-radius:6px;overflow:auto;position:relative;max-height:80vh}
-.mapbox svg{display:block;width:calc(100% * var(--z,1));height:auto;touch-action:none}
+.mapbox{background:#0b0e10;border:1px solid var(--line);border-radius:6px;overflow:auto;position:relative;aspect-ratio:1024/688;max-height:78vh;display:flex;align-items:safe center}
+.mapbox svg{display:block;flex:none;width:calc(100% * var(--z,1));height:auto;margin-inline:auto;touch-action:none}
 .mapbox{cursor:grab}
 .mapbox.arrastando{cursor:grabbing;user-select:none}
 .mapbox.arrastando .slot{cursor:grabbing}
@@ -624,14 +624,17 @@ p.append(el('rect',{width:5,height:5,fill:'#3a3000'}),el('rect',{width:2.5,heigh
 
 document.querySelectorAll('input[name=modo]').forEach(r=>r.addEventListener('change',()=>{modo=r.value;foco=null;legend();draw()}));
 const box=$('mapbox');
+// zoom mínimo = mapa inteiro visível (largura e altura do quadro)
+const zMin=()=>{const w=box.clientWidth,h=box.clientHeight;return w&&h?Math.min(1,h/(w*688/1024)):1};
 // zoom mantendo o ponto (px,py) do quadro no lugar — padrão: centro
 const setZ=(z,px,py)=>{
   const r=box.getBoundingClientRect(); px??=r.width/2; py??=r.height/2;
   const fx=(box.scrollLeft+px)/box.scrollWidth, fy=(box.scrollTop+py)/box.scrollHeight;
-  zoom=Math.max(1,Math.min(5,z)); box.style.setProperty('--z',zoom);
+  zoom=Math.max(zMin(),Math.min(5,z)); box.style.setProperty('--z',zoom);
   box.scrollLeft=fx*box.scrollWidth-px; box.scrollTop=fy*box.scrollHeight-py;
 };
 zIn.onclick=()=>setZ(zoom*1.4); zOut.onclick=()=>setZ(zoom/1.4);
+setZ(zMin()); addEventListener('resize',()=>{if(zoom<=zMin()+.01||zoom<zMin())setZ(zMin())});
 box.addEventListener('wheel',ev=>{ev.preventDefault();const r=box.getBoundingClientRect();setZ(zoom*(ev.deltaY<0?1.2:1/1.2),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
 // arrastar o mapa (mouse ou dedo); clique curto continua selecionando a pilha
 let pan=null, panMoveu=false;
