@@ -10,6 +10,8 @@ export const metadata = { title: 'Relatório Brasmaq — ALS Logística' }
 const PRESTADOR = 'Brasmaq'
 // Fechamento contratual da Brasmaq: dia 23 do mês até dia 22 do mês seguinte (independe do ciclo dos indicadores)
 const DIA_INICIO_CICLO = 23
+// Contrato Brasmaq cobre só as máquinas do Depot (setor do cadastro de empilhadeiras)
+const SETOR_MAQUINAS = 'depot'
 
 const nfh = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const nfi = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
@@ -52,7 +54,7 @@ export default async function RelatorioBrasmaqPage({
   const { ciclo } = await searchParams
   let rel: Awaited<ReturnType<typeof getRelatorioCicloPrestador>>
   try {
-    rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo, DIA_INICIO_CICLO)
+    rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo, DIA_INICIO_CICLO, SETOR_MAQUINAS)
   } catch (e) {
     console.error('[relatorio/brasmaq]', ciclo, e)
     return (
@@ -157,6 +159,7 @@ ciclo=${ciclo}` : ''}</pre>
             </h1>
             <p style={{ fontSize: '13px', color: '#4b5563', margin: 0 }}>
               Prestador: <strong style={{ color: '#1a2a3a' }}>{rel.prestador.toUpperCase()}</strong>
+              {rel.setor && <> · Máquinas do <strong style={{ color: '#1a2a3a' }}>Depot</strong></>}
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -195,7 +198,7 @@ ciclo=${ciclo}` : ''}</pre>
         <div style={{ padding: '0 0 4px' }}>
           {rel.maquinas.length === 0 ? (
             <p style={{ textAlign: 'center', padding: '48px', color: '#9ca3af', fontSize: '14px', margin: 0 }}>
-              Sem dados para este ciclo.
+              Sem dados para este ciclo{rel.setor ? ' nas máquinas do Depot (confira o setor no cadastro de empilhadeiras)' : ''}.
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>

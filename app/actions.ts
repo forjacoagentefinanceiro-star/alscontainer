@@ -1447,6 +1447,7 @@ export type RelatorioCicloPrestador = {
   prestador: string
   cicloLabel: string
   cicloChave: string // "YYYY-MM" do mês de fechamento
+  setor: string | null // setor das máquinas consideradas (null = todas)
   cicloInicio: string
   cicloFim: string
   maquinas: MaquinaCiclo[]
@@ -1467,6 +1468,7 @@ export async function getRelatorioCicloPrestador(
   prestador: string,
   cicloFechamento?: string, // "YYYY-MM" — mês de fechamento; omitir = ciclo atual
   diaInicioFixo?: number,   // ciclo contratual do prestador (ex.: Brasmaq = 23); omitir = config do app
+  setorMaquinas?: string,   // só máquinas cujo setor contém este texto (ex.: Brasmaq = 'depot'); omitir = todas
 ): Promise<RelatorioCicloPrestador> {
   const { supabase, user } = await usuarioEPapel()
   const cfg = diaInicioFixo ? { diaInicio: diaInicioFixo } : await getConfigCiclo()
@@ -1482,17 +1484,24 @@ export async function getRelatorioCicloPrestador(
   }
 
   const vazio: RelatorioCicloPrestador = {
-    prestador, cicloLabel: label, cicloChave: chave,
+    prestador, cicloLabel: label, cicloChave: chave, setor: setorMaquinas ?? null,
     cicloInicio: inicio.toISOString(), cicloFim: fim.toISOString(),
     maquinas: [], totalHoras: 0, totalAcionamentos: 0,
   }
   if (!user) return vazio
 
-  const { data: cksData } = await supabase
+  let cksQ = supabase
     .from('checklists')
     .select('id, equipamento, horimetro, horimetro_final, excluir_indicadores')
     .gte('created_at', inicio.toISOString())
     .lte('created_at', fim.toISOString())
+  if (setorMaquinas) {
+    const { data: emps } = await supabase.from('empilhadeiras').select('nome').ilike('setor', `%${setorMaquinas}%`)
+    const nomes = (emps ?? []).map(e => e.nome as string)
+    if (!nomes.length) return vazio
+    cksQ = cksQ.in('equipamento', nomes)
+  }
+  const { data: cksData } = await cksQ
 
   const checklists = (cksData ?? []).filter((c: { excluir_indicadores?: boolean | null }) => !c.excluir_indicadores)
   if (!checklists.length) return vazio
@@ -1570,6 +1579,7 @@ export async function getRelatorioCicloPrestador(
     prestador,
     cicloLabel: label,
     cicloChave: chave,
+    setor: setorMaquinas ?? null,
     cicloInicio: inicio.toISOString(),
     cicloFim: fim.toISOString(),
     maquinas,
