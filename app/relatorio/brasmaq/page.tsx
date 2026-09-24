@@ -56,7 +56,21 @@ export default async function RelatorioBrasmaqPage({
 
   const { ciclo } = await searchParams
   const { prev, next } = adjacentes(ciclo)
-  const rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo)
+  let rel: Awaited<ReturnType<typeof getRelatorioCicloPrestador>>
+  try {
+    rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo)
+  } catch (e) {
+    console.error('[relatorio/brasmaq]', ciclo, e)
+    return (
+      <div style={{ maxWidth: 640, margin: '48px auto', padding: 24, background: '#fff', border: '1px solid #fecaca', borderRadius: 12, fontFamily: 'system-ui, sans-serif' }}>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#b91c1c', margin: '0 0 8px' }}>Não foi possível gerar o relatório Brasmaq</h1>
+        <p style={{ fontSize: 13, color: '#374151', margin: '0 0 12px' }}>Envie esta mensagem para o suporte:</p>
+        <pre style={{ fontSize: 12, background: '#f9fafb', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap', margin: 0 }}>{e instanceof Error ? `${e.name}: ${e.message}` : String(e)}{ciclo ? `
+ciclo=${ciclo}` : ''}</pre>
+        <p style={{ marginTop: 16 }}><Link href="/equipamentos/relatorios" style={{ fontSize: 13, color: '#1B4F8A' }}>← Voltar aos relatórios</Link></p>
+      </div>
+    )
+  }
   const emissao = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const totalParado = rel.maquinas.reduce((a, m) => a + m.tempoParadoMin, 0)
   const totalComParada = rel.maquinas.reduce((a, m) => a + m.comParada, 0)

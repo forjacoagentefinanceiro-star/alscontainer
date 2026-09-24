@@ -1447,6 +1447,9 @@ export type RelatorioCicloPrestador = {
 // Retorna as datas do ciclo que fecha no mês indicado (anoFim/mesFim).
 // Ex: mesFim=7/2026, diaInicio=23 → início 23/06/2026, fim 22/07/2026.
 function cicloDoFechamento(anoFim: number, mesFim: number, diaInicio: number): { inicio: Date; fim: Date; mesLabel: string } {
+  // mesmas salvaguardas do cicloAtual: dia fora de 1–28 ou ciclo inválido na URL geravam Invalid Date → toISOString() quebrava a página
+  if (!(Number.isInteger(diaInicio) && diaInicio >= 2 && diaInicio <= 28)) diaInicio = 23
+  if (!Number.isInteger(anoFim) || !Number.isInteger(mesFim) || mesFim < 1 || mesFim > 12) return cicloAtual(diaInicio)
   const diaFim = diaInicio - 1
   const mesIni = mesFim === 1 ? 12 : mesFim - 1
   const anoIni = mesFim === 1 ? anoFim - 1 : anoFim
@@ -1503,12 +1506,14 @@ export async function getRelatorioCicloPrestador(
     (e.prestador ?? '').toLowerCase().includes(prestador.toLowerCase())
   )
 
-  const equipamentos = [...new Set(checklists.map((c: { equipamento: string }) => c.equipamento as string))].sort((a, b) => a.localeCompare(b))
+  // equipamento vazio/nulo não pode derrubar o relatório (localeCompare em null)
+  const nomeEq = (c: { equipamento?: string | null }) => (c.equipamento ?? '').trim() || '—'
+  const equipamentos = [...new Set(checklists.map(nomeEq))].sort((a, b) => a.localeCompare(b))
   const cksByEquip = new Map<string, typeof checklists>()
   for (const c of checklists) {
-    const arr = cksByEquip.get(c.equipamento as string) ?? []
+    const arr = cksByEquip.get(nomeEq(c)) ?? []
     arr.push(c)
-    cksByEquip.set(c.equipamento as string, arr)
+    cksByEquip.set(nomeEq(c), arr)
   }
 
   const maquinas: MaquinaCiclo[] = equipamentos.map(eq => {
