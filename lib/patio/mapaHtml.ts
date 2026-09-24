@@ -237,22 +237,22 @@ const DATA={
   S('D8',null,'oficina','OFICINA','','OFICINA 3','Oficina 3'),S('D9',null,'oficina','OFICINA','','OFICINA 3','Oficina 3 · veio escrito “D19”, confirmar')]
 };
 // posições iniciais aproximadas (pixels da foto 1024×628): a = posição 1, b = última
-// posições calibradas pelas oficinas marcadas na foto (pixels 1024×628): a = início da posição 1, b = fim da última
+// posições ajustadas pelo Anderson no mapa em 24/09/2026 (antes: calibradas pelas oficinas marcadas na foto (pixels 1024×628): a = início da posição 1, b = fim da última
 // Oficina 1 = R1 E9–E10 · Oficina 2 = R1 E18–E19 · Oficina 3 = R4 D8–D9. R2 e R3 ainda estimadas.
 const GEO0={
-  'R1 E':{pts:[[712,556],[655,497],[682,462],[632,410]]},
-  'R1 E (banheiro)':{pts:[[620,398],[594,371]]},
-  'R1 E (E6–E8)':{pts:[[582,358],[515,288]]},
-  'R1 E (após galpão)':{pts:[[470,322],[327,156]]},
-  'R1 E (após rua)':{pts:[[307,134],[267,89]]},
-  'R1 D':{pts:[[622,425],[317,81]]},
-  'R4 D':{pts:[[137,211],[296,178]]},
-  'R4 E':{pts:[[133,186],[168,179]]},
-  'R3 E':{pts:[[145,150],[235,132]]},
-  'R2 E':{pts:[[140,120],[215,105]]},
-  'R2 D':{pts:[[125,95],[275,65]]}
+  'R1 E':{"pts":[[726,568],[655,497],[639,479],[628,473]]},
+  'R1 E (banheiro)':{"pts":[[649,451],[665,433]]},
+  'R1 E (E6–E8)':{"pts":[[661,428],[603,377]]},
+  'R1 E (após galpão)':{"pts":[[470,322],[300,151]]},
+  'R1 E (após rua)':{"pts":[[298,102],[261,66]]},
+  'R1 D':{"pts":[[754,419],[285,0]]},
+  'R4 D':{"pts":[[170,211],[328,189]]},
+  'R4 E':{"pts":[[153,147],[174,173]]},
+  'R3 E':{"pts":[[192,172],[263,125]]},
+  'R2 E':{"pts":[[164,136],[226,94]]},
+  'R2 D':{"pts":[[105,86],[237,24]]}
 };
-const LS='patio-als-geo-v5';
+const LS='patio-als-geo-v6';
 let GEO=JSON.parse(JSON.stringify(GEO0));
 try{const s=JSON.parse(localStorage.getItem(LS)||'null'); if(s) for(const k in s) if(GEO[k]&&s[k].pts) GEO[k]=s[k];}catch(e){}
 const save=()=>{try{localStorage.setItem(LS,JSON.stringify(GEO))}catch(e){}};
