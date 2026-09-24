@@ -28,7 +28,7 @@ export async function GET() {
 
 type Linha = {
   chave: string; armador: string; situacao: string; pilha: string | null; qtd: number | null; obs: string | null
-  tamanho: '20' | '40'; x: number | null; y: number | null; ang: number | null
+  tamanho: '20' | '40' | '20u'; x: number | null; y: number | null; ang: number | null
 }
 
 function numOuNull(v: unknown, min: number, max: number): number | null | undefined {
@@ -43,7 +43,8 @@ function validar(b: Record<string, unknown>): Linha | string {
   const armador = String(b.armador ?? '')
   const situacao = String(b.situacao ?? '')
   const pilha = b.pilha == null || b.pilha === '' ? null : String(b.pilha)
-  const tamanho = b.tamanho === '20' ? '20' : '40'
+  // 40' | 2 × 20' (lados A/B) | 1 × 20' (posição que só cabe uma de 20')
+  const tamanho = b.tamanho === '20' ? '20' : b.tamanho === '20u' ? '20u' : '40'
   const qtd = numOuNull(b.qtd, 0, 999)
   const x = numOuNull(b.x, 0, 1024), y = numOuNull(b.y, -60, 628), ang = numOuNull(b.ang, -360, 360)
   if (!ARMADORES.includes(armador)) return 'Armador inválido'

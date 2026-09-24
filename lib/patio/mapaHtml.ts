@@ -146,7 +146,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
     <div class="card">
       <h2 id="legT">Armadores</h2>
       <div class="legend" id="legend"></div>
-      <p class="hint" style="margin-top:8px">Clique num item para destacar só ele. Pilha: bloco cheio = completa, metade = parcial, só contorno = vazia. Linha branca no meio = pilha de 20' (lados A e B).</p>
+      <p class="hint" style="margin-top:8px">Clique num item para destacar só ele. Pilha: bloco cheio = completa, metade = parcial, só contorno = vazia. Tamanho: bloco inteiro = 40'; linha branca no meio = 2 × 20' (lados A e B); meio bloco = 1 × 20'.</p>
     </div>
     <div class="card" id="anaCard">
       <h2>Qual oficina usar</h2>
@@ -291,7 +291,7 @@ function unidades(){
     if(base.tam==='20'&&base.halves){
       const dx=Math.cos(ang*Math.PI/180)*w/4, dy=Math.sin(ang*Math.PI/180)*w/4;
       ['A','B'].forEach((H,k)=>{const sg=k?1:-1;U.push({chave:chave+'.'+H,rua,s:base.halves[H],base,baseChave:chave,half:H,x:cx+sg*dx,y:cy+sg*dy,ang,w:w/2,extra})});
-    }else U.push({chave,rua,s:base,base,baseChave:chave,half:null,x:cx,y:cy,ang,w,extra});
+    }else U.push({chave,rua,s:base,base,baseChave:chave,half:null,x:cx,y:cy,ang,w:base.tam==='20u'?w/2:w,extra});
   };
   for(const rua in DATA){
     const list=DATA[rua], g=geoRua(rua), step=g.len/list.length, w=Math.max(step-1.6,3);
@@ -398,8 +398,9 @@ function camposForm(s){
 function campoTamanho(tam){
   return \`<div class="l">Tamanho da pilha
       <div class="seg" role="radiogroup" aria-label="Tamanho" style="margin-top:3px">
-        <label><input type="radio" name="eTam" id="eT40" value="40"\${tam!=='20'?' checked':''}><span>40'</span></label>
-        <label><input type="radio" name="eTam" id="eT20" value="20"\${tam==='20'?' checked':''}><span>20' (divide em A e B)</span></label>
+        <label><input type="radio" name="eTam" id="eT40" value="40"\${tam!=='20'&&tam!=='20u'?' checked':''}><span>40'</span></label>
+        <label><input type="radio" name="eTam" id="eT20" value="20"\${tam==='20'?' checked':''}><span>2 × 20' (A e B)</span></label>
+        <label><input type="radio" name="eTam" id="eT20u" value="20u"\${tam==='20u'?' checked':''}><span>1 × 20'</span></label>
       </div></div>
     <div class="l" id="eLadoBox" hidden>Lado em uso
       <div class="seg" role="radiogroup" aria-label="Lado" style="margin-top:3px">
@@ -435,7 +436,7 @@ function detail(){
     <tr><td>Armador</td><td>\${arm}</td></tr>
     <tr><td>Situação</td><td>\${SIT[s.s].n}</td></tr>
     <tr><td>Pilha</td><td>\${s.pilha?PILHA[s.pilha]:'—'}</td></tr>
-    <tr><td>Tamanho</td><td>\${u.half?\`20' · lado \${u.half}\`:"40'"}</td></tr>
+    <tr><td>Tamanho</td><td>\${u.half?\`2 × 20' · lado \${u.half}\`:u.base.tam==='20u'?"1 × 20'":"40'"}</td></tr>
     \${s.t?\`<tr><td>Tipo / grade</td><td>\${esc(s.t)}</td></tr>\`:''}
     \${s.o?\`<tr><td>Obs.</td><td>\${esc(s.o)}</td></tr>\`:''}
     \${s.nota?\`<tr><td>Nota do pátio</td><td>\${esc(s.nota)}</td></tr>\`:''}
@@ -443,7 +444,7 @@ function detail(){
    \${s.upd?\`<div class="upd">Atualizado por \${esc(s.upd.email)} em \${new Date(s.upd.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>\`:(s.raw?\`<div class="raw mono">Levantamento 24/09: \${esc(s.raw)}</div>\`:'')}\`;
   if(API){
     h+=\`<form class="fedit" id="fEdit">
-      \${u.half?\`<div class="l">Pilha de 20' · editando o lado \${u.half}<button type="button" id="eJuntar" style="margin-top:4px">Voltar para 40' (fica com os dados deste lado)</button></div>\`:campoTamanho('40')}
+      \${u.half?\`<div class="l">Pilha de 20' · editando o lado \${u.half}<button type="button" id="eJuntar" style="margin-top:4px">Voltar para 40' (fica com os dados deste lado)</button></div>\`:campoTamanho(u.base.tam)}
       \${camposForm(s)}
       \${u.extra&&!u.half?\`<div class="row"><button type="button" id="eGirE">Girar ⟲</button><button type="button" id="eGirD">Girar ⟳</button></div>\`:''}
       <button type="submit" id="eSalvar">Salvar posição</button>
@@ -469,7 +470,7 @@ function extrasXY(u){return u.extra?{x:u.base.x,y:u.base.y,ang:u.base.ang||0}:{}
 function salvarUnidade(u){
   let f; try{f=lerForm()}catch(e){return msg('Não salvou: '+e.message,true)}
   if(u.half) return enviar({rows:[{chave:u.chave,...f,tamanho:'20'}]},u.chave);
-  const tam=$('eT20').checked?'20':'40';
+  const tam=$('eT20').checked?'20':$('eT20u').checked?'20u':'40';
   const base={chave:u.baseChave,...f,tamanho:tam,...extrasXY(u)};
   if(tam==='20'){
     const lado=$('eLB').checked?'B':'A', outro=lado==='A'?'B':'A';
@@ -536,13 +537,13 @@ function detalheNovo(){
     const chave=\`\${rua} \${ld}|\${ld}\${num}\`, nome=\`\${rua} \${ld}\${num}\`;
     if(unidades().some(u=>nomePos({...u,half:null,s:u.base})===nome)) return msg(\`Já existe a posição \${nome}\`,true);
     let f; try{f=lerForm()}catch(e){return msg('Não salvou: '+e.message,true)}
-    const tam=$('eT20').checked?'20':'40', xy={x:Math.round(novo.x),y:Math.round(novo.y),ang:novo.ang};
+    const tam=$('eT20').checked?'20':$('eT20u').checked?'20u':'40', xy={x:Math.round(novo.x),y:Math.round(novo.y),ang:novo.ang};
     if(tam==='20'){
       const lado=$('eLB').checked?'B':'A', outro=lado==='A'?'B':'A';
       return enviar({rows:[{chave,...f,tamanho:'20',...xy},{chave:chave+'.'+lado,...f,tamanho:'20'},
         {chave:chave+'.'+outro,armador:'livre',situacao:'LIVRE',pilha:null,qtd:null,obs:'',tamanho:'20'}]},chave+'.'+lado);
     }
-    enviar({rows:[{chave,...f,tamanho:'40',...xy}]},chave);
+    enviar({rows:[{chave,...f,tamanho:tam,...xy}]},chave);
   });
 }
 svg.addEventListener('click',ev=>{
@@ -560,7 +561,7 @@ function aplicar(rows){
   const by={}; rows.forEach(r=>by[r.chave]=r);
   const fill=(o,r)=>{o.a=ARM[r.armador]?r.armador:o.a; o.s=SIT[r.situacao]?r.situacao:o.s; o.pilha=r.pilha||null;
     o.q=r.qtd; o.nota=r.obs||''; delete o.split; o.upd={email:r.atualizado_email,em:r.atualizado_em}};
-  const lados=(o,ch)=>{o.tam=by[ch]?.tamanho==='20'?'20':'40';
+  const lados=(o,ch)=>{const tm=by[ch]?.tamanho;o.tam=tm==='20'||tm==='20u'?tm:'40';
     if(o.tam==='20'){o.halves={};for(const H of ['A','B']){const h={p:o.p+'.'+H,a:'livre',s:'LIVRE',q:null,pilha:null,nota:''};if(by[ch+'.'+H])fill(h,by[ch+'.'+H]);o.halves[H]=h}}};
   for(const r of rows){
     if(/\\.[AB]$/.test(r.chave)) continue;
