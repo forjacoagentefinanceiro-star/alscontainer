@@ -4,7 +4,7 @@
 create table if not exists patio_posicoes (
   chave          text primary key,             -- 'R1 E|E12' (rua/lado do mapa | posição)
   armador        text not null,                -- maersk, hapag, evergreen, login, one, valle, cheio, livre, oficina
-  situacao       text not null,                -- AV, OK, SOF (ok saído de oficina), SAINDO, VENDA, DESCARGA, CHEIO, VAZIO, OFICINA, LIVRE, NA
+  situacao       text not null,                -- AV, OK, SOF (ok reparado), SAINDO, VENDA, DESCARGA, CHEIO, VAZIO, OFICINA, LIVRE, NA
   pilha          text check (pilha in ('completa','parcial','vazia')),
   qtd            integer check (qtd is null or qtd >= 0),
   obs            text,

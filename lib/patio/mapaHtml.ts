@@ -172,7 +172,7 @@ const ARM={
   livre:{n:'Livre',c:'transparent'}
 };
 const SIT={
-  OK:{n:'OK',c:'var(--s-ok)'}, AV:{n:'Avariado (AV)',c:'var(--s-av)'}, SOF:{n:'OK · saído de oficina',c:'var(--s-sof)'},
+  OK:{n:'OK',c:'var(--s-ok)'}, AV:{n:'Avariado (AV)',c:'var(--s-av)'}, SOF:{n:'OK reparado',c:'var(--s-sof)'},
   SAINDO:{n:'Saindo',c:'var(--s-saindo)'}, VENDA:{n:'Venda',c:'var(--s-venda)'}, DESCARGA:{n:'Descarga',c:'var(--s-desc)'},
   CHEIO:{n:'Cheio',c:'var(--s-cheio)'}, VAZIO:{n:'Vazio',c:'var(--s-vazio)'}, OFICINA:{n:'Oficina',c:'var(--oficina)'},
   LIVRE:{n:'Livre',c:'transparent'}, NA:{n:'Não informada',c:'var(--s-na)'}
@@ -356,7 +356,7 @@ function detail(){
     const opt=(M,v)=>Object.keys(M).map(k=>\`<option value="\${k}"\${k===v?' selected':''}>\${M[k].n}</option>\`).join('');
     h+=\`<form class="fedit" id="fEdit">
       <label class="l">Armador<select id="eArm">\${opt(ARM,s.a)}</select></label>
-      <label class="l">Situação<select id="eSit">\${opt(SIT,s.s)}</select></label>
+      <label class="l">Situação<select id="eSit" required>\${['OK','AV','SOF'].includes(s.s)?'':'<option value="" selected disabled>Escolha…</option>'}\${['OK','AV','SOF'].map(k=>\`<option value="\${k}"\${k===s.s?' selected':''}>\${SIT[k].n}</option>\`).join('')}</select></label>
       <div class="l" style="font-size:12px;color:var(--mute)">Pilha
         <div class="seg" role="radiogroup" aria-label="Pilha" style="margin-top:3px">
           \${Object.keys(PILHA).map(k=>\`<label><input type="radio" name="ePilha" id="eP_\${k}" value="\${k}"\${s.pilha===k?' checked':''}><span>\${PILHA[k]}</span></label>\`).join('')}
