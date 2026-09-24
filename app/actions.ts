@@ -1189,21 +1189,30 @@ export async function getConsumoMensal(numMeses = 6, setorFiltro?: string | null
 }
 
 // ciclo de faturamento: começa todo dia 23, fecha no dia 22 do mês seguinte (zera no dia 23)
-function cicloAtual(diaInicio = 23): { inicio: Date; fim: Date; mesLabel: string } {
-  const safeDay = (Number.isInteger(diaInicio) && diaInicio >= 1 && diaInicio <= 28) ? diaInicio : 23
-  diaInicio = safeDay
-  const diaFim = diaInicio - 1  // fim = dia anterior ao início no mês seguinte
+const NOMES_MES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const diaCicloSeguro = (d: number) => (Number.isInteger(d) && d >= 1 && d <= 28) ? d : 23
+
+// Ciclo que começa em diaInicio/mesIni/anoIni. O fim é 1s antes do início do próximo ciclo —
+// funciona para qualquer dia (dia 1 = mês fechado; antes "dia 0" gerava Invalid Date).
+// Mês de fechamento: dia 1 → o próprio mês; demais → o mês seguinte.
+function montarCiclo(anoIni: number, mesIni: number, diaInicio: number): { inicio: Date; fim: Date; mesLabel: string; chave: string } {
+  const data = (a: number, m: number) => new Date(`${a}-${String(m).padStart(2, '0')}-${String(diaInicio).padStart(2, '0')}T00:00:00-03:00`)
+  const anoProx = mesIni === 12 ? anoIni + 1 : anoIni
+  const mesProx = mesIni === 12 ? 1 : mesIni + 1
+  const inicio = data(anoIni, mesIni)
+  const fim = new Date(data(anoProx, mesProx).getTime() - 1000)
+  const [anoF, mesF] = diaInicio === 1 ? [anoIni, mesIni] : [anoProx, mesProx]
+  return { inicio, fim, mesLabel: `${NOMES_MES[mesF - 1]}/${anoF}`, chave: `${anoF}-${String(mesF).padStart(2, '0')}` }
+}
+
+function cicloAtual(diaInicio = 23): { inicio: Date; fim: Date; mesLabel: string; chave: string } {
+  diaInicio = diaCicloSeguro(diaInicio)
   const tz = 'America/Sao_Paulo'
   const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const [y, m, d] = ymd.split('-').map(Number)
   let anoIni = y, mesIni = m
   if (d < diaInicio) { mesIni -= 1; if (mesIni === 0) { mesIni = 12; anoIni -= 1 } }
-  const inicio = new Date(`${anoIni}-${String(mesIni).padStart(2, '0')}-${String(diaInicio).padStart(2, '0')}T00:00:00-03:00`)
-  let anoFim = anoIni, mesFim = mesIni + 1
-  if (mesFim === 13) { mesFim = 1; anoFim += 1 }
-  const fim = new Date(`${anoFim}-${String(mesFim).padStart(2, '0')}-${String(diaFim).padStart(2, '0')}T23:59:59-03:00`)
-  const nomesMes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-  return { inicio, fim, mesLabel: `${nomesMes[mesFim - 1]}/${anoFim}` }
+  return montarCiclo(anoIni, mesIni, diaInicio)
 }
 
 export type CicloHoras = { inicio: string; fim: string; mesLabel: string; horasTrabalhadas: number; horasSemChecklist: number }
@@ -1437,6 +1446,7 @@ export type MaquinaCiclo = {
 export type RelatorioCicloPrestador = {
   prestador: string
   cicloLabel: string
+  cicloChave: string // "YYYY-MM" do mês de fechamento
   cicloInicio: string
   cicloFim: string
   maquinas: MaquinaCiclo[]
@@ -1446,17 +1456,11 @@ export type RelatorioCicloPrestador = {
 
 // Retorna as datas do ciclo que fecha no mês indicado (anoFim/mesFim).
 // Ex: mesFim=7/2026, diaInicio=23 → início 23/06/2026, fim 22/07/2026.
-function cicloDoFechamento(anoFim: number, mesFim: number, diaInicio: number): { inicio: Date; fim: Date; mesLabel: string } {
-  // mesmas salvaguardas do cicloAtual: dia fora de 1–28 ou ciclo inválido na URL geravam Invalid Date → toISOString() quebrava a página
-  if (!(Number.isInteger(diaInicio) && diaInicio >= 2 && diaInicio <= 28)) diaInicio = 23
+function cicloDoFechamento(anoFim: number, mesFim: number, diaInicio: number): { inicio: Date; fim: Date; mesLabel: string; chave: string } {
+  diaInicio = diaCicloSeguro(diaInicio)
   if (!Number.isInteger(anoFim) || !Number.isInteger(mesFim) || mesFim < 1 || mesFim > 12) return cicloAtual(diaInicio)
-  const diaFim = diaInicio - 1
-  const mesIni = mesFim === 1 ? 12 : mesFim - 1
-  const anoIni = mesFim === 1 ? anoFim - 1 : anoFim
-  const inicio = new Date(`${anoIni}-${String(mesIni).padStart(2, '0')}-${String(diaInicio).padStart(2, '0')}T00:00:00-03:00`)
-  const fim = new Date(`${anoFim}-${String(mesFim).padStart(2, '0')}-${String(diaFim).padStart(2, '0')}T23:59:59-03:00`)
-  const nomesMes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-  return { inicio, fim, mesLabel: `${nomesMes[mesFim - 1]}/${anoFim}` }
+  if (diaInicio === 1) return montarCiclo(anoFim, mesFim, 1)
+  return montarCiclo(mesFim === 1 ? anoFim - 1 : anoFim, mesFim === 1 ? 12 : mesFim - 1, diaInicio)
 }
 
 export async function getRelatorioCicloPrestador(
@@ -1466,18 +1470,18 @@ export async function getRelatorioCicloPrestador(
   const { supabase, user } = await usuarioEPapel()
   const cfg = await getConfigCiclo()
 
-  let inicio: Date, fim: Date, label: string
+  let inicio: Date, fim: Date, label: string, chave: string
   if (cicloFechamento) {
     const [a, m] = cicloFechamento.split('-').map(Number)
     const r = cicloDoFechamento(a, m, cfg.diaInicio)
-    inicio = r.inicio; fim = r.fim; label = r.mesLabel
+    inicio = r.inicio; fim = r.fim; label = r.mesLabel; chave = r.chave
   } else {
     const r = cicloAtual(cfg.diaInicio)
-    inicio = r.inicio; fim = r.fim; label = r.mesLabel
+    inicio = r.inicio; fim = r.fim; label = r.mesLabel; chave = r.chave
   }
 
   const vazio: RelatorioCicloPrestador = {
-    prestador, cicloLabel: label,
+    prestador, cicloLabel: label, cicloChave: chave,
     cicloInicio: inicio.toISOString(), cicloFim: fim.toISOString(),
     maquinas: [], totalHoras: 0, totalAcionamentos: 0,
   }
@@ -1564,6 +1568,7 @@ export async function getRelatorioCicloPrestador(
   return {
     prestador,
     cicloLabel: label,
+    cicloChave: chave,
     cicloInicio: inicio.toISOString(),
     cicloFim: fim.toISOString(),
     maquinas,

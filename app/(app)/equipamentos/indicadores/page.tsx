@@ -44,7 +44,7 @@ function CicloCard({ horasTrabalhadas, mesLabel, meta, diaInicio, gestor, setor 
     <div className="bg-white rounded-xl p-4" style={{ border: `2px solid ${cor}` }}>
       <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6b7280' }}>Horas trabalhadas no ciclo</p>
       <p className="text-2xl font-bold mt-1" style={{ color: cor }}>{horasTrabalhadas}h</p>
-      <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{mesLabel} · dia {diaInicio} a {diaFim}, zera no dia {diaInicio}</p>
+      <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{mesLabel} · {diaInicio === 1 ? 'mês fechado (dia 1 ao último dia)' : `dia ${diaInicio} a ${diaFim}, zera no dia ${diaInicio}`}</p>
       {meta > 0 && badge && (
         <p className="text-xs font-semibold mt-1" style={{ color: cor }}>{badge}</p>
       )}

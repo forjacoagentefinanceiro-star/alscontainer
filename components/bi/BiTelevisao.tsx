@@ -278,7 +278,7 @@ function SlideEquipamentos({ dash, ciclo, cfg }: { dash: DashboardEquipamentos; 
         <div style={{ background: '#0f2138', border: `2px solid ${corCiclo}`, borderRadius: 16, padding: 'clamp(14px,1.6vw,24px)' }}>
           <div style={{ fontSize: 'clamp(11px,0.9vw,14px)', letterSpacing: 1, textTransform: 'uppercase', color: '#5f7da0' }}>Horas no ciclo</div>
           <div style={{ fontSize: 'clamp(30px,3.6vw,56px)', fontWeight: 700, color: corCiclo, lineHeight: 1.1 }}>{ciclo.horasTrabalhadas}h</div>
-          <div style={{ fontSize: 'clamp(11px,0.85vw,13px)', color: '#5f7da0', marginTop: 2 }}>{ciclo.mesLabel} · dia {cfg.diaInicio}→{diaFim}</div>
+          <div style={{ fontSize: 'clamp(11px,0.85vw,13px)', color: '#5f7da0', marginTop: 2 }}>{ciclo.mesLabel} · {cfg.diaInicio === 1 ? 'mês fechado' : `dia ${cfg.diaInicio}→${diaFim}`}</div>
           {badgeCiclo && <div style={{ fontSize: 'clamp(11px,0.85vw,13px)', color: corCiclo, fontWeight: 700, marginTop: 4 }}>{badgeCiclo}</div>}
           {cfg.metaHoras > 0 && (
             <div style={{ marginTop: 6, borderRadius: 999, overflow: 'hidden', height: 5, background: 'rgba(255,255,255,0.1)' }}>

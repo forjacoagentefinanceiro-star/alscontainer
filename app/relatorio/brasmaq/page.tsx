@@ -25,16 +25,9 @@ function fmtData(iso: string): string {
   })
 }
 
-function adjacentes(cicloParam?: string): { prev: string; next: string } {
-  let ano: number, mes: number
-  if (cicloParam) {
-    ;[ano, mes] = cicloParam.split('-').map(Number)
-  } else {
-    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
-    const [y, m, d] = today.split('-').map(Number)
-    if (d < 23) { ano = y; mes = m }
-    else { mes = m + 1; ano = y; if (mes === 13) { mes = 1; ano++ } }
-  }
+// ciclo = "YYYY-MM" do mês de fechamento (vem do próprio relatório, respeitando o dia de início configurado)
+function adjacentes(ciclo: string): { prev: string; next: string } {
+  const [ano, mes] = ciclo.split('-').map(Number)
   const prevMes = mes === 1 ? 12 : mes - 1
   const prevAno = mes === 1 ? ano - 1 : ano
   const nextMes = mes === 12 ? 1 : mes + 1
@@ -55,7 +48,6 @@ export default async function RelatorioBrasmaqPage({
   if (!user) redirect('/login')
 
   const { ciclo } = await searchParams
-  const { prev, next } = adjacentes(ciclo)
   let rel: Awaited<ReturnType<typeof getRelatorioCicloPrestador>>
   try {
     rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo)
@@ -71,6 +63,7 @@ ciclo=${ciclo}` : ''}</pre>
       </div>
     )
   }
+  const { prev, next } = adjacentes(rel.cicloChave)
   const emissao = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
   const totalParado = rel.maquinas.reduce((a, m) => a + m.tempoParadoMin, 0)
   const totalComParada = rel.maquinas.reduce((a, m) => a + m.comParada, 0)
