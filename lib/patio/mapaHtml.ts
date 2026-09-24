@@ -92,6 +92,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
 .atab td.best{color:#111;background:var(--accent);font-weight:600;border-radius:3px}
 .atab td small{display:block;color:var(--mute);font-size:10.5px}
 .atab td.best small{color:#3a3000}
+.atab td.tie{box-shadow:inset 0 0 0 1.5px var(--accent);border-radius:3px}
 .load{display:grid;grid-template-columns:auto 1fr auto;gap:4px 8px;align-items:center;margin-top:10px;font-size:12.5px}
 .load .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
 .load .bar i{display:block;height:100%;background:var(--accent)}
@@ -155,7 +156,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
       </div>
       <label class="hint" style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" id="anaShow" checked> Mostrar no mapa</label>
       <div id="anaOut"></div>
-      <p class="hint" style="margin-top:8px">Distância média em linha reta de cada contêiner do armador até a oficina, com peso pela quantidade. Fora da conta: Valle, cheios, banheiro e posições livres. Escala estimada pela foto (1 px ≈ 0,8 m), sem contar contornos de prédio. Posição sem quantidade entra com a média das outras (<span id="anaEst"></span>).</p>
+      <p class="hint" style="margin-top:8px"><b>Como escolhe:</b> a oficina com a <b>menor distância média</b> — é a que dá menos metros rodados no total, mesmo que não seja a mais perto da maioria. “% mais perto” = parte dos contêineres para a qual aquela oficina é a mais próxima. Diferença de até 5 m conta como empate (contorno amarelo) e o armador vai para a oficina menos ocupada. Distância em linha reta de cada contêiner até a oficina, com peso pela quantidade. Fora da conta: Valle, cheios, banheiro e posições livres. Escala estimada pela foto (1 px ≈ 0,8 m), sem contar contornos de prédio. Posição sem quantidade entra com a média das outras (<span id="anaEst"></span>).</p>
     </div>
     <div class="card" id="editCard" hidden>
       <h2>Ajustar ruas</h2>
@@ -687,14 +688,26 @@ function analise(){
     });
   });
   $('anaEst').textContent=\`\${avgQ} por posição, \${est} posições\`;
-  const rows=ARMS.filter(a=>R[a].pos&&R[a].w>0&&ofs.length).map(a=>{const r=R[a];r.avg=r.d.map(x=>x/r.w);r.best=r.avg.indexOf(Math.min(...r.avg));r.cx/=r.w;r.cy/=r.w;return[a,r]}).sort((x,y)=>y[1].w-x[1].w);
-  const load=ofs.map(()=>0); rows.forEach(([a,r])=>load[r.best]+=r.w); const tot=load.reduce((a,b)=>a+b,0)||1;
+  const rows=ARMS.filter(a=>R[a].pos&&R[a].w>0&&ofs.length).map(a=>{const r=R[a];r.avg=r.d.map(x=>x/r.w);r.cx/=r.w;r.cy/=r.w;return[a,r]}).sort((x,y)=>y[1].w-x[1].w);
+  // Critério: menor distância média (menos metros rodados no total). Diferença de até EMPATE_M conta como empate.
+  // 1º fixa quem tem uma opção clara; depois os empatados vão para a oficina menos ocupada (maiores primeiro).
+  const EMPATE_M=5, load=ofs.map(()=>0);
+  rows.forEach(([a,r])=>{const min=Math.min(...r.avg);r.empate=r.avg.map((d,j)=>d-min<=EMPATE_M?j:-1).filter(j=>j>=0)});
+  rows.filter(([,r])=>r.empate.length===1).forEach(([,r])=>{r.best=r.empate[0];load[r.best]+=r.w});
+  rows.filter(([,r])=>r.empate.length>1).forEach(([,r])=>{
+    r.best=r.empate.reduce((b,j)=>load[j]<load[b]||(load[j]===load[b]&&r.avg[j]<r.avg[b])?j:b,r.empate[0]);
+    load[r.best]+=r.w;
+  });
+  const tot=load.reduce((a,b)=>a+b,0)||1;
   let h=\`<div style="overflow-x:auto"><table class="atab mono"><tr><th>Armador</th>\${ofs.map(o=>\`<th>Of. \${o.k}</th>\`).join('')}</tr>\`;
   rows.forEach(([a,r])=>{h+=\`<tr><td><span class="sw" style="display:inline-block;vertical-align:-2px;margin-right:5px;background:\${ARM[a].c}"></span>\${ARM[a].n}<small>\${Math.round(r.w)} cont. · \${r.pos} pos.</small></td>\`+
-    r.avg.map((d,j)=>\`<td class="\${j===r.best?'best':''}">\${Math.round(d)} m<small>\${Math.round(r.near[j]/r.w*100)}% perto</small></td>\`).join('')+'</tr>'});
+    r.avg.map((d,j)=>\`<td class="\${j===r.best?'best':r.empate.includes(j)?'tie':''}">\${Math.round(d)} m<small>\${Math.round(r.near[j]/r.w*100)}% mais perto</small></td>\`).join('')+'</tr>'});
   h+='</table></div>';
-  h+='<div class="rec">'+rows.map(([a,r])=>{const s=[...r.avg].map((d,j)=>[d,j]).sort((x,y)=>x[0]-y[0]);const dif=s[1]?Math.round(s[1][0]-s[0][0]):0;
-    return \`<div><b>\${ARM[a].n}</b> → Oficina \${ofs[r.best].k}\${s[1]?\` <span style="color:var(--mute)">(2ª opção: Of. \${ofs[s[1][1]].k}, +\${dif} m)</span>\`:''}</div>\`}).join('')+'</div>';
+  h+='<div class="rec">'+rows.map(([a,r])=>{
+    let extra='';
+    if(r.empate.length>1) extra=\`empate com Of. \${r.empate.filter(j=>j!==r.best).map(j=>ofs[j].k).join(', ')} — foi para a menos ocupada\`;
+    else{const s=r.avg.map((d,j)=>[d,j]).filter(([,j])=>j!==r.best).sort((x,y)=>x[0]-y[0])[0];if(s)extra=\`2ª opção: Of. \${ofs[s[1]].k}, +\${Math.round(s[0]-r.avg[r.best])} m\`}
+    return \`<div><b>\${ARM[a].n}</b> → Oficina \${ofs[r.best].k}\${extra?\` <span style="color:var(--mute)">(\${extra})</span>\`:''}</div>\`}).join('')+'</div>';
   h+='<div class="load">'+ofs.map((o,j)=>\`<span>Of. \${o.k}</span><span class="bar"><i style="width:\${load[j]/tot*100}%"></i></span><span class="mono">\${Math.round(load[j]/tot*100)}%</span>\`).join('')+'</div>';
   $('anaOut').innerHTML=h;
   const A=$('ana'); A.innerHTML='';
