@@ -25,6 +25,7 @@ import {
   DollarSign,
   CloudRain,
   Map as MapIcon,
+  ClipboardList,
 } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
@@ -55,6 +56,7 @@ const biItem:                Item = { href: '/bi',             label: 'BI Depot'
 const indicadoresTarefasItem:Item = { href: '/tarefas',        label: 'Indicadores Tarefas',icon: ListChecks  }
 const monitoramentoItem:     Item = { href: '/monitoramento',  label: 'Monitoramento',      icon: CloudRain   }
 const patioItem:             Item = { href: '/patio',          label: 'Mapa do Pátio',      icon: MapIcon     }
+const patioHistoricoItem:    Item = { href: '/patio/historico', label: 'Histórico do Pátio', icon: ClipboardList }
 
 const gestaoTarefasItems: Item[] = [
   { href: '/tarefas',        label: 'Tarefas', icon: ListChecks  },
@@ -127,12 +129,12 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
         ...(isAdmin ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
         ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
         ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
-        ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: [patioItem] }] : []),
+        ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: isAdmin ? [patioItem, patioHistoricoItem] : [patioItem] }] : []),
       ]
 
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && pathname.startsWith(href + '/'))
+  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && href !== '/patio' && pathname.startsWith(href + '/'))
 
   return (
     <aside
