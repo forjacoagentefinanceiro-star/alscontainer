@@ -29,10 +29,12 @@ h1 small{display:block;font-size:12px;font-weight:500;color:var(--mute);letter-s
 .tot{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
 .tot .big{font-size:28px;font-weight:600}
 .tot .lbl{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-.wrap>*{min-width:0}
-.wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
-@media (max-width:900px){.wrap{grid-template-columns:1fr}}
-.mapbox{background:#0b0e10;border:1px solid var(--line);border-radius:6px;overflow:auto;position:relative;aspect-ratio:1024/688;max-height:78vh;display:flex;align-items:safe center}
+.wrap{display:flex;gap:14px;align-items:flex-start}
+/* mapa com o tamanho que cabe na altura da tela; painéis ocupam o resto */
+.mapcol{flex:0 1 calc(80vh * 1024 / 688);min-width:0}
+aside{flex:1 1 320px;min-width:300px}
+@media (max-width:900px){.wrap{flex-direction:column;align-items:stretch}.mapcol{flex:none}aside{min-width:0}.mapbox{max-height:78vh}}
+.mapbox{background:#0b0e10;border:1px solid var(--line);border-radius:6px;overflow:auto;position:relative;aspect-ratio:1024/688;display:flex;align-items:safe center}
 .mapbox svg{display:block;flex:none;width:calc(100% * var(--z,1));height:auto;margin-inline:auto;touch-action:none}
 .mapbox{cursor:grab}
 .mapbox.arrastando{cursor:grabbing;user-select:none}
@@ -48,7 +50,8 @@ button.on{background:var(--accent);color:#111;border-color:var(--accent);font-we
 .seg span{display:block;padding:5px 10px;background:var(--panel2)}
 .seg input:checked+span{background:var(--ink);color:#111;font-weight:600}
 .sp{flex:1}
-aside{display:flex;flex-direction:column;gap:12px}
+aside{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;align-items:start}
+#anaCard,#editCard{grid-column:1/-1}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}
 .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin:0 0 8px;font-weight:600}
 .legend{display:grid;grid-template-columns:1fr auto;gap:4px 10px}
@@ -111,7 +114,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
 </header>
 
 <div class="wrap">
-  <div>
+  <div class="mapcol">
     <div class="toolbar">
       <div class="seg" role="radiogroup" aria-label="Colorir por">
         <label><input type="radio" name="modo" id="mArm" value="arm" checked><span>Por armador</span></label>
