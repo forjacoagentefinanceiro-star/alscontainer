@@ -70,6 +70,14 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
 .slot:hover rect{stroke:#fff;stroke-width:1.6}
 .slot.sel rect{stroke:var(--accent);stroke-width:2.4}
 .slot.dim{opacity:.18}
+.fedit{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.fedit label.l{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute)}
+.fedit select,.fedit input[type=number],.fedit input[type=text]{font:inherit;font-size:14px;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:7px 8px;width:100%}
+.fedit .seg{width:100%}.fedit .seg label{flex:1;text-align:center}
+.fedit .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fedit button[type=submit]{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600;padding:9px}
+.fedit .msg{font-size:12.5px;min-height:1em}
+.upd{font-size:11.5px;color:var(--mute);margin-top:6px}
 .atab{width:100%;border-collapse:collapse;font-size:12.5px}
 .atab th{font-weight:600;color:var(--mute);text-align:right;padding:3px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
 .atab th:first-child,.atab td:first-child{text-align:left}
@@ -124,12 +132,12 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
   <aside>
     <div class="card det" id="det">
       <h2>Posição</h2>
-      <p class="hint">Toque numa posição do mapa para ver o que tem nela.</p>
+      <p class="hint">Toque numa posição do mapa para ver o que tem nela e alterar armador, situação e pilha.</p>
     </div>
     <div class="card">
       <h2 id="legT">Armadores</h2>
       <div class="legend" id="legend"></div>
-      <p class="hint" style="margin-top:8px">Clique num item para destacar só ele.</p>
+      <p class="hint" style="margin-top:8px">Clique num item para destacar só ele. Pilha: bloco cheio = completa, metade = parcial, só contorno = vazia.</p>
     </div>
     <div class="card" id="anaCard">
       <h2>Qual oficina usar</h2>
@@ -164,7 +172,7 @@ const ARM={
   livre:{n:'Livre',c:'transparent'}
 };
 const SIT={
-  AV:{n:'Avariado (AV)',c:'var(--s-av)'}, OK:{n:'OK',c:'var(--s-ok)'}, SOF:{n:'S.OF',c:'var(--s-sof)'},
+  OK:{n:'OK',c:'var(--s-ok)'}, AV:{n:'Avariado (AV)',c:'var(--s-av)'}, SOF:{n:'OK · saído de oficina',c:'var(--s-sof)'},
   SAINDO:{n:'Saindo',c:'var(--s-saindo)'}, VENDA:{n:'Venda',c:'var(--s-venda)'}, DESCARGA:{n:'Descarga',c:'var(--s-desc)'},
   CHEIO:{n:'Cheio',c:'var(--s-cheio)'}, VAZIO:{n:'Vazio',c:'var(--s-vazio)'}, OFICINA:{n:'Oficina',c:'var(--oficina)'},
   LIVRE:{n:'Livre',c:'transparent'}, NA:{n:'Não informada',c:'var(--s-na)'}
@@ -278,10 +286,13 @@ function draw(){
         const r=el('rect',{x:-w/2,y:-h/2,width:w,height:h,fill:livre?'rgba(255,255,255,.06)':colorOf(s),stroke:livre?'#fff':'#0008','stroke-width':livre?1.2:.8});
         if(livre) r.setAttribute('stroke-dasharray','3 2');
         if(keyOf(s)==='oficina'||keyOf(s)==='OFICINA'){r.setAttribute('fill','url(#hatch)')}
+        const esp=!livre&&s.a!=='oficina'&&(s.pilha==='vazia'||s.pilha==='parcial');
+        if(esp){r.setAttribute('fill','rgba(0,0,0,.45)');r.setAttribute('stroke',colorOf(s));r.setAttribute('stroke-width',2)}
         G.append(r);
+        if(esp&&s.pilha==='parcial') G.append(el('rect',{x:-w/2+1,y:0,width:w-2,height:h/2-1,fill:colorOf(s)}));
       }
       if(w>=13){
-        const t=el('text',{x:0,y:3.2,'text-anchor':'middle','font-size':Math.min(8.5,w*.42),fill:livre?'#fff':'#0b0e10','font-weight':600});
+        const t=el('text',{x:0,y:3.2,'text-anchor':'middle','font-size':Math.min(8.5,w*.42),fill:(livre||s.pilha==='vazia'||s.pilha==='parcial')?'#fff':'#0b0e10','font-weight':600});
         t.textContent=s.p.replace(/^[DE]/,''); G.append(t);
       }
       const pick=()=>{sel={rua,i};detail();draw()};
@@ -320,22 +331,76 @@ svg.addEventListener('pointermove',ev=>{if(!drag)return;const p=toSvg(ev);GEO[dr
 const endDrag=()=>{if(drag){drag=null;save()}};
 svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
 
+const API=/^\\/api\\/patio\\/mapa/.test(location.pathname)?'/api/patio/posicoes':null;
+const PILHA={completa:'Completa',parcial:'Parcial',vazia:'Vazia'};
+const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function detail(){
   const D=document.getElementById('det');
   if(!sel){return}
   const s=DATA[sel.rua][sel.i];
   const qtd=s.split?\`\${s.q} + \${s.split.q}\`:(s.q==null?'<span class="warn">não informada</span>':s.q);
   const arm=s.split?\`\${ARM[s.a].n} + \${ARM[s.split.a].n}\`:ARM[s.a].n;
-  D.innerHTML=\`<h2>\${sel.rua.replace(' ',' · lado ')}</h2>
+  let h=\`<h2>\${sel.rua.replace(' ',' · lado ')}</h2>
    <div class="pos mono">\${sel.rua.split(' ')[0]} \${s.p}</div>
    <table class="mono">
     <tr><td>Quantidade</td><td>\${qtd}</td></tr>
     <tr><td>Armador</td><td>\${arm}</td></tr>
     <tr><td>Situação</td><td>\${SIT[s.s].n}</td></tr>
-    \${s.t?\`<tr><td>Tipo / grade</td><td>\${s.t}</td></tr>\`:''}
-    \${s.o?\`<tr><td>Obs.</td><td>\${s.o}</td></tr>\`:''}
+    <tr><td>Pilha</td><td>\${s.pilha?PILHA[s.pilha]:'—'}</td></tr>
+    \${s.t?\`<tr><td>Tipo / grade</td><td>\${esc(s.t)}</td></tr>\`:''}
+    \${s.o?\`<tr><td>Obs.</td><td>\${esc(s.o)}</td></tr>\`:''}
+    \${s.nota?\`<tr><td>Nota do pátio</td><td>\${esc(s.nota)}</td></tr>\`:''}
    </table>
-   <div class="raw mono">Anotado: \${s.raw}</div>\`;
+   \${s.upd?\`<div class="upd">Atualizado por \${esc(s.upd.email)} em \${new Date(s.upd.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>\`:\`<div class="raw mono">Levantamento 24/09: \${esc(s.raw)}</div>\`}\`;
+  if(API){
+    const opt=(M,v)=>Object.keys(M).map(k=>\`<option value="\${k}"\${k===v?' selected':''}>\${M[k].n}</option>\`).join('');
+    h+=\`<form class="fedit" id="fEdit">
+      <label class="l">Armador<select id="eArm">\${opt(ARM,s.a)}</select></label>
+      <label class="l">Situação<select id="eSit">\${opt(SIT,s.s)}</select></label>
+      <div class="l" style="font-size:12px;color:var(--mute)">Pilha
+        <div class="seg" role="radiogroup" aria-label="Pilha" style="margin-top:3px">
+          \${Object.keys(PILHA).map(k=>\`<label><input type="radio" name="ePilha" id="eP_\${k}" value="\${k}"\${s.pilha===k?' checked':''}><span>\${PILHA[k]}</span></label>\`).join('')}
+        </div></div>
+      <div class="row">
+        <label class="l">Quantidade<input type="number" id="eQtd" min="0" max="999" inputmode="numeric" value="\${s.q??''}"></label>
+        <label class="l">Nota<input type="text" id="eObs" maxlength="200" value="\${esc(s.nota)}"></label>
+      </div>
+      <button type="submit" id="eSalvar">Salvar posição</button>
+      <div class="msg" id="eMsg"></div>
+    </form>\`;
+  }
+  D.innerHTML=h;
+  const F=document.getElementById('fEdit');
+  if(F) F.addEventListener('submit',salvar);
+}
+async function salvar(ev){
+  ev.preventDefault();
+  const s=DATA[sel.rua][sel.i], msg=document.getElementById('eMsg'), btn=document.getElementById('eSalvar');
+  const pilha=(document.querySelector('input[name=ePilha]:checked')||{}).value||null;
+  const body={chave:sel.rua+'|'+s.p,armador:eArm.value,situacao:eSit.value,pilha,qtd:eQtd.value===''?null:Number(eQtd.value),obs:eObs.value};
+  btn.disabled=true; msg.textContent='Salvando…'; msg.style.color='var(--mute)';
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('Erro '+r.status));
+    aplicar([j.posicao]); detail();
+    const m=document.getElementById('eMsg'); if(m){m.textContent='Salvo. Todos já veem a alteração.';m.style.color='var(--s-ok)'}
+  }catch(e){msg.textContent='Não salvou: '+e.message;msg.style.color='var(--s-av)';btn.disabled=false}
+}
+function aplicar(rows){
+  for(const p of rows){
+    const k=p.chave.indexOf('|'), rua=p.chave.slice(0,k), pos=p.chave.slice(k+1);
+    const s=(DATA[rua]||[]).find(x=>x.p===pos); if(!s) continue;
+    s.a=ARM[p.armador]?p.armador:s.a; s.s=SIT[p.situacao]?p.situacao:s.s; s.pilha=p.pilha||null;
+    s.q=p.qtd; s.nota=p.obs||''; delete s.split; s.upd={email:p.atualizado_email,em:p.atualizado_em};
+  }
+  totals(); legend(); draw();
+}
+async function carregar(){
+  if(!API) return;
+  const F=document.getElementById('fEdit');
+  if(F&&F.contains(document.activeElement)) return; // não atrapalha quem está editando
+  try{const r=await fetch(API,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); aplicar(j.posicoes||[]); if(sel) detail()}catch(e){}
 }
 
 function legend(){
@@ -452,5 +517,6 @@ function analise(){
 document.querySelectorAll('input[name=anaF]').forEach(r=>r.addEventListener('change',()=>{anaF=r.value;analise()}));
 document.getElementById('anaShow').addEventListener('change',analise);
 totals(); legend(); draw(); ruaList();
+carregar(); if(API) setInterval(carregar,30000);
 </script>
 `
