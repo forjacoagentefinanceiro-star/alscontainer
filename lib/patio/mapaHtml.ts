@@ -100,6 +100,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
 .handle{cursor:grab;fill:var(--accent);stroke:#111;stroke-width:1.5}
 .handle.b{fill:#fff}
 .handle.m{fill:#9aa7ae}
+.handle.x{fill:#3e8ef7;stroke:#fff}
 .lineguide{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3;opacity:.8}
 @media (prefers-reduced-motion:no-preference){.slot rect{transition:opacity .15s}}
 </style>
@@ -160,7 +161,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
     </div>
     <div class="card" id="editCard" hidden>
       <h2>Ajustar ruas</h2>
-      <p class="hint">As posições ainda são <span class="warn">aproximadas</span>. Arraste a bolinha <b class="warn">amarela</b> para a posição 1 e a <b>branca</b> para a última. As <b>cinzas</b> são dobras: use “+ dobra” para contornar prédios. Se a numeração ficar ao contrário, use “inverter”.</p>
+      <p class="hint">As posições ainda são <span class="warn">aproximadas</span>. Arraste a bolinha <b class="warn">amarela</b> para a posição 1 e a <b>branca</b> para a última. As <b>cinzas</b> são dobras: use “+ dobra” para contornar prédios. <b style="color:#3e8ef7">Azul</b> = pilha criada pelo pátio: arraste para mover (salva sozinho). Se a numeração ficar ao contrário, use “inverter”.</p>
       <div class="ruas" id="ruaList" style="margin-top:8px"></div>
       <div class="toolbar" style="margin-top:10px;margin-bottom:0">
         <button id="bCopy">Copiar posições</button>
@@ -367,12 +368,17 @@ function drawEdit(){
       E.append(c);
     });
   }
+  if(API) EXTRAS.forEach(e=>{
+    const c=el('circle',{cx:e.x,cy:e.y,r:7,class:'handle x'});
+    c.addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopPropagation();drag={extra:e};svg.setPointerCapture?.(ev.pointerId)});
+    E.append(c);
+  });
 }
 function toSvg(ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())}
 let drag=null;
 function startDrag(ev,rua,k){ev.preventDefault();drag={rua,k};svg.setPointerCapture?.(ev.pointerId)}
-svg.addEventListener('pointermove',ev=>{if(!drag)return;const p=toSvg(ev);GEO[drag.rua].pts[drag.k]=[Math.round(Math.max(0,Math.min(1024,p.x))),Math.round(Math.max(-60,Math.min(628,p.y)))];draw()});
-const endDrag=()=>{if(drag){drag=null;save()}};
+svg.addEventListener('pointermove',ev=>{if(!drag)return;const p=toSvg(ev);if(drag.extra){drag.extra.x=Math.round(Math.max(0,Math.min(1024,p.x)));drag.extra.y=Math.round(Math.max(-60,Math.min(628,p.y)));drag.movido=true;draw();return}GEO[drag.rua].pts[drag.k]=[Math.round(Math.max(0,Math.min(1024,p.x))),Math.round(Math.max(-60,Math.min(628,p.y)))];draw()});
+const endDrag=()=>{if(!drag)return;const d=drag;drag=null;if(d.extra){if(d.movido)salvarLugar(d.extra)}else save()};
 svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
 
 // ---------- edição (só dentro do ALS Container) ----------
@@ -446,7 +452,7 @@ function detail(){
     h+=\`<form class="fedit" id="fEdit">
       \${u.half?\`<div class="l">Pilha de 20' · editando o lado \${u.half}<button type="button" id="eJuntar" style="margin-top:4px">Voltar para 40' (fica com os dados deste lado)</button></div>\`:campoTamanho(u.base.tam)}
       \${camposForm(s)}
-      \${u.extra&&!u.half?\`<div class="row"><button type="button" id="eGirE">Girar ⟲</button><button type="button" id="eGirD">Girar ⟳</button></div>\`:''}
+      \${u.extra?\`<div class="row"><button type="button" id="eGirE">Girar ⟲ 5°</button><button type="button" id="eGirD">Girar ⟳ 5°</button></div><span class="hint">Para mover: “Ajustar ruas” e arraste a bolinha azul da pilha.</span>\`:''}
       <button type="submit" id="eSalvar">Salvar posição</button>
       \${u.extra?\`<button type="button" id="eRemover">Remover esta pilha nova</button>\`:''}
       <div class="msg" id="eMsg"></div>
@@ -457,8 +463,8 @@ function detail(){
   ligarTamanho();
   $('fEdit').addEventListener('submit',ev=>{ev.preventDefault();salvarUnidade(u)});
   if($('eJuntar')) $('eJuntar').onclick=()=>juntar(u);
-  if($('eGirE')) $('eGirE').onclick=()=>{u.base.ang=((u.base.ang||0)-15);draw()};
-  if($('eGirD')) $('eGirD').onclick=()=>{u.base.ang=((u.base.ang||0)+15);draw()};
+  if($('eGirE')) $('eGirE').onclick=()=>{u.base.ang=normAng((u.base.ang||0)-5);draw();if(u.half)salvarLugar(u.base)};
+  if($('eGirD')) $('eGirD').onclick=()=>{u.base.ang=normAng((u.base.ang||0)+5);draw();if(u.half)salvarLugar(u.base)};
   if($('eRemover')) $('eRemover').onclick=ev=>{
     const b=ev.currentTarget;
     if(b.dataset.confirma){enviar({remover:[u.baseChave,u.baseChave+'.A',u.baseChave+'.B']},null);return}
@@ -466,7 +472,18 @@ function detail(){
   };
 }
 
-function extrasXY(u){return u.extra?{x:u.base.x,y:u.base.y,ang:u.base.ang||0}:{}}
+const normAng=a=>Math.round(((a+180)%360+360)%360-180);
+function extrasXY(u){return u.extra?{x:Math.round(u.base.x),y:Math.round(u.base.y),ang:normAng(u.base.ang||0)}:{}}
+// grava só o lugar/rotação de uma pilha nova, mantendo os dados dela
+async function salvarLugar(e){
+  const row={chave:e.chave,armador:e.a,situacao:e.s,pilha:e.pilha,qtd:e.q,obs:e.nota||'',tamanho:e.tam||'40',x:Math.round(e.x),y:Math.round(e.y),ang:normAng(e.ang||0)};
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:[row]})});
+    if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||('Erro '+r.status))}
+    copyMsg.textContent=\`Pilha \${e.rua.split(' ')[0]} \${e.p} movida e salva.\`;
+  }catch(err){copyMsg.textContent='Não salvou o lugar da pilha: '+err.message}
+  await carregar(true);
+}
 function salvarUnidade(u){
   let f; try{f=lerForm()}catch(e){return msg('Não salvou: '+e.message,true)}
   if(u.half) return enviar({rows:[{chave:u.chave,...f,tamanho:'20'}]},u.chave);
@@ -526,8 +543,8 @@ function detalheNovo(){
       <div class="msg" id="eMsg"></div>
     </form>\`;
   ligarTamanho();
-  $('eGirE').onclick=()=>{novo.ang-=15;draw()};
-  $('eGirD').onclick=()=>{novo.ang+=15;draw()};
+  $('eGirE').onclick=()=>{novo.ang=normAng(novo.ang-5);draw()};
+  $('eGirD').onclick=()=>{novo.ang=normAng(novo.ang+5);draw()};
   $('nCancelar').onclick=()=>{novo=null;detail();draw()};
   $('fEdit').addEventListener('submit',ev=>{
     ev.preventDefault();
