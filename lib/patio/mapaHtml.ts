@@ -155,7 +155,7 @@ svg text{font-family:"IBM Plex Mono",monospace;pointer-events:none}
       <h2>Qual oficina usar</h2>
       <label class="hint" style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" id="anaShow" checked> Mostrar no mapa</label>
       <div id="anaOut"></div>
-      <p class="hint" style="margin-top:8px"><b>Como distribui:</b> só os contêineres <b>avariados</b>. Cada oficina recebe cerca de 1/3 do volume (±10%) para nenhuma ficar ociosa; entre as divisões equilibradas, fica a que roda menos metros. O armador vai inteiro para uma oficina sempre que possível — se for grande demais, é dividido em no máximo 2 oficinas por região do pátio (as pilhas dele mais perto de cada oficina). Distância em linha reta, escala estimada pela foto (1 px ≈ 0,8 m). <span id="anaEst"></span></p>
+      <p class="hint" style="margin-top:8px"><b>Como distribui:</b> só os contêineres <b>avariados</b>. Cada oficina recebe um volume proporcional à capacidade dela (Of. 1: 24 por vez · Of. 2: 40 · Of. 3: 28 de 20' ou 10 de 40'), para <b>todas terminarem juntas</b> (mesmo nº de rodadas, ±10%) e nenhuma ficar ociosa; pilha sem tamanho informado conta como 40'; entre as divisões equilibradas, fica a que roda menos metros. O armador vai inteiro para uma oficina sempre que possível — se for grande demais, é dividido em no máximo 2 oficinas por região do pátio (as pilhas dele mais perto de cada oficina). Distância em linha reta, escala estimada pela foto (1 px ≈ 0,8 m). <span id="anaEst"></span></p>
     </div>
     <div class="card" id="editCard" hidden>
       <h2>Ajustar ruas</h2>
@@ -328,7 +328,7 @@ function pintar(G,u){
 }
 
 function draw(){
-  analise();
+  if(!drag) analise();
   const L=document.getElementById('layer'); L.innerHTML='';
   for(const u of unidades()){
     const G=el('g',{class:'slot',transform:\`translate(\${u.x} \${u.y}) rotate(\${u.ang})\`,tabindex:0,role:'button','aria-label':nomePos(u)});
@@ -379,7 +379,7 @@ function toSvg(ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;re
 let drag=null;
 function startDrag(ev,rua,k){ev.preventDefault();drag={rua,k};svg.setPointerCapture?.(ev.pointerId)}
 svg.addEventListener('pointermove',ev=>{if(!drag)return;const p=toSvg(ev);if(drag.extra){drag.extra.x=Math.round(Math.max(0,Math.min(1024,p.x)));drag.extra.y=Math.round(Math.max(-60,Math.min(628,p.y)));drag.movido=true;draw();return}GEO[drag.rua].pts[drag.k]=[Math.round(Math.max(0,Math.min(1024,p.x))),Math.round(Math.max(-60,Math.min(628,p.y)))];draw()});
-const endDrag=()=>{if(!drag)return;const d=drag;drag=null;if(d.extra){if(d.movido)salvarLugar(d.extra)}else save()};
+const endDrag=()=>{if(!drag)return;const d=drag;drag=null;if(d.extra){if(d.movido)salvarLugar(d.extra)}else{save();draw()}};
 svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
 
 // ---------- edição (só dentro do ALS Container) ----------
@@ -699,41 +699,80 @@ bNova.onclick=()=>{novoModo=!novoModo;bNova.classList.toggle('on',novoModo);bNov
 // ---------- análise de oficinas ----------
 const MPX=0.8, ARMS=['maersk','hapag','evergreen','login','one'], IGN=new Set(['valle','cheio','livre','oficina']);
 let ANA_MEDIA=0;
-const centers=()=>unidades().map(u=>({s:u.s,x:u.x,y:u.y,nome:nomePos(u)}));
+// 20' quando marcado 2×20'/1×20' no mapa ou DC20 no levantamento; senão 40'
+const pes=u=>u.half||u.base.tam==='20u'||/DC\\s?20/i.test(u.s.t||'')?20:40;
+const centers=()=>unidades().map(u=>({s:u.s,x:u.x,y:u.y,nome:nomePos(u),pes:pes(u)}));
+// Capacidade por rodada de cada oficina (informada pela operação em 24/09/2026).
+// Oficina 3: 28 de 20' OU 10 de 40' (vagas compartilhadas) → cada 40' ocupa 2,8 vagas.
+const CAP_OF={'1':{txt:'24 por vez',rod:()=>1/24},'2':{txt:'40 por vez',rod:()=>1/40},'3':{txt:"28 de 20' ou 10 de 40'",rod:p=>p===20?1/28:1/10}};
+const rodadaDe=(k,p)=>(CAP_OF[k]?CAP_OF[k].rod(p):1/30);
 // Distribuição dos AVARIADOS entre as oficinas:
 //  1) cada oficina recebe ~1/3 do volume (±10%) — nenhuma fica ociosa;
 //  2) entre as divisões equilibradas, a que roda menos metros no total;
 //  3) armador inteiro numa oficina sempre que possível; se precisar dividir, no máximo em 2, por região do pátio.
-function distribuir(units,nO){
-  // PB: peso por contêiner fora da meta; PS: peso por armador dividido (testado: 6–10 mil equilibra sem fragmentar)
-  const tot=units.reduce((a,u)=>a+u.w,0), T=tot/nO, TOL=.10*T, PB=200, PS=8000;
+// guarda o último resultado: só recalcula quando pilhas/quantidades/lugares mudam
+let DIST_CACHE={k:'',r:null};
+function distribuir(units,ofs){
+  const chave=ofs.map(o=>o.k+Math.round(o.x)+','+Math.round(o.y)).join(';')+'#'+units.map(u=>\`\${u.a}:\${u.w}:\${u.pes}:\${u.d.map(Math.round).join('/')}\`).join(';');
+  if(DIST_CACHE.k===chave){units.forEach((u,i)=>{u.r=DIST_CACHE.r.r[i]});return DIST_CACHE.r}
+  const r=distribuirCalc(units,ofs); r.r=units.map(u=>u.r); DIST_CACHE={k:chave,r}; return r;
+}
+function distribuirCalc(units,ofs){
+  // Meta: todas as oficinas terminam juntas — mesmo nº de rodadas (volume ÷ capacidade), ±10%.
+  // PB: peso por "contêiner" de desequilíbrio; PS: peso por armador dividido (no máx. 2 oficinas por armador).
+  const nO=ofs.length, PB=200, PS=8000, capMed=24;
   const arms=[...new Set(units.map(u=>u.a))];
+  units.forEach(u=>u.r=ofs.map(o=>u.w*rodadaDe(o.k,u.pes)));   // rodadas que a pilha consome em cada oficina
   const custo=asg=>{
-    const load=Array(nO).fill(0), pares=new Set(); let dist=0;
-    units.forEach((u,i)=>{load[asg[i]]+=u.w;dist+=u.w*u.d[asg[i]];pares.add(u.a+'|'+asg[i])});
-    const desb=load.reduce((a,l)=>a+Math.max(0,Math.abs(l-T)-TOL),0);
-    // no máximo 2 oficinas por armador
+    const rod=Array(nO).fill(0), pares=new Set(); let dist=0;
+    units.forEach((u,i)=>{rod[asg[i]]+=u.r[asg[i]];dist+=u.w*u.d[asg[i]];pares.add(u.a+'|'+asg[i])});
+    const med=rod.reduce((a,b)=>a+b,0)/nO;
+    const desb=rod.reduce((a,r)=>a+Math.max(0,Math.abs(r-med)-.10*med),0)*capMed;
     const porArm={}; pares.forEach(p=>{const a=p.slice(0,p.indexOf('|'));porArm[a]=(porArm[a]||0)+1});
     const fragmentado=Object.values(porArm).some(n=>n>2);
     return dist+PB*desb+PS*(pares.size-arms.length)+(fragmentado?1e12:0);
   };
-  // ponto de partida: melhor atribuição de armadores inteiros
-  let best=null,bestC=Infinity;
-  for(let n=0;n<nO**arms.length;n++){
-    const pick={}; let m=n; arms.forEach(a=>{pick[a]=m%nO;m=Math.floor(m/nO)});
-    const asg=units.map(u=>pick[u.a]), c=custo(asg);
-    if(c<bestC){bestC=c;best=asg}
-  }
-  // ajuste fino pilha a pilha (divide armador só se compensar)
-  for(let pass=0,mudou=true;mudou&&pass<300;pass++){
-    mudou=false;
+  // Opções de cada armador: inteiro em cada oficina; os 2 maiores também podem ser divididos por região
+  // entre 2 oficinas (pilhas ordenadas por "quanto mais perto de p do que de q", todos os pontos de corte).
+  // Testa TODAS as combinações entre armadores e fica com a de menor custo.
+  const idx={}, peso={}; units.forEach((u,i)=>{(idx[u.a]=idx[u.a]||[]).push(i);peso[u.a]=(peso[u.a]||0)+u.w});
+  const grandes=arms.slice().sort((x,y)=>peso[y]-peso[x]).slice(0,2);
+  const opcoes=arms.map(a=>{
+    const I=idx[a], ops=[];
+    for(let p=0;p<nO;p++) ops.push(I.map(()=>p));
+    if(grandes.includes(a)&&I.length>1) for(let p=0;p<nO;p++) for(let q=p+1;q<nO;q++){
+      const ord=I.slice().sort((x,y)=>(units[x].d[p]-units[x].d[q])-(units[y].d[p]-units[y].d[q])), pos=new Map(ord.map((i,k)=>[i,k]));
+      for(let c=1;c<I.length;c++) ops.push(I.map(i=>pos.get(i)<c?p:q));
+    }
+    return ops;
+  });
+  let best=null,bestC=Infinity; const asg=Array(units.length);
+  const combina=k=>{
+    if(k===arms.length){const c=custo(asg);if(c<bestC){bestC=c;best=asg.slice()}return}
+    const I=idx[arms[k]]; for(const op of opcoes[k]){I.forEach((i,n)=>{asg[i]=op[n]});combina(k+1)}
+  };
+  combina(0);
+  // ajuste final: armador inteiro/dividido e pilha a pilha, enquanto melhorar
+  for(let volta=0,melhorou=true;melhorou&&volta<30;volta++){
+    melhorou=false;
+    for(const a of arms){
+      const I=idx[a];
+      for(let p=0;p<nO;p++) for(let q=0;q<nO;q++){
+        if(p===q) continue;
+        const ord=I.slice().sort((x,y)=>(units[x].d[p]-units[x].d[q])-(units[y].d[p]-units[y].d[q]));
+        for(let c=0;c<=ord.length;c++){
+          const tent=best.slice(); ord.forEach((i,k)=>{tent[i]=k<c?p:q});
+          const cc=custo(tent); if(cc<bestC-1e-6){bestC=cc;best=tent;melhorou=true}
+        }
+      }
+    }
     for(let i=0;i<units.length;i++) for(let j=0;j<nO;j++){
       if(j===best[i]) continue;
       const tent=best.slice(); tent[i]=j; const c=custo(tent);
-      if(c<bestC-1e-6){bestC=c;best=tent;mudou=true}
+      if(c<bestC-1e-6){bestC=c;best=tent;melhorou=true}
     }
   }
-  return {asg:best,T,tot};
+  return {asg:best,tot:units.reduce((a,u)=>a+u.w,0)};
 }
 function analise(){
   const C=centers(), OF={};
@@ -747,21 +786,22 @@ function analise(){
   const est=av.filter(c=>c.s.q==null).length; ANA_MEDIA=avgQ;
   $('anaEst').textContent=est?\`\${est} pilha(s) avariada(s) sem quantidade entram com \${avgQ} (média das outras).\`:'';
   if(!ofs.length||!av.length){$('anaOut').innerHTML='<p class="hint">Sem avariados ou sem oficinas no mapa.</p>';return}
-  const units=av.map(c=>({s:c.s,a:c.s.a,w:c.s.q??avgQ,x:c.x,y:c.y,nome:c.nome,d:ofs.map(o=>Math.hypot(o.x-c.x,o.y-c.y)*MPX)}));
-  const {asg,T,tot}=distribuir(units,ofs.length);
+  const units=av.map(c=>({s:c.s,pes:c.pes,a:c.s.a,w:c.s.q??avgQ,x:c.x,y:c.y,nome:c.nome,d:ofs.map(o=>Math.hypot(o.x-c.x,o.y-c.y)*MPX)}));
+  const {asg,tot}=distribuir(units,ofs);
   units.forEach((u,i)=>{u.s._of=ofs[asg[i]].k});
   // resumo por armador e por oficina
-  const R={}, load=ofs.map(()=>0); let dist=0, distMin=0;
+  const R={}, load=ofs.map(()=>0), rod=ofs.map(()=>0); let dist=0, distMin=0;
   units.forEach((u,i)=>{
     const j=asg[i], r=R[u.a]=R[u.a]||{w:0,d:ofs.map(()=>0),por:ofs.map(()=>({w:0,nomes:[],cx:0,cy:0}))};
     r.w+=u.w; u.d.forEach((d,k)=>r.d[k]+=d*u.w);
     const g=r.por[j]; g.w+=u.w; g.nomes.push(u.nome); g.cx+=u.x*u.w; g.cy+=u.y*u.w;
-    load[j]+=u.w; dist+=u.w*u.d[j]; distMin+=u.w*Math.min(...u.d);
+    load[j]+=u.w; rod[j]+=u.r[j]; dist+=u.w*u.d[j]; distMin+=u.w*Math.min(...u.d);
   });
   const rows=ARMS.filter(a=>R[a]).map(a=>[a,R[a]]).sort((x,y)=>y[1].w-x[1].w);
   const pct=v=>Math.round(v/tot*100);
-  let h=\`<p class="hint" style="margin:0 0 8px">Só <b>avariados</b> · \${Math.round(tot)} contêineres · meta ≈ \${Math.round(T)} por oficina (±10%).</p>\`;
-  h+=\`<div style="overflow-x:auto"><table class="atab mono"><tr><th>Armador</th>\${ofs.map(o=>\`<th>Of. \${o.k}</th>\`).join('')}</tr>\`;
+  const n40=units.filter(u=>u.pes===40).reduce((a,u)=>a+u.w,0);
+  let h=\`<p class="hint" style="margin:0 0 8px">Só <b>avariados</b> · \${Math.round(tot)} contêineres (\${Math.round(tot-n40)} de 20' · \${Math.round(n40)} de 40') · meta: as oficinas <b>terminarem juntas</b> (mesmo nº de rodadas, ±10%).</p>\`;
+  h+=\`<div style="overflow-x:auto"><table class="atab mono"><tr><th>Armador</th>\${ofs.map(o=>\`<th>Of. \${o.k}<br><span style="text-transform:none;letter-spacing:0;font-weight:400">\${CAP_OF[o.k]?.txt??''}</span></th>\`).join('')}</tr>\`;
   rows.forEach(([a,r])=>{h+=\`<tr><td><span class="sw" style="display:inline-block;vertical-align:-2px;margin-right:5px;background:\${ARM[a].c}"></span>\${ARM[a].n}<small>\${Math.round(r.w)} cont.</small></td>\`+
     ofs.map((o,j)=>{const g=r.por[j];return \`<td class="\${g.w?'best':''}">\${Math.round(r.d[j]/r.w)} m<small>\${g.w?\`→ \${Math.round(g.w)} cont.\`:'—'}</small></td>\`}).join('')+'</tr>'});
   h+='</table></div>';
@@ -771,7 +811,8 @@ function analise(){
     if(partes.length===1) return \`<div><b>\${ARM[a].n}</b> → Oficina \${partes[0][0].k}</div>\`;
     return \`<div><b>\${ARM[a].n}</b> → dividido por região:\${partes.map(([o,g])=>\`<br>&nbsp;&nbsp;Oficina \${o.k}: \${Math.round(g.w)} cont. <span style="color:var(--mute)">(\${lista(g.nomes)})</span>\`).join('')}</div>\`;
   }).join('')+'</div>';
-  h+='<div class="load">'+ofs.map((o,j)=>\`<span>Of. \${o.k}</span><span class="bar"><i style="width:\${pct(load[j])}%"></i></span><span class="mono">\${Math.round(load[j])} · \${pct(load[j])}%</span>\`).join('')+'</div>';
+  const rodMax=Math.max(...rod)||1;
+  h+='<div class="load">'+ofs.map((o,j)=>\`<span>Of. \${o.k}</span><span class="bar" title="rodadas"><i style="width:\${rod[j]/rodMax*100}%"></i></span><span class="mono">\${Math.round(load[j])} cont. · \${rod[j].toFixed(1).replace('.',',')} rodadas</span>\`).join('')+'</div>';
   const extra=Math.round((dist-distMin)/tot);
   h+=\`<p class="hint" style="margin-top:8px">Distância média: <b>\${Math.round(dist/tot)} m</b> por contêiner\${extra>0?\` — equilibrar custa +\${extra} m em média em relação a mandar cada pilha para a oficina mais perto (\${Math.round(distMin/tot)} m), mas nenhuma oficina fica ociosa.\`:'.'}</p>\`;
   $('anaOut').innerHTML=h;
