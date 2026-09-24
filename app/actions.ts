@@ -1466,9 +1466,10 @@ function cicloDoFechamento(anoFim: number, mesFim: number, diaInicio: number): {
 export async function getRelatorioCicloPrestador(
   prestador: string,
   cicloFechamento?: string, // "YYYY-MM" — mês de fechamento; omitir = ciclo atual
+  diaInicioFixo?: number,   // ciclo contratual do prestador (ex.: Brasmaq = 23); omitir = config do app
 ): Promise<RelatorioCicloPrestador> {
   const { supabase, user } = await usuarioEPapel()
-  const cfg = await getConfigCiclo()
+  const cfg = diaInicioFixo ? { diaInicio: diaInicioFixo } : await getConfigCiclo()
 
   let inicio: Date, fim: Date, label: string, chave: string
   if (cicloFechamento) {

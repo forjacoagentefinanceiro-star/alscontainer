@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Relatório Brasmaq — ALS Logística' }
 
 const PRESTADOR = 'Brasmaq'
+// Fechamento contratual da Brasmaq: dia 23 do mês até dia 22 do mês seguinte (independe do ciclo dos indicadores)
+const DIA_INICIO_CICLO = 23
 
 const nfh = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const nfi = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
@@ -50,7 +52,7 @@ export default async function RelatorioBrasmaqPage({
   const { ciclo } = await searchParams
   let rel: Awaited<ReturnType<typeof getRelatorioCicloPrestador>>
   try {
-    rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo)
+    rel = await getRelatorioCicloPrestador(PRESTADOR, ciclo, DIA_INICIO_CICLO)
   } catch (e) {
     console.error('[relatorio/brasmaq]', ciclo, e)
     return (
