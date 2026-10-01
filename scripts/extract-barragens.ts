@@ -14,7 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL  = "https://monitoramento.defesacivil.sc.gov.br/barragens";
 const RIO_URL        = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
-const RIO_BRUSQUE_URL = "https://defesacivil.itajai.sc.gov.br/monitoramento/nivel-rios";
+const RIO_BRUSQUE_URL = "https://monitoramento.defesacivil.itajai.sc.gov.br/monitoramento/rios";
 const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
@@ -51,15 +51,15 @@ async function sendTelegram(msg: string) {
   }
 }
 
-// Converte "DD/MM/YYYY HH:MM:SS" ou "DD/MM/YYYY HH:MM" (UTC) → ISO 8601
+// Converte "DD/MM/YYYY HH:MM:SS", "DD/MM/YYYY HH:MM" ou "DD/MM/YYYY, HH:MM" (UTC) → ISO 8601
 function parseHoraDefesaCivil(raw: string | null): string | null {
   if (!raw) return null;
-  const m1 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  const m1 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2}):(\d{2})$/);
   if (m1) {
     const [, dd, mo, yyyy, hh, min, ss] = m1;
     return new Date(`${yyyy}-${mo}-${dd}T${hh}:${min}:${ss}Z`).toISOString();
   }
-  const m2 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+  const m2 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})[,\s]+(\d{2}):(\d{2})$/);
   if (m2) {
     const [, dd, mo, yyyy, hh, min] = m2;
     return new Date(`${yyyy}-${mo}-${dd}T${hh}:${min}:00Z`).toISOString();
@@ -380,24 +380,19 @@ async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
   });
 
   try {
-    console.log("[brusque] acessando", RIO_BRUSQUE_URL);
-    await page.goto(RIO_BRUSQUE_URL, { waitUntil: "load", timeout: 45000 });
+    // Navega direto para a aba Brusque (municipio_id=2) — sem precisar clicar em aba
+    const url = `${RIO_BRUSQUE_URL}?municipio_id=2`;
+    console.log("[brusque] acessando", url);
+    await page.goto(url, { waitUntil: "load", timeout: 45000 });
 
-    // Clica na aba BRUSQUE (garantia — pode já estar ativa ou não)
-    const tabBrusque = page.locator("text=BRUSQUE").first();
-    if (await tabBrusque.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await tabBrusque.click();
-      console.log("[brusque] aba BRUSQUE clicada");
-    }
-
-    // Aguarda os dados carregarem — espera o texto "Nível do Rio" aparecer
+    // Aguarda os dados carregarem
     await page.waitForSelector("text=Nível do Rio", { timeout: 15000 }).catch(() =>
       console.warn("[brusque] timeout aguardando 'Nível do Rio' — lendo DOM assim mesmo")
     );
     await page.waitForTimeout(1000);
 
     // Tenta API JSON interceptada primeiro
-    for (const { url, data } of apiCaptures) {
+    for (const { url: apiUrl, data } of apiCaptures) {
       const arr = Array.isArray(data) ? data : (typeof data === "object" && data !== null ? Object.values(data as object).find(v => Array.isArray(v)) : null);
       if (!arr) continue;
       for (const item of arr as Record<string, unknown>[]) {
@@ -407,16 +402,16 @@ async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
         if (nivelRaw == null) continue;
         const nivel = String(nivelRaw).replace(".", ",");
         const hora  = String(item.data_hora ?? item.hora ?? item.timestamp ?? "");
-        console.log(`[brusque] API JSON: nivel=${nivel}m url=${url}`);
+        console.log(`[brusque] API JSON: nivel=${nivel}m url=${apiUrl}`);
         return [{ id: "rio_brusque", nome: "Rio Itajaí-Mirim em Brusque", nivel_m: nivel, capacidade_pct: null, comportas_abertas: null, comportas_fechadas: null, hora_leitura: parseHoraDefesaCivil(hora || null), tipo: "rio" }];
       }
     }
 
-    // Fallback: DOM — "Nível do Rio: 3,95 m" / "Data e hora da medição: DD/MM/YYYY HH:MM"
+    // Fallback: DOM — "Nível do Rio: 3,41 m" / "Data e hora da medição: 01/10/2026, 14:40"
     const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
       const txt = document.body.innerText ?? "";
       const mN = txt.match(/N[ií]vel\s+do\s+Rio[:\s]+(\d{1,2}[,.]\d{2})\s*m/i);
-      const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
+      const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}[,\s]+\d{2}:\d{2}(?::\d{2})?)/);
       return { nivel: mN?.[1] ?? null, hora: mH?.[1] ?? null };
     });
 
@@ -540,15 +535,10 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
   });
 
   try {
-    console.log("[murta] acessando", RIO_BRUSQUE_URL);
-    await page.goto(RIO_BRUSQUE_URL, { waitUntil: "load", timeout: 45000 });
-
-    // Clica na aba ITAJAÍ
-    const tabItajai = page.locator("text=ITAJAÍ").first();
-    if (await tabItajai.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await tabItajai.click();
-      console.log("[murta] aba ITAJAÍ clicada");
-    }
+    // Navega direto para a aba Itajaí (municipio_id=1) onde fica o DC-09/Murta
+    const url = `${RIO_BRUSQUE_URL}?municipio_id=1`;
+    console.log("[murta] acessando", url);
+    await page.goto(url, { waitUntil: "load", timeout: 45000 });
 
     await page.waitForSelector("text=Murta", { timeout: 15000 }).catch(() =>
       page.waitForSelector("text=Nível do Rio", { timeout: 5000 }).catch(() =>
@@ -583,7 +573,7 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
       if (idx < 0) return { nivel: null, hora: null };
       const bloco = txt.slice(idx, idx + 500);
       const mN = bloco.match(/N[ií]vel\s+do\s+Rio[:\s]+(\d{1,2}[,.]\d{2})\s*m/i);
-      const mH = bloco.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
+      const mH = bloco.match(/(\d{2}\/\d{2}\/\d{4}[,\s]+\d{2}:\d{2}(?::\d{2})?)/);
       return { nivel: mN?.[1] ?? null, hora: mH?.[1] ?? null };
     });
 

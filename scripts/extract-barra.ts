@@ -43,21 +43,22 @@ function formatarStatus(item: CondBarra): string {
  * com fallback no texto livre. "impraticáv" DEVE vir antes de "praticáv" na busca de texto.
  */
 function emojiStatus(status: string, item?: CondBarra): string {
-  // 1) campo semaforo direto (cor CSS: "vermelho", "amarelo", "verde", "laranja")
-  if (item?.semaforo) {
-    const sem = item.semaforo.toLowerCase().trim();
-    if (sem.includes("verm")) return "🔴";
-    if (sem.includes("amar")) return "🟡";
-    if (sem.includes("laran")) return "🟠";
-    if (sem.includes("verd")) return "🟢";
-  }
-  // 2) campo condicao_barra (código: "I"/"F" → vermelho, "R" → amarelo, "C" → laranja, "P" → verde)
+  // 1) campo condicao_barra — fonte autoritativa (código ou texto: "I"/"F" → vermelho, etc.)
+  // Verificado antes do semaforo porque o campo semaforo pode ficar desatualizado no JS do site
   if (item?.condicao_barra) {
     const c = item.condicao_barra.toUpperCase().trim();
     if (c === "F" || c === "I" || /^(FECHA|IMPRAT)/i.test(c)) return "🔴";
     if (c === "R" || /^RESTRI/i.test(c)) return "🟡";
     if (c === "C" || /^CONDIC/i.test(c)) return "🟠";
     if (c === "P" || /^PRATIC/i.test(c)) return "🟢";
+  }
+  // 2) campo semaforo (cor CSS: "vermelho", "amarelo", "verde", "laranja")
+  if (item?.semaforo) {
+    const sem = item.semaforo.toLowerCase().trim();
+    if (sem.includes("verm")) return "🔴";
+    if (sem.includes("amar")) return "🟡";
+    if (sem.includes("laran")) return "🟠";
+    if (sem.includes("verd")) return "🟢";
   }
   // 3) fallback: texto livre — impraticáv ANTES de praticáv para não dar match errado
   const s = status.toLowerCase();
