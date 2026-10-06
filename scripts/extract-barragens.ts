@@ -13,7 +13,6 @@ import { chromium, type Response, type Browser } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 
 const DASHBOARD_URL  = "https://monitoramento.defesacivil.sc.gov.br/barragens";
-const RIO_URL        = "https://defesacivil.blumenau.sc.gov.br/d/nivel-do-rio";
 const RIO_BRUSQUE_URL = "https://monitoramento.defesacivil.itajai.sc.gov.br/monitoramento/rios";
 const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
@@ -440,60 +439,58 @@ async function extrairRioBrusque(browser: Browser): Promise<Ponto[]> {
   }
 }
 
-// Extrai o nível do Rio Itajaí em Blumenau (Grafana Defesa Civil Blumenau)
+// Extrai o nível do Rio Itajaí em Blumenau — site unificado Defesa Civil Itajaí (municipio_id=3)
 async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
-  // Blumenau usa certificado autoassinado — ignora SSL
-  const ctx  = await browser.newContext({ ignoreHTTPSErrors: true });
-  const page = await ctx.newPage();
+  const page = await browser.newPage();
   page.setDefaultTimeout(45000);
 
-  try {
-    console.log("[rio] acessando", RIO_URL);
-    await page.goto(RIO_URL, { waitUntil: "load", timeout: 60000 });
-    await page.waitForTimeout(8000);
+  const apiCaptures: { url: string; data: unknown }[] = [];
+  page.on("response", async (res: Response) => {
+    try {
+      const ct = res.headers()["content-type"] ?? "";
+      if (!ct.includes("json")) return;
+      const data = await res.json().catch(() => null);
+      if (!data) return;
+      apiCaptures.push({ url: res.url(), data });
+    } catch { /* silencioso */ }
+  });
 
+  try {
+    const url = `${RIO_BRUSQUE_URL}?municipio_id=3`;
+    console.log("[rio] acessando", url);
+    await page.goto(url, { waitUntil: "load", timeout: 45000 });
+
+    await page.waitForSelector("text=Nível do Rio", { timeout: 15000 }).catch(() =>
+      console.warn("[rio] timeout aguardando 'Nível do Rio' — lendo DOM assim mesmo")
+    );
+    await page.waitForTimeout(1000);
+
+    // Tenta API JSON interceptada primeiro
+    for (const { url: apiUrl, data } of apiCaptures) {
+      const arr = Array.isArray(data) ? data : (typeof data === "object" && data !== null ? Object.values(data as object).find(v => Array.isArray(v)) : null);
+      if (!arr) continue;
+      for (const item of arr as Record<string, unknown>[]) {
+        const nome = String(item.cidade ?? item.nome ?? item.city ?? "").toLowerCase();
+        if (!nome.includes("blumenau")) continue;
+        const nivelRaw = item.nivel ?? item.nivel_rio ?? item.nivel_m ?? item.value;
+        if (nivelRaw == null) continue;
+        const nivel = String(nivelRaw).replace(".", ",");
+        const hora  = String(item.data_hora ?? item.hora ?? item.timestamp ?? "");
+        console.log(`[rio] API JSON: nivel=${nivel}m url=${apiUrl}`);
+        return [{ id: "rio_blumenau", nome: "Rio Itajaí em Blumenau", nivel_m: nivel, capacidade_pct: null, comportas_abertas: null, comportas_fechadas: null, hora_leitura: parseHoraDefesaCivil(hora || null), tipo: "rio" }];
+      }
+    }
+
+    // Fallback: DOM — "Nível do Rio: 3,35 m" / "Data e hora da medição: 06/10/2026, 14:55"
     const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
       const txt = document.body.innerText ?? "";
-      const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
-
-      // Estratégia 1: valor logo após a linha "Nível do Rio" na tabela "Situação Atual"
-      // Evita pegar o nível do banner de previsão que aparece antes na página
-      let nivel: string | null = null;
-      for (let i = 0; i < lines.length; i++) {
-        if (/^n[ií]vel do rio$/i.test(lines[i])) {
-          for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
-            const m = lines[j].match(/^(\d{1,2}[,.]\d{2})\s*m?$/i);
-            if (m) {
-              const n = parseFloat(m[1].replace(",", "."));
-              if (n > 0 && n < 20) { nivel = m[1]; break; }
-            }
-          }
-          if (nivel) break;
-        }
-      }
-
-      // Estratégia 2: fallback — primeiro X,XXm que não está numa linha de previsão
-      if (!nivel) {
-        for (const line of lines) {
-          if (/previs[aã]o|alcance|projeç/i.test(line)) continue; // pula linhas de banner
-          const m = line.match(/(\d{1,2}[,.]\d{2})\s*m\b/i);
-          if (m) {
-            const n = parseFloat(m[1].replace(",", "."));
-            if (n > 0 && n < 20) { nivel = m[1]; break; }
-          }
-        }
-      }
-
-      // Timestamp: "DD/MM/YYYY HH:MM" ou "DD/MM/YYYY HH:MM:SS"
-      let hora: string | null = null;
-      const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?)/);
-      if (mH) hora = mH[1];
-
-      return { nivel, hora };
+      const mN = txt.match(/N[ií]vel\s+do\s+Rio[:\s]+(\d{1,2}[,.]\d{2})\s*m/i);
+      const mH = txt.match(/(\d{2}\/\d{2}\/\d{4}[,\s]+\d{2}:\d{2}(?::\d{2})?)/);
+      return { nivel: mN?.[1] ?? null, hora: mH?.[1] ?? null };
     });
 
     if (!dados.nivel) {
-      const txt = await page.evaluate(() => document.body.innerText.slice(0, 1000));
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 800));
       console.warn("[rio] ⚠️ nenhum nível. Texto:\n", txt);
       return [];
     }
@@ -513,7 +510,7 @@ async function extrairRioBlumenau(browser: Browser): Promise<Ponto[]> {
     console.error("[rio] erro:", err);
     return [];
   } finally {
-    await ctx.close();
+    await page.close();
   }
 }
 
