@@ -26,6 +26,8 @@ import {
   CloudRain,
   Map as MapIcon,
   ClipboardList,
+  RadioTower,
+  Thermometer,
 } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
@@ -57,6 +59,8 @@ const indicadoresTarefasItem:Item = { href: '/tarefas',        label: 'Indicador
 const monitoramentoItem:     Item = { href: '/monitoramento',  label: 'Monitoramento',      icon: CloudRain   }
 const patioItem:             Item = { href: '/patio',          label: 'Mapa do Pátio',      icon: MapIcon     }
 const patioHistoricoItem:    Item = { href: '/patio/historico', label: 'Histórico do Pátio', icon: ClipboardList }
+const telemetriaAoVivoItem:  Item = { href: '/telemetria',           label: 'Ao Vivo',      icon: RadioTower     }
+const telemetriaHistoricoItem: Item = { href: '/telemetria/historico', label: 'Histórico + Calor', icon: Thermometer }
 
 const gestaoTarefasItems: Item[] = [
   { href: '/tarefas',        label: 'Tarefas', icon: ListChecks  },
@@ -130,6 +134,7 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
         ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
         ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
         ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: isAdmin ? [patioItem, patioHistoricoItem] : [patioItem] }] : []),
+        ...(isAdmin ? [{ label: 'Telemetria', items: [telemetriaAoVivoItem, telemetriaHistoricoItem] }] : []),
       ]
 
   const pathname = usePathname()
