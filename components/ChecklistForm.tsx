@@ -7,11 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 import { HorimetroInput } from '@/components/HorimetroInput'
 
 // Mapeia nome da empilhadeira → chave de maquina na tabela telemetria_maquinas
+// Ferrari ainda não possui tablet instalado — retorna null para não exibir banner
 function nomeParaMaquina(nome: string): string | null {
   const n = nome.toUpperCase()
-  if (n.includes('FERRARI')) return 'ferrari'
-  if (n.includes('KONE'))    return 'kone'
-  if (n.includes('LINDE'))   return 'linde'
+  if (n.includes('KONE'))  return 'kone'
+  if (n.includes('LINDE')) return 'linde'
   return null
 }
 
