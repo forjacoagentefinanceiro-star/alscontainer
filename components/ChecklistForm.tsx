@@ -1,10 +1,21 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { addChecklist, type ChecklistItem } from '@/app/actions'
 import { createClient } from '@/lib/supabase/client'
 import { HorimetroInput } from '@/components/HorimetroInput'
+
+// Mapeia nome da empilhadeira → chave de maquina na tabela telemetria_maquinas
+function nomeParaMaquina(nome: string): string | null {
+  const n = nome.toUpperCase()
+  if (n.includes('FERRARI')) return 'ferrari'
+  if (n.includes('KONE'))    return 'kone'
+  if (n.includes('LINDE'))   return 'linde'
+  return null
+}
+
+type TelemetriaStatus = 'carregando' | 'ativo' | 'atrasado' | 'sem_dados' | 'sem_gps'
 
 const ITENS = [
   'Nível de óleo do motor',
@@ -47,6 +58,33 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
   const [isPending, startTransition] = useTransition()
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
+
+  const [telStatus, setTelStatus] = useState<TelemetriaStatus | null>(null)
+  const [telUltima, setTelUltima] = useState<string | null>(null)
+
+  const verificarTelemetria = useCallback(async (nome: string) => {
+    const maquina = nomeParaMaquina(nome)
+    if (!maquina) { setTelStatus(null); return }
+    setTelStatus('carregando')
+    const sb = createClient()
+    const { data } = await sb
+      .from('telemetria_maquinas')
+      .select('created_at, latitude')
+      .eq('maquina', maquina)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data) { setTelStatus('sem_dados'); setTelUltima(null); return }
+    if (!data.latitude) { setTelStatus('sem_gps'); setTelUltima(null); return }
+    const minutos = (Date.now() - new Date(data.created_at).getTime()) / 60000
+    setTelUltima(new Date(data.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }))
+    setTelStatus(minutos <= 65 ? 'ativo' : 'atrasado')
+  }, [])
+
+  useEffect(() => {
+    if (!equipamento) { setTelStatus(null); setTelUltima(null); return }
+    verificarTelemetria(equipamento)
+  }, [equipamento, verificarTelemetria])
 
   const pendencias = ITENS.filter(i => status[i] === 'nok').length
 
@@ -149,7 +187,7 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
           <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Operador *</label>
           <input className={inputCls} style={inputStyle} value={operador} onChange={e => setOperador(e.target.value)} placeholder="Nome do operador" />
         </div>
-        <div>
+        <div className="sm:col-span-2">
           <label className="text-xs font-medium" style={{ color: '#6b7280' }}>Equipamento *</label>
           {empilhadeiras.length ? (
             <select className={inputCls} style={inputStyle} value={equipamento} onChange={e => setEquipamento(e.target.value)}>
@@ -158,6 +196,34 @@ export function ChecklistForm({ operadorPadrao = '', empilhadeiras = [] }: { ope
             </select>
           ) : (
             <input className={inputCls} style={inputStyle} value={equipamento} onChange={e => setEquipamento(e.target.value)} placeholder="Nº / placa da empilhadeira" />
+          )}
+          {/* Banner de telemetria */}
+          {telStatus === 'carregando' && (
+            <p className="mt-1.5 text-xs" style={{ color: '#9ca3af' }}>⏳ Verificando telemetria…</p>
+          )}
+          {telStatus === 'ativo' && (
+            <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#15803d' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', flexShrink: 0, display: 'inline-block' }} />
+              Telemetria ativa · última posição: {telUltima}
+            </div>
+          )}
+          {telStatus === 'atrasado' && (
+            <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', flexShrink: 0, display: 'inline-block' }} />
+              Telemetria atrasada · última posição: {telUltima} — verifique se o app está rodando no tablet
+            </div>
+          )}
+          {telStatus === 'sem_dados' && (
+            <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', flexShrink: 0, display: 'inline-block' }} />
+              Sem dados de telemetria — app não está rodando neste equipamento
+            </div>
+          )}
+          {telStatus === 'sem_gps' && (
+            <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: '#f3f4f6', border: '1px solid #d1d5db', color: '#6b7280' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#9ca3af', flexShrink: 0, display: 'inline-block' }} />
+              GPS sem sinal na última leitura
+            </div>
           )}
         </div>
         <div>
