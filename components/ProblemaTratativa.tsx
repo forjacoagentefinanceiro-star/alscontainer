@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { OperacaoEvento } from '@/app/actions'
-import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento, setExcluirIndicadores } from '@/app/actions'
+import { marcarPrestadorAcionado, marcarChegadaManutencao, liberarEquipamento, setExcluirIndicadores, corrigirLiberadoHorimetro } from '@/app/actions'
 import { HorimetroInput } from '@/components/HorimetroInput'
 
 const hora = (s: string) => new Date(s).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
@@ -23,7 +23,7 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
   const [e, setE] = useState(evento)
   // re-sincroniza quando o servidor traz dados novos (ex.: outro usuário avançou a tratativa)
   useEffect(() => { setE(evento) }, [evento])
-  const [etapa, setEtapa] = useState<'acionar' | 'chegada' | 'liberar' | null>(null)
+  const [etapa, setEtapa] = useState<'acionar' | 'chegada' | 'liberar' | 'editar_liberado' | null>(null)
   const [prestadorInput, setPrestadorInput] = useState('Brasmaq')
   const [horimInput, setHorimInput] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -50,6 +50,19 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
       const res = await marcarChegadaManutencao(e.id, h)
       if (res.error) { setErro(res.error); return }
       setE(prev => ({ ...prev, chegada_em: new Date().toISOString(), chegada_horimetro: h }))
+      setEtapa(null)
+      router.refresh()
+    })
+  }
+
+  function confirmarEditarLiberado() {
+    setErro(null)
+    const h = horimInput
+    if (h == null) { setErro('Informe o horímetro correto.'); return }
+    startTransition(async () => {
+      const res = await corrigirLiberadoHorimetro(e.id, h)
+      if (res.error) { setErro(res.error); return }
+      setE(prev => ({ ...prev, liberado_horimetro: h }))
       setEtapa(null)
       router.refresh()
     })
@@ -102,9 +115,24 @@ export function ProblemaTratativa({ evento, podeAcionar }: { evento: OperacaoEve
       )}
 
       {e.liberado_em ? (
-        <span className="text-xs font-semibold" style={{ color: '#047857' }}>
-          ✅ Equipamento liberado em {hora(e.liberado_em)} · horímetro {e.liberado_horimetro}h
-          {tempoParado(e) && <> · ⏱️ parado {tempoParado(e)}</>}
+        <span className="inline-flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold" style={{ color: '#047857' }}>
+            ✅ Equipamento liberado em {hora(e.liberado_em)} · horímetro {e.liberado_horimetro}h
+            {tempoParado(e) && <> · ⏱️ parado {tempoParado(e)}</>}
+          </span>
+          {etapa === 'editar_liberado' ? (
+            <span className="inline-flex items-center gap-1">
+              <HorimetroInput key={`edlib-${e.id}`} value={horimInput} onChange={setHorimInput} placeholder="Horímetro correto" autoFocus
+                className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#047857', color: '#1a2a3a', width: 130 }} />
+              <button onClick={confirmarEditarLiberado} disabled={isPending} className="text-xs font-semibold px-2 py-1 rounded text-white" style={btn('#047857')}>Salvar</button>
+              <button onClick={() => setEtapa(null)} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
+            </span>
+          ) : (
+            <button onClick={() => { setEtapa('editar_liberado'); setHorimInput(e.liberado_horimetro ?? null); setErro(null) }}
+              className="text-xs px-2 py-0.5 rounded border" style={{ color: '#047857', borderColor: '#a7f3d0', background: '#f0fdf4' }}>
+              Editar horímetro
+            </button>
+          )}
         </span>
       ) : e.chegada_em ? (
         <div className="flex items-center gap-2 flex-wrap">

@@ -1959,6 +1959,24 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   return { error: null }
 }
 
+// corrige o horímetro de liberação de um evento de problema (erros de digitação)
+export async function corrigirLiberadoHorimetro(eventoId: string, horimetro: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: ev } = await supabase.from('operacao_eventos').select('checklist_id').eq('id', eventoId).single()
+  const equip = ev?.checklist_id
+    ? ((await supabase.from('checklists').select('equipamento').eq('id', ev.checklist_id).single()).data?.equipamento as string | undefined)
+    : undefined
+  const { error } = await supabase.from('operacao_eventos').update({ liberado_horimetro: horimetro }).eq('id', eventoId)
+  if (error) return { error: error.message }
+  if (equip) await recalcHorimetro(supabase, equip)
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
 // marca/desmarca um evento de problema para ser ignorado nos painéis agregados (tempo parado, resposta do prestador),
 // sem remover o registro do histórico do checklist
 export async function setExcluirIndicadores(eventoId: string, excluir: boolean) {
