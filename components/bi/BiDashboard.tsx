@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { IndicadorBar, TendenciaLinha } from './BiCharts'
+import { BiTelemetria } from './BiTelemetria'
 import type { Categoria, KpiT, Conferencia, Grupo, FaturamentoResumo, EstoqueInfo } from '@/lib/bi/load'
 import type { Ponto } from './BiCharts'
 import { setMetaMes, setConfigEstoque } from '@/app/actions'
@@ -305,6 +306,7 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
     ...categorias.map(c => ({ key: c.key, label: c.label })),
     ...(faturamentoResumo ? [{ key: 'faturamento', label: 'Faturamento' }] : []),
     { key: 'conferencia', label: 'Conferência' },
+    { key: 'telemetria', label: '📍 Telemetria' },
   ]
   // null = vê todas; senão filtra pelas abas liberadas ao usuário
   const tabs = abasPermitidas ? todasTabs.filter(t => abasPermitidas.includes(t.key)) : todasTabs
@@ -482,6 +484,8 @@ export function BiDashboard({ ano, atualizado, kpis, trend, categorias, conferen
             </div>
           )}
         </div>
+      ) : current === 'telemetria' ? (
+        <BiTelemetria />
       ) : current === 'conferencia' ? (
         <div style={{ display: 'grid', gap: 14 }}>
           <p style={{ color: '#8ca5c8', fontSize: 13, margin: 0 }}>
