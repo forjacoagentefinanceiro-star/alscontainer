@@ -7,13 +7,16 @@ export function HistoricoFiltro({ equipamentos }: { equipamentos: string[] }) {
   const params = useSearchParams()
   const equipamentoAtual = params.get('equipamento') ?? ''
   const comProblema = params.get('problema') === '1'
+  const comAbastecimento = params.get('abastecimento') === '1'
 
-  function aplicar(next: { equipamento?: string; problema?: boolean }) {
+  function aplicar(next: { equipamento?: string; problema?: boolean; abastecimento?: boolean }) {
     const p = new URLSearchParams(params.toString())
     const equip = next.equipamento !== undefined ? next.equipamento : equipamentoAtual
     const prob = next.problema !== undefined ? next.problema : comProblema
+    const abast = next.abastecimento !== undefined ? next.abastecimento : comAbastecimento
     if (equip) p.set('equipamento', equip); else p.delete('equipamento')
     if (prob) p.set('problema', '1'); else p.delete('problema')
+    if (abast) p.set('abastecimento', '1'); else p.delete('abastecimento')
     const qs = p.toString()
     router.push(qs ? `/historico?${qs}` : '/historico')
   }
@@ -34,7 +37,12 @@ export function HistoricoFiltro({ equipamentos }: { equipamentos: string[] }) {
         Só com problema reportado
       </label>
 
-      {(equipamentoAtual || comProblema) && (
+      <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: '#374151' }}>
+        <input type="checkbox" checked={comAbastecimento} onChange={e => aplicar({ abastecimento: e.target.checked })} />
+        Só com abastecimento
+      </label>
+
+      {(equipamentoAtual || comProblema || comAbastecimento) && (
         <button onClick={() => router.push('/historico')} className="text-xs underline" style={{ color: '#1d4ed8' }}>limpar filtros</button>
       )}
     </div>
