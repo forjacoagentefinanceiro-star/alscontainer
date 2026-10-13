@@ -27,7 +27,32 @@ export function TelemetriaAoVivo() {
   const [limite, setLimite] = useState<Ponto[]>(LIMITE_PATIO)
   const [desenhando, setDesenhando] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const [msgLimite, setMsgLimite] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [salvando, setSalvando] = useState(false)
   const poligono = useRef<unknown>(null)
+
+  useEffect(() => {
+    createClient().from('telemetria_config').select('valor').eq('chave', 'limite_patio').maybeSingle()
+      .then(({ data }) => {
+        const v = data?.valor
+        if (Array.isArray(v) && v.length >= 3) setLimite(v as Ponto[])
+      })
+  }, [])
+
+  async function salvarLimite() {
+    setSalvando(true); setMsgLimite(null)
+    const sb = createClient()
+    const { data: u } = await sb.auth.getUser()
+    const valor = limite.map(p => [Number(p[0].toFixed(6)), Number(p[1].toFixed(6))])
+    const { error } = await sb.from('telemetria_config').upsert({
+      chave: 'limite_patio', valor, atualizado_por: u.user?.id ?? null, atualizado_em: new Date().toISOString(),
+    })
+    setSalvando(false)
+    setMsgLimite(error
+      ? { ok: false, texto: `Não salvou: ${error.message}` }
+      : { ok: true, texto: 'Limite salvo para todos os usuários.' })
+    if (!error) setDesenhando(false)
+  }
 
   async function buscar() {
     const sb = createClient()
@@ -160,9 +185,10 @@ export function TelemetriaAoVivo() {
             <button onClick={() => setDesenhando(d => !d)} style={btn(desenhando)}>{desenhando ? '✔ Terminar desenho' : '✎ Desenhar limite do pátio'}</button>
             {limite.length > 0 && <button onClick={() => setLimite(l => l.slice(0, -1))} style={btn()}>↶ Desfazer ponto</button>}
             {limite.length > 0 && <button onClick={() => setLimite([])} style={btn()}>Limpar</button>}
-            {limite.length >= 3 && <button onClick={copiarLimite} style={btn()}>{copiado ? 'Copiado!' : 'Copiar JSON do limite'}</button>}
-            <span style={{ color: '#5f7da0', fontSize: 12 }}>
-              {desenhando ? 'Clique nos cantos do terreno, em ordem, contornando as margens.' : limite.length >= 3 ? `Limite com ${limite.length} pontos — máquinas fora são mostradas na borda.` : 'Sem limite definido.'}
+            {limite.length >= 3 && <button onClick={salvarLimite} disabled={salvando} style={{ ...btn(), background: '#238636', color: '#fff' }}>{salvando ? 'Salvando…' : '💾 Salvar limite'}</button>}
+            {limite.length >= 3 && <button onClick={copiarLimite} style={btn()}>{copiado ? 'Copiado!' : 'Copiar JSON'}</button>}
+            <span style={{ color: msgLimite ? (msgLimite.ok ? '#3fb950' : '#f85149') : '#5f7da0', fontSize: 12 }}>
+              {msgLimite ? msgLimite.texto : desenhando ? 'Clique nos cantos do terreno, em ordem, contornando as margens. Depois toque em Salvar limite.' : limite.length >= 3 ? `Limite com ${limite.length} pontos — máquinas fora são mostradas na borda.` : 'Sem limite definido.'}
             </span>
           </>)
         })()}

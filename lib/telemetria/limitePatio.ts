@@ -1,11 +1,10 @@
 export type Ponto = [number, number] // [latitude, longitude]
 
-// Contorno do terreno do pátio. Vazio = sem limite. Desenhe em Telemetria > Posição Atual > "Desenhar limite" e cole o JSON aqui.
+// Contorno padrão do terreno do pátio (usado enquanto não há limite salvo no banco, tabela telemetria_config).
+// Para alterar: Telemetria > Posição Atual > "Desenhar limite" > "Salvar limite".
 export const LIMITE_PATIO: Ponto[] = [
-  [-26.914558, -48.710879], [-26.915419, -48.710487], [-26.915252, -48.709458],
-  [-26.91607, -48.708674], [-26.915927, -48.708444], [-26.916575, -48.707746],
-  [-26.916843, -48.707939], [-26.917274, -48.707446], [-26.916757, -48.706931],
-  [-26.913973, -48.70971],
+  [-26.914546, -48.710868], [-26.915436, -48.710498], [-26.915249, -48.709463],
+  [-26.917363, -48.707398], [-26.916909, -48.706791], [-26.913929, -48.709726],
 ]
 
 function dentro(p: Ponto, poly: Ponto[]): boolean {
