@@ -175,7 +175,7 @@ export function BiTelemetria() {
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: cor, flexShrink: 0 }} />
               <span style={{ color: '#cfe0f2', fontSize: 13, fontWeight: 600 }}>{LABEL[pos.maquina] ?? pos.maquina}</span>
               <span style={{ color: fresco ? '#3fb950' : '#5f7da0', fontSize: 11 }}>
-                {mins < 2 ? 'ao vivo' : `${mins}m atrás`}
+                {mins < 2 ? 'agora' : `${mins}m atrás`}
               </span>
             </div>
           )

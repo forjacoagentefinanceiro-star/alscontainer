@@ -148,7 +148,7 @@ export function TelemetriaAoVivo() {
             <div key={pos.maquina} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: COR[pos.maquina] ?? '#888' }} />
               <span style={{ color: '#cfe0f2', fontSize: 13, fontWeight: 600 }}>{LABEL[pos.maquina] ?? pos.maquina}</span>
-              <span style={{ color: mins < 5 ? '#3fb950' : '#5f7da0', fontSize: 11 }}>{mins < 2 ? 'ao vivo' : `${mins}m atrás`}</span>
+              <span style={{ color: mins < 5 ? '#3fb950' : '#5f7da0', fontSize: 11 }}>{mins < 2 ? 'agora' : `${mins}m atrás`}</span>
             </div>
           )
         })}

@@ -59,7 +59,7 @@ const indicadoresTarefasItem:Item = { href: '/tarefas',        label: 'Indicador
 const monitoramentoItem:     Item = { href: '/monitoramento',  label: 'Monitoramento',      icon: CloudRain   }
 const patioItem:             Item = { href: '/patio',          label: 'Mapa do Pátio',      icon: MapIcon     }
 const patioHistoricoItem:    Item = { href: '/patio/historico', label: 'Histórico do Pátio', icon: ClipboardList }
-const telemetriaAoVivoItem:  Item = { href: '/telemetria',           label: 'Ao Vivo',      icon: RadioTower     }
+const telemetriaAoVivoItem:  Item = { href: '/telemetria',           label: 'Posição Atual', icon: RadioTower     }
 const telemetriaHistoricoItem: Item = { href: '/telemetria/historico', label: 'Histórico + Calor', icon: Thermometer }
 
 const gestaoTarefasItems: Item[] = [
@@ -139,7 +139,7 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
 
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && href !== '/patio' && pathname.startsWith(href + '/'))
+  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && href !== '/patio' && href !== '/telemetria' && pathname.startsWith(href + '/'))
 
   return (
     <aside
