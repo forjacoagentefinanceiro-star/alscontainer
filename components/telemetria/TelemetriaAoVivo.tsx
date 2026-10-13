@@ -106,19 +106,20 @@ export function TelemetriaAoVivo() {
         const nome = pos.maquina.charAt(0).toUpperCase() + pos.maquina.slice(1)
         const icon = L.divIcon({
           className: '',
-          html: `<div style="width:56px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.7));">
-            <svg width="48" height="48" viewBox="0 0 48 48" style="display:block">
-              <circle cx="24" cy="24" r="22" fill="${cor}" stroke="#fff" stroke-width="3"/>
-              <rect x="27" y="8" width="15" height="8" rx="1" fill="#fff"/>
-              <path d="M17 26 L30 15" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
-              <rect x="7" y="19" width="10" height="9" rx="1.5" fill="#fff"/>
-              <rect x="7" y="27" width="26" height="7" rx="2" fill="#fff"/>
-              <circle cx="14" cy="36" r="4.5" fill="#fff" stroke="${cor}" stroke-width="1.5"/>
-              <circle cx="28" cy="36" r="4.5" fill="#fff" stroke="${cor}" stroke-width="1.5"/>
+          html: `<div style="width:84px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,.8));">
+            <svg width="80" height="52" viewBox="0 0 80 52" style="display:block" stroke="#fff" stroke-width="1.6" stroke-linejoin="round">
+              <rect x="44" y="2" width="34" height="14" rx="1.5" fill="${cor}"/>
+              <path d="M50 2v14M56 2v14M62 2v14M68 2v14M74 2v14" stroke="#0b1220" stroke-width="1" opacity=".55"/>
+              <path d="M30 28 L50 14" stroke="#0b1220" stroke-width="7" stroke-linecap="round"/>
+              <path d="M30 28 L50 14" stroke="${cor}" stroke-width="4.2" stroke-linecap="round"/>
+              <path d="M6 30h10v-9a3 3 0 0 1 3-3h9v12h30v10H6z" fill="${cor}"/>
+              <path d="M19 21h7v8h-7z" fill="#bfe3ff" stroke="none"/>
+              <circle cx="20" cy="42" r="7" fill="#0b1220"/><circle cx="20" cy="42" r="2.6" fill="${cor}" stroke="none"/>
+              <circle cx="52" cy="42" r="7" fill="#0b1220"/><circle cx="52" cy="42" r="2.6" fill="${cor}" stroke="none"/>
             </svg>
-            <span style="margin-top:2px;background:rgba(10,18,32,.85);color:#fff;font:700 11px sans-serif;padding:1px 7px;border-radius:999px;border:1px solid ${cor}">${nome}</span>
+            <span style="margin-top:1px;background:rgba(10,18,32,.9);color:#fff;font:700 12px sans-serif;padding:1px 9px;border-radius:999px;border:1.5px solid ${cor}">${nome}</span>
           </div>`,
-          iconSize: [56, 66], iconAnchor: [28, 24],
+          iconSize: [84, 74], iconAnchor: [42, 30],
         })
         const popup = `<b>${LABEL[pos.maquina] ?? pos.maquina}</b><br>${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)}<br><small>${tempo}</small>`
         const [lat, lon] = ajustarAoLimite([pos.latitude, pos.longitude], limite)
