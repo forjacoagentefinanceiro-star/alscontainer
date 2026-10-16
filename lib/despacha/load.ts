@@ -33,6 +33,7 @@ export type DespachaKpis = {
   total: number
   pendente: number
   em_andamento: number
+  pausada: number
   concluida: number
   cancelada: number
   atrasadas: number
@@ -45,6 +46,7 @@ export type DespachaMesResumo = {
   total: number
   pendente: number
   em_andamento: number
+  pausada: number
   concluida: number
   cancelada: number
   atrasadas: number
@@ -74,8 +76,8 @@ function monthLabel(key: string): string {
 }
 
 function isOverdue(t: DespachaTask): boolean {
-  // pendente = SLA ainda não começou (aprovação pendente), nunca é "atrasada"
-  if (t.status === 'concluida' || t.status === 'cancelada' || t.status === 'pendente') return false
+  // pendente = SLA ainda não começou; pausada = em espera → nunca é "atrasada"
+  if (t.status === 'concluida' || t.status === 'cancelada' || t.status === 'pendente' || t.status === 'pausada') return false
   const now = Date.now()
   // T23:59:59 evita que o parse UTC desloque a data -3h (Brazil), gerando falso atraso
   const due = t.due_date ? new Date(t.due_date + 'T23:59:59').getTime() : null
@@ -87,6 +89,7 @@ function kpisFromTasks(tasks: DespachaTask[]): DespachaKpis {
   const total = tasks.length
   const pendente = tasks.filter(t => t.status === 'pendente').length
   const em_andamento = tasks.filter(t => t.status === 'em_andamento').length
+  const pausada = tasks.filter(t => t.status === 'pausada').length
   const concluida = tasks.filter(t => t.status === 'concluida').length
   const cancelada = tasks.filter(t => t.status === 'cancelada').length
   const atrasadas = tasks.filter(isOverdue).length
@@ -100,7 +103,7 @@ function kpisFromTasks(tasks: DespachaTask[]): DespachaKpis {
   const slaOk = withSla.filter(t => t.completed_at && t.sla_deadline && new Date(t.completed_at) <= new Date(t.sla_deadline)).length
   const sla_compliance_pct = withSla.length ? Math.round((slaOk / withSla.length) * 100) : 100
 
-  return { total, pendente, em_andamento, concluida, cancelada, atrasadas, avg_minutes, sla_compliance_pct }
+  return { total, pendente, em_andamento, pausada, concluida, cancelada, atrasadas, avg_minutes, sla_compliance_pct }
 }
 
 // mesParam: 'YYYY-MM' de um mês existente, 'todos', ou undefined (→ mês mais recente).
@@ -146,7 +149,7 @@ export async function getDespachaIndicadores(mesParam?: string): Promise<Despach
   const evolucao: DespachaMesResumo[] = mesesKeys.map(k => {
     const ts = tasks.filter(t => monthKey(t.created_at) === k)
     const kp = kpisFromTasks(ts)
-    return { key: k, label: monthLabel(k), total: kp.total, pendente: kp.pendente, em_andamento: kp.em_andamento, concluida: kp.concluida, cancelada: kp.cancelada, atrasadas: kp.atrasadas }
+    return { key: k, label: monthLabel(k), total: kp.total, pendente: kp.pendente, em_andamento: kp.em_andamento, pausada: kp.pausada, concluida: kp.concluida, cancelada: kp.cancelada, atrasadas: kp.atrasadas }
   })
 
   return {

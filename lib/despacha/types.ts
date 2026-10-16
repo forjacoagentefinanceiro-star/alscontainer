@@ -1,5 +1,5 @@
 export type DespachaUrgency = 'critica' | 'alta' | 'media' | 'baixa'
-export type DespachaStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
+export type DespachaStatus = 'pendente' | 'em_andamento' | 'pausada' | 'concluida' | 'cancelada'
 
 export type DespachaTask = {
   id: string

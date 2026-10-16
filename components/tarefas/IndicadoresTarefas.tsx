@@ -83,6 +83,7 @@ export function IndicadoresTarefas({ dados }: { dados: DespachaIndicadores | nul
         <Kpi label="Total" value={k.total} />
         <Kpi label="Pendentes" value={k.pendente} cor="#92400e" />
         <Kpi label="Em andamento" value={k.em_andamento} cor="#1d4ed8" />
+        <Kpi label="Pausadas" value={k.pausada} cor="#ca8a04" />
         <Kpi label="Concluídas" value={k.concluida} cor="#047857" />
         <Kpi label="Canceladas" value={k.cancelada} cor="#6b7280" />
         <Kpi label="Atrasadas" value={k.atrasadas} cor={k.atrasadas > 0 ? '#b91c1c' : '#1a2a3a'} />
@@ -113,6 +114,7 @@ export function IndicadoresTarefas({ dados }: { dados: DespachaIndicadores | nul
                   <th className="text-right px-3 py-2 font-semibold">Total</th>
                   <th className="text-right px-3 py-2 font-semibold">Pend.</th>
                   <th className="text-right px-3 py-2 font-semibold">Em and.</th>
+                  <th className="text-right px-3 py-2 font-semibold">Paus.</th>
                   <th className="text-right px-3 py-2 font-semibold">Concl.</th>
                   <th className="text-right px-3 py-2 font-semibold">Canc.</th>
                   <th className="text-right px-3 py-2 font-semibold">Atras.</th>
@@ -127,6 +129,7 @@ export function IndicadoresTarefas({ dados }: { dados: DespachaIndicadores | nul
                       <td className="text-right px-3 py-2 font-semibold" style={{ color: '#1a2a3a' }}>{m.total}</td>
                       <td className="text-right px-3 py-2" style={{ color: '#92400e' }}>{m.pendente}</td>
                       <td className="text-right px-3 py-2" style={{ color: '#1d4ed8' }}>{m.em_andamento}</td>
+                      <td className="text-right px-3 py-2" style={{ color: '#ca8a04' }}>{m.pausada}</td>
                       <td className="text-right px-3 py-2" style={{ color: '#047857' }}>{m.concluida}</td>
                       <td className="text-right px-3 py-2" style={{ color: '#6b7280' }}>{m.cancelada}</td>
                       <td className="text-right px-3 py-2" style={{ color: m.atrasadas > 0 ? '#b91c1c' : '#9ca3af' }}>{m.atrasadas}</td>
