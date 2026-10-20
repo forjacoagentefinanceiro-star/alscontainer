@@ -30,6 +30,8 @@ export type VendaInfo = {
   margemBruta: number | null
   margemLiquida: number | null
   margemPct: number | null
+  margemBrutaPct: number | null
+  markupPct: number | null
   dias: number | null
 }
 
@@ -266,7 +268,7 @@ function ContainerCard({ item, venda }: { item: ResumoItem; venda?: VendaInfo })
             {venda && (
               <p className="text-xs mt-0.5" style={{ color: venda.margemLiquida != null && venda.margemLiquida < 0 ? '#b91c1c' : '#6b7280' }}>
                 {venda.precoVenda != null
-                  ? <>Compra {fmtBRL(venda.compra)} → venda {fmtBRL(venda.precoVenda)} (tipo {venda.tipo}) · margem <strong>{fmtBRL(venda.margemLiquida ?? 0)}</strong></>
+                  ? <>Compra {fmtBRL(venda.compra)} → venda {fmtBRL(venda.precoVenda)} (tipo {venda.tipo}) · margem <strong>{fmtBRL(venda.margemLiquida ?? 0)}{venda.margemPct != null ? ` (${venda.margemPct}%)` : ''}</strong></>
                   : <>À venda sem tipo definido (sem preço)</>}
                 {venda.dias != null && <> · {venda.dias} dias no pátio</>}
               </p>
@@ -328,11 +330,11 @@ function ContainerCard({ item, venda }: { item: ResumoItem; venda?: VendaInfo })
                 <div className="rounded-lg p-2" style={{ background: '#fff', border: '1px solid #fde4c8' }}>
                   <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>Margem bruta (preço − compra)</p>
                   <p className="text-sm font-bold mt-0.5" style={{ color: (venda.margemBruta ?? 0) >= 0 ? '#15803d' : '#b91c1c' }}>
-                    {venda.margemBruta != null ? fmtBRL(venda.margemBruta) : '—'}
+                    {venda.margemBruta != null ? `${fmtBRL(venda.margemBruta)}${venda.margemBrutaPct != null ? ` (${venda.margemBrutaPct}%)` : ''}` : '—'}
                   </p>
                 </div>
                 <div className="rounded-lg p-2" style={{ background: '#fff', border: '1px solid #fde4c8' }}>
-                  <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>Margem líquida (após despesas)</p>
+                  <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>Margem líquida (após despesas) · % do preço de venda</p>
                   <p className="text-sm font-bold mt-0.5" style={{ color: (venda.margemLiquida ?? 0) >= 0 ? '#15803d' : '#b91c1c' }}>
                     {venda.margemLiquida != null ? `${fmtBRL(venda.margemLiquida)}${venda.margemPct != null ? ` (${venda.margemPct}%)` : ''}` : '—'}
                   </p>
@@ -342,6 +344,11 @@ function ContainerCard({ item, venda }: { item: ResumoItem; venda?: VendaInfo })
                   <p className="text-sm font-bold mt-0.5" style={{ color: '#374151' }}>{venda.dias != null ? `${venda.dias} dias` : '—'}</p>
                 </div>
               </div>
+              {venda.markupPct != null && (
+                <p className="text-xs mt-2" style={{ color: '#6b7280' }}>
+                  Retorno sobre o custo (markup): <strong style={{ color: venda.markupPct >= 0 ? '#15803d' : '#b91c1c' }}>{venda.markupPct}%</strong>
+                </p>
+              )}
               {venda.margemLiquida != null && venda.margemLiquida < 0 && (
                 <p className="text-xs mt-2 font-semibold" style={{ color: '#b91c1c' }}>
                   Atenção: vender pelo preço do tipo dá prejuízo de {fmtBRL(-venda.margemLiquida)}. O custo total já está em {fmtBRL(venda.custoTotal)}.
@@ -453,6 +460,8 @@ export function FinanceiroPanel({ resumo, vendaPorId = {} }: { resumo: Awaited<R
   const vendidos = resumo.filter(r => sit(r) === 'vendido').length
   const margemTotal = Object.values(vendaPorId).reduce((a, v) => a + (v.margemLiquida ?? 0), 0)
   const capitalParado = Object.values(vendaPorId).reduce((a, v) => a + v.custoTotal, 0)
+  const vendaTotal = Object.values(vendaPorId).reduce((a, v) => a + (v.precoVenda ?? 0), 0)
+  const margemTotalPct = vendaTotal > 0 ? Math.round((margemTotal / vendaTotal) * 1000) / 10 : null
 
   const visivel = filtro === 'todos' ? resumo : resumo.filter(r => sit(r) === filtro)
 
@@ -477,7 +486,7 @@ export function FinanceiroPanel({ resumo, vendaPorId = {} }: { resumo: Awaited<R
         <div className="mb-4 max-w-3xl px-4 py-3 rounded-xl flex flex-wrap gap-x-6 gap-y-1 text-xs" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
           <span style={{ color: '#9a3412' }}><strong>{aVenda}</strong> container(s) à venda · indisponíveis para locação</span>
           <span style={{ color: '#6b7280' }}>Capital parado: <strong style={{ color: '#374151' }}>{fmtBRL(capitalParado)}</strong></span>
-          <span style={{ color: '#6b7280' }}>Margem líquida prevista: <strong style={{ color: margemTotal >= 0 ? '#15803d' : '#b91c1c' }}>{fmtBRL(margemTotal)}</strong></span>
+          <span style={{ color: '#6b7280' }}>Margem líquida prevista: <strong style={{ color: margemTotal >= 0 ? '#15803d' : '#b91c1c' }}>{fmtBRL(margemTotal)}{margemTotalPct != null ? ` (${margemTotalPct}%)` : ''}</strong></span>
         </div>
       )}
 

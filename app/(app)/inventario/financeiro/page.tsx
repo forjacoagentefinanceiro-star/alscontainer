@@ -24,7 +24,10 @@ export default async function FinanceiroPage() {
     vendaPorId[c.id] = {
       tipo: c.tipo_venda ?? null, precoVenda, compra: r.custoAquisicao, despesas: r.despesas, custoTotal: r.breakeven,
       margemBruta, margemLiquida,
-      margemPct: margemLiquida != null && r.breakeven > 0 ? Math.round((margemLiquida / r.breakeven) * 1000) / 10 : null,
+      // margem % = lucro ÷ preço de venda; markup % = lucro ÷ custo
+      margemPct: margemLiquida != null && precoVenda ? Math.round((margemLiquida / precoVenda) * 1000) / 10 : null,
+      margemBrutaPct: margemBruta != null && precoVenda ? Math.round((margemBruta / precoVenda) * 1000) / 10 : null,
+      markupPct: margemLiquida != null && r.breakeven > 0 ? Math.round((margemLiquida / r.breakeven) * 1000) / 10 : null,
       dias,
     }
   }
