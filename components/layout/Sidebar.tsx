@@ -28,6 +28,9 @@ import {
   ClipboardList,
   RadioTower,
   Thermometer,
+  Handshake,
+  Megaphone,
+  Tag,
 } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
@@ -61,6 +64,14 @@ const patioItem:             Item = { href: '/patio',          label: 'Mapa do P
 const patioHistoricoItem:    Item = { href: '/patio/historico', label: 'Histórico do Pátio', icon: ClipboardList }
 const telemetriaAoVivoItem:  Item = { href: '/telemetria',           label: 'Posição Atual', icon: RadioTower     }
 const telemetriaHistoricoItem: Item = { href: '/telemetria/historico', label: 'Histórico + Calor', icon: Thermometer }
+
+const vendasItems: Item[] = [
+  { href: '/vendas',           label: 'Funil',     icon: Handshake    },
+  { href: '/vendas/leads',     label: 'Leads',     icon: Users        },
+  { href: '/vendas/agenda',    label: 'Agenda',    icon: CalendarDays },
+  { href: '/vendas/campanhas', label: 'Campanhas', icon: Megaphone    },
+  { href: '/vendas/precos',    label: 'Preços',    icon: Tag          },
+]
 
 const gestaoTarefasItems: Item[] = [
   { href: '/tarefas',        label: 'Tarefas', icon: ListChecks  },
@@ -134,12 +145,13 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
         ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
         ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
         ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: isAdmin ? [patioItem, patioHistoricoItem] : [patioItem] }] : []),
+        ...(temModulo(role, modulos, 'vendas') ? [{ label: 'Vendas', items: vendasItems }] : []),
         ...(isAdmin ? [{ label: 'Telemetria', items: [telemetriaAoVivoItem, telemetriaHistoricoItem] }] : []),
       ]
 
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && href !== '/patio' && href !== '/telemetria' && pathname.startsWith(href + '/'))
+  const isActive = (href: string) => pathname === href || (href !== '/tarefas' && href !== '/patio' && href !== '/vendas' && href !== '/telemetria' && pathname.startsWith(href + '/'))
 
   return (
     <aside

@@ -9,6 +9,7 @@ export const MODULOS: { key: string; label: string; descricao: string; optIn?: b
   { key: 'bi',            label: 'BI Depot',          descricao: 'Dashboard analítico e faturamento' },
   { key: 'monitoramento', label: 'Clima',              descricao: 'Barragens SC, Rio Itajaí, Barra do Itajaí' },
   { key: 'patio',         label: 'Mapa do Pátio',     descricao: 'Posições das ruas e oficina por armador (liberar por usuário)', optIn: true },
+  { key: 'vendas',        label: 'Vendas de Containers', descricao: 'CRM de venda de containers usados: leads, funil, campanhas (liberar por usuário)', optIn: true },
 ]
 
 export const MODULOS_KEYS = MODULOS.map(m => m.key)

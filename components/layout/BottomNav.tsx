@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain, Map as MapIcon, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain, Map as MapIcon, ClipboardList, Handshake } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
 export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: string[] | null; setor?: string | null }) {
@@ -37,6 +37,11 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
         ...(podeVer('bi') ? [{ href: '/bi', label: 'BI', icon: BarChart3 }] : []),
         ...(podeVer('monitoramento') ? [{ href: '/monitoramento', label: 'Clima', icon: CloudRain }] : []),
         ...(temModulo(role, modulos, 'patio') ? [{ href: '/patio', label: 'Pátio', icon: MapIcon }] : []),
+        ...(temModulo(role, modulos, 'vendas') ? [
+          { href: '/vendas',        label: 'Vendas', icon: Handshake },
+          { href: '/vendas/leads',  label: 'Leads',  icon: Users },
+          { href: '/vendas/agenda', label: 'Agenda Vendas', icon: CalendarDays },
+        ] : []),
         ...(isAdmin && temModulo(role, modulos, 'patio') ? [{ href: '/patio/historico', label: 'Hist. Pátio', icon: ClipboardList }] : []),
         ...(isAdmin ? [
           { href: '/usuarios',       label: 'Usuários',    icon: Users      },
@@ -67,7 +72,7 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
         }}
       >
         {items.map(item => {
-          const active = pathname === item.href || (item.href !== '/tarefas' && item.href !== '/patio' && pathname.startsWith(item.href + '/'))
+          const active = pathname === item.href || (item.href !== '/tarefas' && item.href !== '/patio' && item.href !== '/vendas' && pathname.startsWith(item.href + '/'))
           return (
             <Link
               key={item.href}
