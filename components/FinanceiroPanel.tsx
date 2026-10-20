@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Container, ContainerLancamento } from '@/app/actions'
-import { updateContainerStatus, addLancamento, deleteLancamento } from '@/app/actions'
+import { addLancamento, deleteLancamento } from '@/app/actions'
+import { atualizarStatusContainer } from '@/app/financeiro-venda-actions'
 
 type ResumoItem = {
   container: Container
@@ -20,6 +21,18 @@ type ResumoItem = {
   lancamentos: ContainerLancamento[]
 }
 
+export type VendaInfo = {
+  tipo: string | null
+  precoVenda: number | null
+  compra: number
+  despesas: number
+  custoTotal: number
+  margemBruta: number | null
+  margemLiquida: number | null
+  margemPct: number | null
+  dias: number | null
+}
+
 const CATEGORIAS_RECEITA = ['Locação', 'Venda', 'Outro']
 const CATEGORIAS_DESPESA = ['Manutenção', 'Handling', 'Storage', 'Frete', 'Outro']
 
@@ -27,7 +40,10 @@ const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', cur
 const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 
-function StatusBadge({ status }: { status?: string }) {
+function StatusBadge({ status, aVenda }: { status?: string; aVenda?: boolean }) {
+  if (aVenda && status !== 'vendido') return (
+    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>À venda · indisponível p/ locação</span>
+  )
   if (status === 'locado') return (
     <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>Locado</span>
   )
@@ -56,8 +72,9 @@ function BreakevenBar({ pct }: { pct: number | null }) {
   )
 }
 
-function ContratoEditor({ container, onClose, onSaved }: {
+function ContratoEditor({ container, onClose, onSaved, aVenda }: {
   container: Container
+  aVenda: boolean
   onClose: () => void
   onSaved: () => void
 }) {
@@ -75,7 +92,7 @@ function ContratoEditor({ container, onClose, onSaved }: {
   function salvar() {
     setErro(null)
     startTransition(async () => {
-      const res = await updateContainerStatus(container.id, {
+      const res = await atualizarStatusContainer(container.id, {
         status,
         locatario: locatario.trim() || null,
         locacao_inicio: locacaoInicio || null,
@@ -98,8 +115,9 @@ function ContratoEditor({ container, onClose, onSaved }: {
       <p className="text-xs font-semibold mb-2" style={{ color: '#1a2a3a' }}>Status e contrato</p>
       <div className="grid grid-cols-3 gap-1 mb-3">
         {(['disponivel', 'locado', 'vendido'] as const).map(s => (
-          <button key={s} onClick={() => setStatus(s)}
-            className="text-xs font-semibold py-1.5 rounded-lg border capitalize"
+          <button key={s} onClick={() => setStatus(s)} disabled={aVenda && s === 'locado'}
+            title={aVenda && s === 'locado' ? 'Marcado para venda: não pode ser locado' : undefined}
+            className="text-xs font-semibold py-1.5 rounded-lg border capitalize disabled:opacity-40 disabled:cursor-not-allowed"
             style={status === s ? { background: '#1B4F8A', color: '#fff', borderColor: '#1B4F8A' } : { background: '#fff', color: '#6b7280', borderColor: '#e5e7eb' }}>
             {s === 'disponivel' ? 'Disponível' : s === 'locado' ? 'Locado' : 'Vendido'}
           </button>
@@ -212,7 +230,7 @@ function LancamentoForm({ containerId, onSaved }: { containerId: string; onSaved
   )
 }
 
-function ContainerCard({ item }: { item: ResumoItem }) {
+function ContainerCard({ item, venda }: { item: ResumoItem; venda?: VendaInfo }) {
   const { container: c, receitas, receitasLanc, receitaLocacao, diasLocacao, valorDiario, despesas, custoAquisicao, breakeven, saldo, breakevenPct, lancamentos } = item
   const [aberto, setAberto] = useState(false)
   const [editandoStatus, setEditandoStatus] = useState(false)
@@ -238,11 +256,19 @@ function ContainerCard({ item }: { item: ResumoItem }) {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold font-mono" style={{ color: '#1B4F8A' }}>{c.numero}</span>
               <span className="text-xs" style={{ color: '#6b7280' }}>{c.tamanho}</span>
-              <StatusBadge status={c.status} />
+              <StatusBadge status={c.status} aVenda={!!venda} />
             </div>
             {c.status === 'locado' && c.locatario && (
               <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
                 {c.locatario} · {fmtDate(c.locacao_inicio)} → {fmtDate(c.locacao_fim)}
+              </p>
+            )}
+            {venda && (
+              <p className="text-xs mt-0.5" style={{ color: venda.margemLiquida != null && venda.margemLiquida < 0 ? '#b91c1c' : '#6b7280' }}>
+                {venda.precoVenda != null
+                  ? <>Compra {fmtBRL(venda.compra)} → venda {fmtBRL(venda.precoVenda)} (tipo {venda.tipo}) · margem <strong>{fmtBRL(venda.margemLiquida ?? 0)}</strong></>
+                  : <>À venda sem tipo definido (sem preço)</>}
+                {venda.dias != null && <> · {venda.dias} dias no pátio</>}
               </p>
             )}
             {c.status === 'vendido' && c.data_venda && (
@@ -278,6 +304,59 @@ function ContainerCard({ item }: { item: ResumoItem }) {
               </div>
             ))}
           </div>
+
+          {/* Margem de venda (container marcado para venda) */}
+          {venda && (
+            <div className="mt-3 rounded-xl p-3" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+              <p className="text-xs font-semibold mb-2" style={{ color: '#9a3412' }}>
+                Margem de venda{venda.tipo ? ` · tipo ${venda.tipo}` : ''}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: 'Compra (R$)', value: fmtBRL(venda.compra), cor: '#374151' },
+                  { label: 'Despesas no pátio', value: fmtBRL(venda.despesas), cor: '#b91c1c' },
+                  { label: 'Custo total', value: fmtBRL(venda.custoTotal), cor: '#92400e' },
+                  { label: 'Preço de venda', value: venda.precoVenda != null ? fmtBRL(venda.precoVenda) : '—', cor: '#1B4F8A' },
+                ].map(k => (
+                  <div key={k.label} className="rounded-lg p-2" style={{ background: '#fff', border: '1px solid #fde4c8' }}>
+                    <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>{k.label}</p>
+                    <p className="text-sm font-bold mt-0.5" style={{ color: k.cor }}>{k.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                <div className="rounded-lg p-2" style={{ background: '#fff', border: '1px solid #fde4c8' }}>
+                  <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>Margem bruta (preço − compra)</p>
+                  <p className="text-sm font-bold mt-0.5" style={{ color: (venda.margemBruta ?? 0) >= 0 ? '#15803d' : '#b91c1c' }}>
+                    {venda.margemBruta != null ? fmtBRL(venda.margemBruta) : '—'}
+                  </p>
+                </div>
+                <div className="rounded-lg p-2" style={{ background: '#fff', border: '1px solid #fde4c8' }}>
+                  <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>Margem líquida (após despesas)</p>
+                  <p className="text-sm font-bold mt-0.5" style={{ color: (venda.margemLiquida ?? 0) >= 0 ? '#15803d' : '#b91c1c' }}>
+                    {venda.margemLiquida != null ? `${fmtBRL(venda.margemLiquida)}${venda.margemPct != null ? ` (${venda.margemPct}%)` : ''}` : '—'}
+                  </p>
+                </div>
+                <div className="rounded-lg p-2" style={{ background: '#fff', border: '1px solid #fde4c8' }}>
+                  <p className="text-[10px] font-medium" style={{ color: '#6b7280' }}>Dias no pátio (desde a compra)</p>
+                  <p className="text-sm font-bold mt-0.5" style={{ color: '#374151' }}>{venda.dias != null ? `${venda.dias} dias` : '—'}</p>
+                </div>
+              </div>
+              {venda.margemLiquida != null && venda.margemLiquida < 0 && (
+                <p className="text-xs mt-2 font-semibold" style={{ color: '#b91c1c' }}>
+                  Atenção: vender pelo preço do tipo dá prejuízo de {fmtBRL(-venda.margemLiquida)}. O custo total já está em {fmtBRL(venda.custoTotal)}.
+                </p>
+              )}
+              {venda.margemLiquida != null && venda.margemLiquida >= 0 && venda.margemBruta != null && venda.margemBruta - venda.margemLiquida > 0 && (
+                <p className="text-xs mt-2" style={{ color: '#6b7280' }}>
+                  As despesas lançadas ({fmtBRL(venda.despesas)}) já foram descontadas da margem líquida.
+                </p>
+              )}
+              {venda.precoVenda == null && (
+                <p className="text-xs mt-2" style={{ color: '#9a3412' }}>Defina o tipo (A/B/C) no Inventário para calcular a margem.</p>
+              )}
+            </div>
+          )}
 
           {/* Receita de locação acumulada automaticamente */}
           {receitaLocacao > 0 && (
@@ -318,7 +397,7 @@ function ContainerCard({ item }: { item: ResumoItem }) {
           </div>
 
           {editandoStatus && (
-            <ContratoEditor container={c} onClose={() => setEditandoStatus(false)} onSaved={() => setEditandoStatus(false)} />
+            <ContratoEditor container={c} aVenda={!!venda} onClose={() => setEditandoStatus(false)} onSaved={() => setEditandoStatus(false)} />
           )}
 
           {addingLanc && (
@@ -358,19 +437,24 @@ function ContainerCard({ item }: { item: ResumoItem }) {
   )
 }
 
-export function FinanceiroPanel({ resumo }: { resumo: Awaited<ReturnType<typeof import('@/app/actions').getResumoFinanceiro>> }) {
-  const [filtro, setFiltro] = useState<'todos' | 'locado' | 'disponivel' | 'vendido'>('todos')
+export function FinanceiroPanel({ resumo, vendaPorId = {} }: { resumo: Awaited<ReturnType<typeof import('@/app/actions').getResumoFinanceiro>>; vendaPorId?: Record<string, VendaInfo> }) {
+  const [filtro, setFiltro] = useState<'todos' | 'locado' | 'disponivel' | 'venda' | 'vendido'>('todos')
+  const sit = (r: { container: Container }) =>
+    r.container.status === 'vendido' ? 'vendido' : vendaPorId[r.container.id] ? 'venda' : r.container.status === 'locado' ? 'locado' : 'disponivel'
 
   const totReceitas = resumo.reduce((a, r) => a + r.receitas, 0)
   const totDespesas = resumo.reduce((a, r) => a + r.despesas, 0)
   const totCusto = resumo.reduce((a, r) => a + r.custoAquisicao, 0)
   const totBreakeven = resumo.reduce((a, r) => a + r.breakeven, 0)
   const totSaldo = resumo.reduce((a, r) => a + r.saldo, 0)
-  const locados = resumo.filter(r => r.container.status === 'locado').length
-  const disponiveis = resumo.filter(r => r.container.status === 'disponivel').length
-  const vendidos = resumo.filter(r => r.container.status === 'vendido').length
+  const locados = resumo.filter(r => sit(r) === 'locado').length
+  const disponiveis = resumo.filter(r => sit(r) === 'disponivel').length
+  const aVenda = resumo.filter(r => sit(r) === 'venda').length
+  const vendidos = resumo.filter(r => sit(r) === 'vendido').length
+  const margemTotal = Object.values(vendaPorId).reduce((a, v) => a + (v.margemLiquida ?? 0), 0)
+  const capitalParado = Object.values(vendaPorId).reduce((a, v) => a + v.custoTotal, 0)
 
-  const visivel = filtro === 'todos' ? resumo : resumo.filter(r => r.container.status === filtro)
+  const visivel = filtro === 'todos' ? resumo : resumo.filter(r => sit(r) === filtro)
 
   return (
     <div>
@@ -389,12 +473,21 @@ export function FinanceiroPanel({ resumo }: { resumo: Awaited<ReturnType<typeof 
         ))}
       </div>
 
+      {aVenda > 0 && (
+        <div className="mb-4 max-w-3xl px-4 py-3 rounded-xl flex flex-wrap gap-x-6 gap-y-1 text-xs" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+          <span style={{ color: '#9a3412' }}><strong>{aVenda}</strong> container(s) à venda · indisponíveis para locação</span>
+          <span style={{ color: '#6b7280' }}>Capital parado: <strong style={{ color: '#374151' }}>{fmtBRL(capitalParado)}</strong></span>
+          <span style={{ color: '#6b7280' }}>Margem líquida prevista: <strong style={{ color: margemTotal >= 0 ? '#15803d' : '#b91c1c' }}>{fmtBRL(margemTotal)}</strong></span>
+        </div>
+      )}
+
       {/* Filtro de status */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {([
           { v: 'todos', label: `Todos (${resumo.length})` },
           { v: 'locado', label: `Locados (${locados})` },
           { v: 'disponivel', label: `Disponíveis (${disponiveis})` },
+          { v: 'venda', label: `À venda (${aVenda})` },
           { v: 'vendido', label: `Vendidos (${vendidos})` },
         ] as const).map(f => (
           <button key={f.v} onClick={() => setFiltro(f.v)}
@@ -412,7 +505,7 @@ export function FinanceiroPanel({ resumo }: { resumo: Awaited<ReturnType<typeof 
         <p className="text-sm text-center py-12" style={{ color: '#9ca3af' }}>Nenhum container.</p>
       ) : (
         <div className="space-y-3 max-w-3xl">
-          {visivel.map(item => <ContainerCard key={item.container.id} item={item} />)}
+          {visivel.map(item => <ContainerCard key={item.container.id} item={item} venda={vendaPorId[item.container.id]} />)}
         </div>
       )}
 
