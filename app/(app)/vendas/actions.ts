@@ -28,10 +28,17 @@ async function tarefaDaEtapa(supabase: SB, leadId: string, etapa: string) {
   if (t) await supabase.from('cv_tarefas').insert({ lead_id: leadId, titulo: t[0], vence_em: venceEm(t[1]) })
 }
 
+// Preço do container = preço do tipo (A/B/C) cadastrado pelo admin; ninguém digita preço por unidade
 async function dadosDoContainer(supabase: SB, containerId: string | null) {
   if (!containerId) return null
-  const { data } = await supabase.from('containers').select('ano_fabricacao, preco_anuncio').eq('id', containerId).maybeSingle()
-  return data as { ano_fabricacao: number | null; preco_anuncio: number | null } | null
+  const { data } = await supabase.from('containers').select('ano_fabricacao, tipo_venda').eq('id', containerId).maybeSingle()
+  if (!data) return null
+  let preco_anuncio: number | null = null
+  if (data.tipo_venda) {
+    const { data: t } = await supabase.from('cv_tipos').select('preco').eq('codigo', data.tipo_venda).maybeSingle()
+    preco_anuncio = t ? Number(t.preco) : null
+  }
+  return { ano_fabricacao: data.ano_fabricacao as number | null, preco_anuncio }
 }
 
 export async function criarLead(fd: FormData): Promise<(R & { id?: string })> {
@@ -53,24 +60,29 @@ export async function criarLead(fd: FormData): Promise<(R & { id?: string })> {
 }
 
 export async function atualizarLead(id: string, fd: FormData): Promise<R> {
-  const { supabase } = await exigirVendas()
+  const { supabase, role } = await exigirVendas()
   const nome = txt(fd.get('nome'))
   if (!nome) return { erro: 'Informe o nome.' }
   const containerId = txt(fd.get('container_id'))
   const cont = await dadosDoContainer(supabase, containerId)
-  const { error } = await supabase.from('cv_leads').update({
+  const upd: Record<string, unknown> = {
     nome, telefone: txt(fd.get('telefone')), cidade: txt(fd.get('cidade')),
     canal: txt(fd.get('canal')) ?? 'whatsapp', campanha_id: txt(fd.get('campanha_id')),
     container_id: containerId,
-    uso: txt(fd.get('uso')), ano_pref: num(fd.get('ano_pref')) ?? cont?.ano_fabricacao ?? null, preco: num(fd.get('preco')),
+    uso: txt(fd.get('uso')), ano_pref: num(fd.get('ano_pref')) ?? cont?.ano_fabricacao ?? null,
     responsavel: txt(fd.get('responsavel')), obs: txt(fd.get('obs')), atualizado_em: new Date().toISOString(),
-  }).eq('id', id)
+  }
+  // preço: só admin pode ajustar; os demais ficam com o preço do tipo do container
+  const manual = num(fd.get('preco'))
+  if (role === 'admin' && manual != null) upd.preco = manual
+  else if (cont?.preco_anuncio != null) upd.preco = cont.preco_anuncio
+  const { error } = await supabase.from('cv_leads').update(upd).eq('id', id)
   if (error) return { erro: error.message }
   refresh(); return { ok: true }
 }
 
 export async function moverEtapa(id: string, etapa: string, extra?: { motivo?: string; preco?: number | null }): Promise<R> {
-  const { supabase } = await exigirVendas()
+  const { supabase, role } = await exigirVendas()
   if (!ETAPA_LABEL[etapa]) return { erro: 'Etapa inválida.' }
   const { data: antes } = await supabase.from('cv_leads').select('etapa, ano_pref, preco, container_id').eq('id', id).single()
   if (!antes) return { erro: 'Lead não encontrado.' }
@@ -81,7 +93,7 @@ export async function moverEtapa(id: string, etapa: string, extra?: { motivo?: s
     fechado_em: fechando ? new Date().toISOString() : null,
     motivo_perda: etapa === 'perdido' ? (extra?.motivo ?? null) : null,
   }
-  if (extra?.preco != null) upd.preco = extra.preco
+  if (extra?.preco != null && role === 'admin') upd.preco = extra.preco   // vendedor não altera preço
   const { error } = await supabase.from('cv_leads').update(upd).eq('id', id)
   if (error) return { erro: error.message }
   await supabase.from('cv_atividades').insert({
@@ -94,7 +106,7 @@ export async function moverEtapa(id: string, etapa: string, extra?: { motivo?: s
   // sincroniza o estoque do ALS Container: vendido baixa o container; sair de "vendido" devolve
   if (antes.container_id) {
     if (etapa === 'vendido') {
-      const valor = extra?.preco ?? antes.preco ?? null
+      const valor = (role === 'admin' ? extra?.preco : null) ?? antes.preco ?? null
       const { error: e2 } = await supabase.from('containers')
         .update({ status: 'vendido', valor_venda: valor, data_venda: new Date().toISOString().slice(0, 10) })
         .eq('id', antes.container_id)
@@ -169,6 +181,32 @@ export async function salvarCampanha(fd: FormData): Promise<R> {
 export async function excluirCampanha(id: string): Promise<R> {
   const { supabase } = await exigirVendas()
   const { error } = await supabase.from('cv_campanhas').delete().eq('id', id)
+  if (error) return { erro: error.message }
+  refresh(); return { ok: true }
+}
+
+export async function salvarTipo(fd: FormData): Promise<R> {
+  const { supabase, role } = await exigirVendas()
+  if (role !== 'admin') return { erro: 'Só o administrador altera tipos e preços.' }
+  const codigo = (txt(fd.get('codigo')) ?? '').toUpperCase().slice(0, 4)
+  const preco = num(fd.get('preco'))
+  if (!codigo || preco == null) return { erro: 'Informe o código e o preço.' }
+  const { error } = await supabase.from('cv_tipos').upsert({
+    codigo, nome: txt(fd.get('nome')) ?? `Tipo ${codigo}`, descricao: txt(fd.get('descricao')), preco,
+    ordem: num(fd.get('ordem')) ?? 0,
+  }, { onConflict: 'codigo' })
+  if (error) return { erro: error.message }
+  // atualiza o preço dos leads em aberto que usam containers deste tipo
+  const { data: cs } = await supabase.from('containers').select('id').eq('tipo_venda', codigo)
+  const ids = (cs ?? []).map(c => c.id)
+  if (ids.length) await supabase.from('cv_leads').update({ preco }).in('container_id', ids).not('etapa', 'in', '(vendido,perdido)')
+  refresh(); return { ok: true }
+}
+
+export async function excluirTipo(codigo: string): Promise<R> {
+  const { supabase, role } = await exigirVendas()
+  if (role !== 'admin') return { erro: 'Só o administrador altera tipos e preços.' }
+  const { error } = await supabase.from('cv_tipos').delete().eq('codigo', codigo)
   if (error) return { erro: error.message }
   refresh(); return { ok: true }
 }

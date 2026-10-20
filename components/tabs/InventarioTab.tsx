@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import * as XLSX from 'xlsx'
 import type { Container } from '@/app/actions'
 import { addContainer, updateContainer, deleteContainer } from '@/app/actions'
-import { VendaToggle } from '@/components/vendas/VendaToggle'
+import { VendaToggle, type TipoVenda } from '@/components/vendas/VendaToggle'
 
 const TAMANHOS = ['20GP', '40GP', '40HC', '20OT', '40OT', '20TK', '20RF', '40RF', '45HC']
 
@@ -79,9 +79,9 @@ const Label = ({ children }: { children: React.ReactNode }) => (
   <label className="block text-xs font-medium text-gray-500 mb-1">{children}</label>
 )
 
-export function InventarioTab({ initialContainers, role = 'viewer' }: { initialContainers: Container[], role?: 'admin' | 'editor' | 'viewer' }) {
+export function InventarioTab({ initialContainers, role = 'viewer', tiposVenda = [] }: { initialContainers: Container[], role?: 'admin' | 'editor' | 'viewer', tiposVenda?: TipoVenda[] }) {
   const canEdit = role === 'admin' || role === 'editor'
-  const mudarVenda = (id: string, v: { para_venda: boolean; preco_anuncio: number | null }) =>
+  const mudarVenda = (id: string, v: { para_venda: boolean; tipo_venda: string | null }) =>
     setContainers(cs => cs.map(x => (x.id === id ? { ...x, ...v } : x)))
 
   const [containers, setContainers] = useState<Container[]>(initialContainers)
@@ -605,7 +605,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                 <p className="text-xs italic mb-3" style={{ color: '#9ca3af' }}>{c.obs}</p>
               )}
 
-              <div className="mb-3"><VendaToggle c={c} canEdit={canEdit} onChange={mudarVenda} /></div>
+              <div className="mb-3"><VendaToggle c={c} canEdit={canEdit} tipos={tiposVenda} onChange={mudarVenda} /></div>
 
               {canEdit && (
                 <div className="flex gap-2">
@@ -681,7 +681,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                     {c.obs ? (c.obs.length > 14 ? c.obs.slice(0, 14) + '…' : c.obs) : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <VendaToggle c={c} canEdit={canEdit} onChange={mudarVenda} />
+                    <VendaToggle c={c} canEdit={canEdit} tipos={tiposVenda} onChange={mudarVenda} />
                   </td>
                   <td className="px-4 py-3">
                     {canEdit && (

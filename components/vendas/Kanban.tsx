@@ -10,7 +10,7 @@ import { input, btn, btnAzul, btnLeve } from './ui'
 
 const MOTIVOS = ['Preço', 'Comprou em outro lugar', 'Sem resposta', 'Frete/localização', 'Desistiu do projeto', 'Outro']
 
-export default function Kanban({ leads: inicial, numeros }: { leads: Lead[]; numeros: Record<string, string> }) {
+export default function Kanban({ leads: inicial, numeros, podePreco = false }: { leads: Lead[]; numeros: Record<string, string>; podePreco?: boolean }) {
   const [leads, setLeads] = useState(inicial)
   const [base, setBase] = useState(inicial)
   const [agora] = useState(() => Date.now())
@@ -119,9 +119,13 @@ export default function Kanban({ leads: inicial, numeros }: { leads: Lead[]; num
               </>
             ) : (
               <>
-                <h3 className="font-bold mb-3">Venda fechada: qual o valor final?</h3>
-                <input className={input} inputMode="decimal" placeholder="Ex.: 10.800,00" value={valor} onChange={e => setValor(e.target.value)} />
-                <p className="text-xs text-slate-500 mt-1">Se o lead tem ano definido, uma unidade sai do estoque desse ano.</p>
+                <h3 className="font-bold mb-3">Confirmar venda?</h3>
+                {podePreco ? (
+                  <input className={input} inputMode="decimal" placeholder="Valor final (ex.: 10.800,00)" value={valor} onChange={e => setValor(e.target.value)} />
+                ) : (
+                  <p className="text-sm text-slate-700">Valor da tabela: <b>{valor ? `R$ ${valor}` : 'do tipo do container'}</b>. O preço é definido pelo tipo (A/B/C); só o administrador altera.</p>
+                )}
+                <p className="text-xs text-slate-500 mt-1">O container fica como vendido no estoque.</p>
               </>
             )}
             <div className="flex gap-2 mt-4 justify-end">

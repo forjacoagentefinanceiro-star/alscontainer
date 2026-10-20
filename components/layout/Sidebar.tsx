@@ -71,6 +71,7 @@ const vendasItems: Item[] = [
   { href: '/vendas/agenda',    label: 'Agenda',    icon: CalendarDays },
   { href: '/vendas/campanhas', label: 'Campanhas', icon: Megaphone    },
   { href: '/vendas/estoque',   label: 'Estoque',   icon: Tag          },
+  { href: '/vendas/tipos',     label: 'Tipos e preços', icon: Tag     },
 ]
 
 const gestaoTarefasItems: Item[] = [

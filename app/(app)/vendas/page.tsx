@@ -8,7 +8,7 @@ import { Titulo, Kpi, Abas } from '@/components/vendas/ui'
 export const dynamic = 'force-dynamic'
 
 export default async function VendasPage() {
-  const { supabase } = await exigirVendas()
+  const { supabase, role } = await exigirVendas()
   const [{ data: l, error }, { data: c }, estq, { count: atrasadas }] = await Promise.all([
     supabase.from('cv_leads').select('*').order('atualizado_em', { ascending: false }).limit(600),
     supabase.from('cv_campanhas').select('*').order('criado_em', { ascending: false }),
@@ -55,7 +55,7 @@ export default async function VendasPage() {
         <Kpi label="Containers à venda" valor={estoque.length} nota={reservados.size ? `${reservados.size} em negociação` : undefined} />
         <Kpi label="Tarefas atrasadas" valor={atrasadas ?? 0} />
       </div>
-      <Kanban leads={leads} numeros={numeros} />
+      <Kanban leads={leads} numeros={numeros} podePreco={role === 'admin'} />
     </div>
   )
 }

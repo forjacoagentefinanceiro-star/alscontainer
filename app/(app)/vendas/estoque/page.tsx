@@ -41,8 +41,8 @@ export default async function EstoquePage() {
       <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200">
-            <th className="p-3">Container</th><th className="p-3">Tamanho</th><th className="p-3">Ano</th>
-            <th className="p-3">Preço do anúncio</th><th className="p-3">Situação</th>
+            <th className="p-3">Container</th><th className="p-3">Tamanho</th><th className="p-3">Tipo</th><th className="p-3">Ano</th>
+            <th className="p-3">Preço (do tipo)</th><th className="p-3">Situação</th>
           </tr></thead>
           <tbody>
             {itens.map(i => {
@@ -51,8 +51,9 @@ export default async function EstoquePage() {
                 <tr key={i.id} className="border-b border-slate-100">
                   <td className="p-3 font-mono font-semibold">{i.numero}</td>
                   <td className="p-3">{i.tamanho}</td>
+                  <td className="p-3 font-bold">{i.tipo_venda ?? '—'}</td>
                   <td className="p-3">{i.ano_fabricacao ?? '—'}</td>
-                  <td className="p-3">{i.preco_anuncio ? brl(Number(i.preco_anuncio)) : <span className="text-slate-400">defina no Inventário</span>}</td>
+                  <td className="p-3">{i.preco_anuncio ? brl(Number(i.preco_anuncio)) : <span className="text-slate-400">sem tipo</span>}</td>
                   <td className="p-3">
                     {ls.length === 0 ? <span className="font-semibold text-green-700">Disponível</span> : ls.map(x => (
                       <Link key={x.id} href={`/vendas/leads/${x.id}`} className="block text-xs underline" style={{ color: '#1B4F8A' }}>
@@ -63,7 +64,7 @@ export default async function EstoquePage() {
                 </tr>
               )
             })}
-            {itens.length === 0 && !erro && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Nenhum container marcado para venda ainda.</td></tr>}
+            {itens.length === 0 && !erro && <tr><td colSpan={6} className="p-6 text-center text-slate-500">Nenhum container marcado para venda ainda.</td></tr>}
           </tbody>
         </table>
       </div>

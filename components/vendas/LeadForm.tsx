@@ -10,7 +10,7 @@ function L({ t, children }: { t: string; children: React.ReactNode }) {
   return <label className="block text-xs font-semibold text-slate-600">{t}<div className="mt-1 font-normal">{children}</div></label>
 }
 
-export default function LeadForm({ campanhas, lead, estoque }: { campanhas: Campanha[]; lead?: Lead; estoque: EstoqueItem[] }) {
+export default function LeadForm({ campanhas, lead, estoque, podePreco = false }: { campanhas: Campanha[]; lead?: Lead; estoque: EstoqueItem[]; podePreco?: boolean }) {
   const [aberto, setAberto] = useState(!!lead)
   const [erro, setErro] = useState<string | null>(null)
   const [salvo, setSalvo] = useState(false)
@@ -59,7 +59,7 @@ export default function LeadForm({ campanhas, lead, estoque }: { campanhas: Camp
         </select>
       </L>
       <L t="Ano desejado"><input name="ano_pref" inputMode="numeric" defaultValue={lead?.ano_pref ?? ''} className={input} placeholder="Se ainda não escolheu o container" /></L>
-      {lead && <L t="Valor negociado (R$)"><input name="preco" inputMode="decimal" defaultValue={lead.preco ? String(lead.preco).replace('.', ',') : ''} className={input} /></L>}
+      {lead && podePreco && <L t="Valor negociado (R$, só admin)"><input name="preco" inputMode="decimal" defaultValue={lead.preco ? String(lead.preco).replace('.', ',') : ''} className={input} /></L>}
       <L t="Responsável"><input name="responsavel" defaultValue={lead?.responsavel ?? ''} className={input} /></L>
       <div className="sm:col-span-2 lg:col-span-3">
         <L t="Observações"><textarea name="obs" rows={2} defaultValue={lead?.obs ?? ''} className={input} /></L>

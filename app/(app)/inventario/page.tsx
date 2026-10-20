@@ -11,6 +11,7 @@ export default async function InventarioPage() {
   ])
 
   const role = (profile?.role ?? 'viewer') as 'admin' | 'editor' | 'viewer'
+  const { data: tipos } = await supabase.from('cv_tipos').select('codigo, nome, preco').order('ordem')
 
   return (
     <div>
@@ -21,6 +22,7 @@ export default async function InventarioPage() {
       <InventarioTab
         initialContainers={(containers ?? []) as Parameters<typeof InventarioTab>[0]['initialContainers']}
         role={role}
+        tiposVenda={((tipos ?? []) as { codigo: string; nome: string; preco: number }[]).map(t => ({ ...t, preco: Number(t.preco) }))}
       />
     </div>
   )

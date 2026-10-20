@@ -46,8 +46,10 @@ export type Atividade = { id: string; lead_id: string; tipo: string; texto: stri
 /** Container do estoque do ALS Container marcado "para venda" */
 export type EstoqueItem = {
   id: string; numero: string; tamanho: string; ano_fabricacao: number | null
-  preco_anuncio: number | null; status: string | null; obs: string | null
+  preco_anuncio: number | null   // vem do tipo (A/B/C), nunca digitado por unidade
+  tipo_venda: string | null; status: string | null; obs: string | null
 }
+export type Tipo = { codigo: string; nome: string; descricao: string | null; preco: number; ordem: number }
 
 export const brl = (n: number | null | undefined) =>
   n == null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

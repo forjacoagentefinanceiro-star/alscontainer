@@ -12,7 +12,7 @@ const ICONE: Record<string, string> = { whatsapp: '💬', etapa: '➡️', nota:
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase } = await exigirVendas()
+  const { supabase, role } = await exigirVendas()
   const [{ data: l }, { data: c }, { data: t }, { data: a }, { itens }] = await Promise.all([
     supabase.from('cv_leads').select('*').eq('id', id).maybeSingle(),
     supabase.from('cv_campanhas').select('*'),
@@ -45,7 +45,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           <LeadAcoes lead={lead} tarefas={(t ?? []) as Tarefa[]} precoTxt={lead.preco ? brl(lead.preco) : atual?.preco_anuncio ? brl(Number(atual.preco_anuncio)) : undefined} />
         </div>
         <div className="space-y-4">
-          <LeadForm lead={lead} campanhas={(c ?? []) as Campanha[]} estoque={estoque} />
+          <LeadForm lead={lead} campanhas={(c ?? []) as Campanha[]} estoque={estoque} podePreco={role === 'admin'} />
           <section className="bg-white rounded-2xl border border-slate-200 p-4">
             <h2 className="font-bold text-sm mb-2" style={{ color: '#0d1b2e' }}>Histórico</h2>
             <ul className="space-y-3">
