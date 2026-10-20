@@ -3,15 +3,13 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { registrarWhats, adicionarNota, criarTarefa, concluirTarefa, adiarTarefa, excluirLead } from '@/app/(app)/vendas/actions'
-import { MODELOS, brl, dataHora, type Lead, type Tarefa, type Preco } from '@/lib/vendas/config'
+import { MODELOS, dataHora, type Lead, type Tarefa } from '@/lib/vendas/config'
 import { abrirWhats, destinoWhats, salvarDestinoWhats, type DestinoWhats } from '@/lib/vendas/abrirWhats'
 import { input, btn, btnAzul, btnVerde, btnLeve } from './ui'
 
-export default function LeadAcoes({ lead, tarefas, precos }: { lead: Lead; tarefas: Tarefa[]; precos: Preco[] }) {
+export default function LeadAcoes({ lead, tarefas, precoTxt }: { lead: Lead; tarefas: Tarefa[]; precoTxt?: string }) {
   const router = useRouter()
   const [pend, start] = useTransition()
-  const precoAno = precos.find(p => p.ano === lead.ano_pref)
-  const precoTxt = precoAno ? brl(precoAno.preco) : undefined
   const [modelo, setModelo] = useState(MODELOS[0].key)
   const [texto, setTexto] = useState(() => MODELOS[0].texto(lead, precoTxt))
   const [destino, setDestino] = useState<DestinoWhats>(() => (typeof window === 'undefined' ? 'web' : destinoWhats()))

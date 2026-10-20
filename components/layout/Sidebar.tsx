@@ -70,7 +70,7 @@ const vendasItems: Item[] = [
   { href: '/vendas/leads',     label: 'Leads',     icon: Users        },
   { href: '/vendas/agenda',    label: 'Agenda',    icon: CalendarDays },
   { href: '/vendas/campanhas', label: 'Campanhas', icon: Megaphone    },
-  { href: '/vendas/precos',    label: 'Preços',    icon: Tag          },
+  { href: '/vendas/estoque',   label: 'Estoque',   icon: Tag          },
 ]
 
 const gestaoTarefasItems: Item[] = [

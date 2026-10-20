@@ -3,14 +3,14 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { criarLead, atualizarLead } from '@/app/(app)/vendas/actions'
-import { CANAIS, USOS, type Lead, type Campanha } from '@/lib/vendas/config'
+import { CANAIS, USOS, type Lead, type Campanha, type EstoqueItem } from '@/lib/vendas/config'
 import { input, btn, btnAzul, btnLeve } from './ui'
 
 function L({ t, children }: { t: string; children: React.ReactNode }) {
   return <label className="block text-xs font-semibold text-slate-600">{t}<div className="mt-1 font-normal">{children}</div></label>
 }
 
-export default function LeadForm({ campanhas, lead, anos }: { campanhas: Campanha[]; lead?: Lead; anos: number[] }) {
+export default function LeadForm({ campanhas, lead, estoque }: { campanhas: Campanha[]; lead?: Lead; estoque: EstoqueItem[] }) {
   const [aberto, setAberto] = useState(!!lead)
   const [erro, setErro] = useState<string | null>(null)
   const [salvo, setSalvo] = useState(false)
@@ -52,10 +52,13 @@ export default function LeadForm({ campanhas, lead, anos }: { campanhas: Campanh
           {USOS.map(u => <option key={u}>{u}</option>)}
         </select>
       </L>
-      <L t="Ano do container">
-        <input name="ano_pref" inputMode="numeric" list="anos-cv" defaultValue={lead?.ano_pref ?? ''} className={input} />
-        <datalist id="anos-cv">{anos.map(a => <option key={a} value={a} />)}</datalist>
+      <L t="Container do estoque">
+        <select name="container_id" defaultValue={lead?.container_id ?? ''} className={input}>
+          <option value="">Ainda não escolheu</option>
+          {estoque.map(c => <option key={c.id} value={c.id}>{c.numero} · {c.tamanho}{c.ano_fabricacao ? ` · ${c.ano_fabricacao}` : ''}</option>)}
+        </select>
       </L>
+      <L t="Ano desejado"><input name="ano_pref" inputMode="numeric" defaultValue={lead?.ano_pref ?? ''} className={input} placeholder="Se ainda não escolheu o container" /></L>
       {lead && <L t="Valor negociado (R$)"><input name="preco" inputMode="decimal" defaultValue={lead.preco ? String(lead.preco).replace('.', ',') : ''} className={input} /></L>}
       <L t="Responsável"><input name="responsavel" defaultValue={lead?.responsavel ?? ''} className={input} /></L>
       <div className="sm:col-span-2 lg:col-span-3">

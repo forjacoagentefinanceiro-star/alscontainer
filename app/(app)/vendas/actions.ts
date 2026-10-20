@@ -28,14 +28,23 @@ async function tarefaDaEtapa(supabase: SB, leadId: string, etapa: string) {
   if (t) await supabase.from('cv_tarefas').insert({ lead_id: leadId, titulo: t[0], vence_em: venceEm(t[1]) })
 }
 
+async function dadosDoContainer(supabase: SB, containerId: string | null) {
+  if (!containerId) return null
+  const { data } = await supabase.from('containers').select('ano_fabricacao, preco_anuncio').eq('id', containerId).maybeSingle()
+  return data as { ano_fabricacao: number | null; preco_anuncio: number | null } | null
+}
+
 export async function criarLead(fd: FormData): Promise<(R & { id?: string })> {
   const { supabase } = await exigirVendas()
   const nome = txt(fd.get('nome'))
   if (!nome) return { erro: 'Informe o nome.' }
+  const containerId = txt(fd.get('container_id'))
+  const cont = await dadosDoContainer(supabase, containerId)
   const { data, error } = await supabase.from('cv_leads').insert({
     nome, telefone: txt(fd.get('telefone')), cidade: txt(fd.get('cidade')),
     canal: txt(fd.get('canal')) ?? 'whatsapp', campanha_id: txt(fd.get('campanha_id')),
-    uso: txt(fd.get('uso')), ano_pref: num(fd.get('ano_pref')), responsavel: txt(fd.get('responsavel')), obs: txt(fd.get('obs')),
+    container_id: containerId, preco: cont?.preco_anuncio ?? null,
+    uso: txt(fd.get('uso')), ano_pref: num(fd.get('ano_pref')) ?? cont?.ano_fabricacao ?? null, responsavel: txt(fd.get('responsavel')), obs: txt(fd.get('obs')),
   }).select('id').single()
   if (error || !data) return { erro: error?.message ?? 'Erro ao salvar.' }
   await tarefaDaEtapa(supabase, data.id, 'novo')
@@ -47,10 +56,13 @@ export async function atualizarLead(id: string, fd: FormData): Promise<R> {
   const { supabase } = await exigirVendas()
   const nome = txt(fd.get('nome'))
   if (!nome) return { erro: 'Informe o nome.' }
+  const containerId = txt(fd.get('container_id'))
+  const cont = await dadosDoContainer(supabase, containerId)
   const { error } = await supabase.from('cv_leads').update({
     nome, telefone: txt(fd.get('telefone')), cidade: txt(fd.get('cidade')),
     canal: txt(fd.get('canal')) ?? 'whatsapp', campanha_id: txt(fd.get('campanha_id')),
-    uso: txt(fd.get('uso')), ano_pref: num(fd.get('ano_pref')), preco: num(fd.get('preco')),
+    container_id: containerId,
+    uso: txt(fd.get('uso')), ano_pref: num(fd.get('ano_pref')) ?? cont?.ano_fabricacao ?? null, preco: num(fd.get('preco')),
     responsavel: txt(fd.get('responsavel')), obs: txt(fd.get('obs')), atualizado_em: new Date().toISOString(),
   }).eq('id', id)
   if (error) return { erro: error.message }
@@ -60,7 +72,7 @@ export async function atualizarLead(id: string, fd: FormData): Promise<R> {
 export async function moverEtapa(id: string, etapa: string, extra?: { motivo?: string; preco?: number | null }): Promise<R> {
   const { supabase } = await exigirVendas()
   if (!ETAPA_LABEL[etapa]) return { erro: 'Etapa inválida.' }
-  const { data: antes } = await supabase.from('cv_leads').select('etapa, ano_pref, preco').eq('id', id).single()
+  const { data: antes } = await supabase.from('cv_leads').select('etapa, ano_pref, preco, container_id').eq('id', id).single()
   if (!antes) return { erro: 'Lead não encontrado.' }
   if (antes.etapa === etapa) return { ok: true }
   const fechando = etapa === 'vendido' || etapa === 'perdido'
@@ -79,12 +91,16 @@ export async function moverEtapa(id: string, etapa: string, extra?: { motivo?: s
   if (fechando) await supabase.from('cv_tarefas').update({ concluida_em: new Date().toISOString() }).eq('lead_id', id).is('concluida_em', null)
   else await tarefaDaEtapa(supabase, id, etapa)
 
-  // baixa de estoque do ano ao vender (e devolve se sair de "vendido")
-  if (antes.ano_pref) {
-    const { data: p } = await supabase.from('cv_precos').select('unidades, vendidas').eq('ano', antes.ano_pref).maybeSingle()
-    if (p) {
-      if (etapa === 'vendido') await supabase.from('cv_precos').update({ unidades: Math.max(0, p.unidades - 1), vendidas: p.vendidas + 1 }).eq('ano', antes.ano_pref)
-      else if (antes.etapa === 'vendido') await supabase.from('cv_precos').update({ unidades: p.unidades + 1, vendidas: Math.max(0, p.vendidas - 1) }).eq('ano', antes.ano_pref)
+  // sincroniza o estoque do ALS Container: vendido baixa o container; sair de "vendido" devolve
+  if (antes.container_id) {
+    if (etapa === 'vendido') {
+      const valor = extra?.preco ?? antes.preco ?? null
+      const { error: e2 } = await supabase.from('containers')
+        .update({ status: 'vendido', valor_venda: valor, data_venda: new Date().toISOString().slice(0, 10) })
+        .eq('id', antes.container_id)
+      if (e2) { refresh(); return { erro: `Lead marcado como vendido, mas não consegui baixar o container no estoque: ${e2.message}` } }
+    } else if (antes.etapa === 'vendido') {
+      await supabase.from('containers').update({ status: 'disponivel', valor_venda: null, data_venda: null }).eq('id', antes.container_id)
     }
   }
   refresh(); return { ok: true }
@@ -153,22 +169,6 @@ export async function salvarCampanha(fd: FormData): Promise<R> {
 export async function excluirCampanha(id: string): Promise<R> {
   const { supabase } = await exigirVendas()
   const { error } = await supabase.from('cv_campanhas').delete().eq('id', id)
-  if (error) return { erro: error.message }
-  refresh(); return { ok: true }
-}
-
-export async function salvarPreco(fd: FormData): Promise<R> {
-  const { supabase } = await exigirVendas()
-  const ano = num(fd.get('ano')); const preco = num(fd.get('preco'))
-  if (!ano || preco == null) return { erro: 'Informe ano e preço.' }
-  const { error } = await supabase.from('cv_precos').upsert({ ano, preco, unidades: num(fd.get('unidades')) ?? 0 }, { onConflict: 'ano' })
-  if (error) return { erro: error.message }
-  refresh(); return { ok: true }
-}
-
-export async function excluirPreco(ano: number): Promise<R> {
-  const { supabase } = await exigirVendas()
-  const { error } = await supabase.from('cv_precos').delete().eq('ano', ano)
   if (error) return { erro: error.message }
   refresh(); return { ok: true }
 }

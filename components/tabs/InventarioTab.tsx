@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import * as XLSX from 'xlsx'
 import type { Container } from '@/app/actions'
 import { addContainer, updateContainer, deleteContainer } from '@/app/actions'
+import { VendaToggle } from '@/components/vendas/VendaToggle'
 
 const TAMANHOS = ['20GP', '40GP', '40HC', '20OT', '40OT', '20TK', '20RF', '40RF', '45HC']
 
@@ -80,6 +81,8 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 
 export function InventarioTab({ initialContainers, role = 'viewer' }: { initialContainers: Container[], role?: 'admin' | 'editor' | 'viewer' }) {
   const canEdit = role === 'admin' || role === 'editor'
+  const mudarVenda = (id: string, v: { para_venda: boolean; preco_anuncio: number | null }) =>
+    setContainers(cs => cs.map(x => (x.id === id ? { ...x, ...v } : x)))
 
   const [containers, setContainers] = useState<Container[]>(initialContainers)
   const [form, setForm] = useState<Form>(emptyForm())
@@ -602,6 +605,8 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                 <p className="text-xs italic mb-3" style={{ color: '#9ca3af' }}>{c.obs}</p>
               )}
 
+              <div className="mb-3"><VendaToggle c={c} canEdit={canEdit} onChange={mudarVenda} /></div>
+
               {canEdit && (
                 <div className="flex gap-2">
                   <button onClick={() => openEdit(c)}
@@ -627,7 +632,7 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                {['NÚMERO', 'TIPO', 'NACION.', 'TAMANHO', 'ANO', 'FORNECEDOR', 'DATA COMPRA', 'VALOR USD', 'COTAÇÃO', 'VALOR R$', 'OBSERVAÇÕES', 'AÇÕES'].map(h => (
+                {['NÚMERO', 'TIPO', 'NACION.', 'TAMANHO', 'ANO', 'FORNECEDOR', 'DATA COMPRA', 'VALOR USD', 'COTAÇÃO', 'VALOR R$', 'OBSERVAÇÕES', 'VENDA', 'AÇÕES'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold tracking-wide"
                     style={{ color: '#6b7280' }}>{h}</th>
                 ))}
@@ -674,6 +679,9 @@ export function InventarioTab({ initialContainers, role = 'viewer' }: { initialC
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: '#6b7280' }}>
                     {c.obs ? (c.obs.length > 14 ? c.obs.slice(0, 14) + '…' : c.obs) : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <VendaToggle c={c} canEdit={canEdit} onChange={mudarVenda} />
                   </td>
                   <td className="px-4 py-3">
                     {canEdit && (

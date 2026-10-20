@@ -35,6 +35,7 @@ export type Lead = {
   preco: number | null; etapa: string; motivo_perda: string | null; responsavel: string | null
   obs: string | null; criado_em: string; atualizado_em: string
   primeira_resposta_em: string | null; fechado_em: string | null
+  container_id: string | null
 }
 export type Campanha = {
   id: string; nome: string; canal: string; inicio: string | null; fim: string | null
@@ -42,7 +43,11 @@ export type Campanha = {
 }
 export type Tarefa = { id: string; lead_id: string; titulo: string; vence_em: string; concluida_em: string | null }
 export type Atividade = { id: string; lead_id: string; tipo: string; texto: string; criado_em: string }
-export type Preco = { ano: number; preco: number; unidades: number; vendidas: number }
+/** Container do estoque do ALS Container marcado "para venda" */
+export type EstoqueItem = {
+  id: string; numero: string; tamanho: string; ano_fabricacao: number | null
+  preco_anuncio: number | null; status: string | null; obs: string | null
+}
 
 export const brl = (n: number | null | undefined) =>
   n == null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

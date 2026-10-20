@@ -1,5 +1,6 @@
 import { exigirVendas } from '@/lib/vendas/server'
-import { brl, type Lead, type Campanha, type Preco } from '@/lib/vendas/config'
+import { brl, type Lead, type Campanha } from '@/lib/vendas/config'
+import { getEstoque } from '@/lib/vendas/estoque'
 import Kanban from '@/components/vendas/Kanban'
 import LeadForm from '@/components/vendas/LeadForm'
 import { Titulo, Kpi, Abas } from '@/components/vendas/ui'
@@ -8,10 +9,10 @@ export const dynamic = 'force-dynamic'
 
 export default async function VendasPage() {
   const { supabase } = await exigirVendas()
-  const [{ data: l, error }, { data: c }, { data: p }, { count: atrasadas }] = await Promise.all([
+  const [{ data: l, error }, { data: c }, estq, { count: atrasadas }] = await Promise.all([
     supabase.from('cv_leads').select('*').order('atualizado_em', { ascending: false }).limit(600),
     supabase.from('cv_campanhas').select('*').order('criado_em', { ascending: false }),
-    supabase.from('cv_precos').select('*').order('ano'),
+    getEstoque(supabase),
     supabase.from('cv_tarefas').select('id', { count: 'exact', head: true }).is('concluida_em', null).lt('vence_em', new Date().toISOString()),
   ])
 
@@ -27,7 +28,8 @@ export default async function VendasPage() {
 
   const leads = (l ?? []) as Lead[]
   const campanhas = (c ?? []) as Campanha[]
-  const precos = (p ?? []) as Preco[]
+  const estoque = estq.itens
+  const numeros = Object.fromEntries(estoque.map(i => [i.id, i.numero]))
   const abertos = leads.filter(x => x.etapa !== 'vendido' && x.etapa !== 'perdido')
   const vendidos = leads.filter(x => x.etapa === 'vendido')
   const perdidos = leads.filter(x => x.etapa === 'perdido')
@@ -37,11 +39,11 @@ export default async function VendasPage() {
   const tempoMin = resp.length
     ? Math.round(resp.reduce((s, x) => s + (new Date(x.primeira_resposta_em!).getTime() - new Date(x.criado_em).getTime()), 0) / resp.length / 60000)
     : null
-  const estoque = precos.reduce((s, x) => s + x.unidades, 0)
+  const reservados = new Set(abertos.filter(x => x.container_id).map(x => x.container_id))
 
   return (
     <div>
-      <Titulo sub="Funil de venda dos containers 40' High Cube usados" acao={<LeadForm campanhas={campanhas} anos={precos.map(x => x.ano)} />}>
+      <Titulo sub="Funil de venda dos containers 40' High Cube usados" acao={<LeadForm campanhas={campanhas} estoque={estoque} />}>
         Vendas de Containers
       </Titulo>
       <Abas ativa="/vendas" />
@@ -50,10 +52,10 @@ export default async function VendasPage() {
         <Kpi label="Vendidos" valor={vendidos.length} nota={brl(receita)} />
         <Kpi label="Conversão" valor={fechados ? `${Math.round((vendidos.length / fechados) * 100)}%` : '—'} nota={`${fechados} fechados`} />
         <Kpi label="1ª resposta (média)" valor={tempoMin == null ? '—' : tempoMin < 60 ? `${tempoMin} min` : `${Math.round(tempoMin / 60)} h`} />
-        <Kpi label="Unidades em estoque" valor={estoque} />
+        <Kpi label="Containers à venda" valor={estoque.length} nota={reservados.size ? `${reservados.size} em negociação` : undefined} />
         <Kpi label="Tarefas atrasadas" valor={atrasadas ?? 0} />
       </div>
-      <Kanban leads={leads} />
+      <Kanban leads={leads} numeros={numeros} />
     </div>
   )
 }

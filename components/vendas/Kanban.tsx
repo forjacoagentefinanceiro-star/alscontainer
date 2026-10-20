@@ -10,7 +10,7 @@ import { input, btn, btnAzul, btnLeve } from './ui'
 
 const MOTIVOS = ['Preço', 'Comprou em outro lugar', 'Sem resposta', 'Frete/localização', 'Desistiu do projeto', 'Outro']
 
-export default function Kanban({ leads: inicial }: { leads: Lead[] }) {
+export default function Kanban({ leads: inicial, numeros }: { leads: Lead[]; numeros: Record<string, string> }) {
   const [leads, setLeads] = useState(inicial)
   const [base, setBase] = useState(inicial)
   const [agora] = useState(() => Date.now())
@@ -77,6 +77,7 @@ export default function Kanban({ leads: inicial }: { leads: Lead[] }) {
                       <p className="text-xs text-slate-500 truncate">
                         {CANAL_LABEL[l.canal] ?? l.canal}{l.cidade ? ` · ${l.cidade}` : ''}
                       </p>
+                      {l.container_id && numeros[l.container_id] && <p className="text-xs font-mono text-slate-600 mt-1">{numeros[l.container_id]}</p>}
                       {(l.ano_pref || l.preco) && (
                         <p className="text-xs text-slate-600 mt-1">{l.ano_pref ? `Ano ${l.ano_pref}` : ''}{l.ano_pref && l.preco ? ' · ' : ''}{l.preco ? brl(l.preco) : ''}</p>
                       )}

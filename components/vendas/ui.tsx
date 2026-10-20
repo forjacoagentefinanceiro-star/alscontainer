@@ -33,7 +33,7 @@ export function Kpi({ label, valor, nota }: { label: string; valor: ReactNode; n
 export function Abas({ ativa }: { ativa: string }) {
   const abas = [
     ['/vendas', 'Funil'], ['/vendas/leads', 'Leads'], ['/vendas/agenda', 'Agenda'],
-    ['/vendas/campanhas', 'Campanhas'], ['/vendas/precos', 'Preços e estoque'],
+    ['/vendas/campanhas', 'Campanhas'], ['/vendas/estoque', 'Estoque à venda'],
   ]
   return (
     <div className="flex gap-1 overflow-x-auto mb-4 pb-1">
