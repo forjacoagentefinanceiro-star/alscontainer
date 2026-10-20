@@ -12,6 +12,10 @@ export async function marcarParaVenda(id: string, paraVenda: boolean, preco: num
   const role = (p as { role?: string } | null)?.role
   if (role !== 'admin' && role !== 'editor') return { error: 'Sem permissão para alterar o estoque.' }
 
+  if (paraVenda) {
+    const { data: atual } = await supabase.from('containers').select('status').eq('id', id).maybeSingle()
+    if (atual?.status === 'locado') return { error: 'Container locado não pode ser marcado para venda.' }
+  }
   const { data, error } = await supabase
     .from('containers')
     .update({ para_venda: paraVenda, preco_anuncio: paraVenda ? preco : null })

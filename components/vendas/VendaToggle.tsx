@@ -16,6 +16,9 @@ export function VendaToggle({ c, canEdit, onChange }: {
   const [erro, setErro] = useState('')
   const [pend, start] = useTransition()
 
+  if (c.status === 'locado') {
+    return <span className="text-xs" style={{ color: '#9ca3af' }} title="Container locado não pode ser vendido. Encerre a locação primeiro.">Locado</span>
+  }
   if (c.status === 'vendido') return <span className="text-xs font-semibold" style={{ color: '#16a34a' }}>Vendido</span>
 
   function salvar(para: boolean) {
