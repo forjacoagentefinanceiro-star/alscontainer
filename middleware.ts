@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rotas públicas — sem verificação
-  const publicPaths = ['/login', '/aguardando', '/reset-senha', '/api/barra/update']
+  const publicPaths = ['/login', '/aguardando', '/reset-senha', '/api/barra/update', '/containers', '/api/containers']
   const isPublic = publicPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
 
   if (isPublic) {

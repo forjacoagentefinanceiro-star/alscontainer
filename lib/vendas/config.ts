@@ -22,6 +22,8 @@ export const CANAIS = [
   { key: 'instagram',   label: 'Instagram' },
   { key: 'tiktok',      label: 'TikTok Shop' },
   { key: 'olx',         label: 'OLX' },
+  { key: 'facebook',    label: 'Facebook (anúncio)' },
+  { key: 'site',        label: 'Site / página de containers' },
   { key: 'indicacao',   label: 'Indicação' },
   { key: 'outro',       label: 'Outro' },
 ] as const

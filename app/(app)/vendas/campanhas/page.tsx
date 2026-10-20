@@ -1,6 +1,7 @@
 import { exigirVendas } from '@/lib/vendas/server'
 import { CANAIS, CANAL_LABEL, brl, dataCurta, type Lead, type Campanha } from '@/lib/vendas/config'
 import { NovaCampanha, EditarCampanha } from '@/components/vendas/CampanhaForm'
+import CopiarLink from '@/components/vendas/CopiarLink'
 import { Titulo, Abas } from '@/components/vendas/ui'
 
 export const dynamic = 'force-dynamic'
@@ -79,7 +80,7 @@ export default async function CampanhasPage() {
                   <td className="p-3">{Number(x.verba) ? brl(Number(x.verba)) : '—'}</td>
                   <td className="p-3">{m.leads}</td><td className="p-3">{m.vendas}</td>
                   <td className="p-3">{cpl(Number(x.verba), m.leads)}</td><td className="p-3">{cpl(Number(x.verba), m.vendas)}</td>
-                  <td className="p-3"><EditarCampanha campanha={x} /></td>
+                  <td className="p-3 flex gap-2"><CopiarLink nome={x.nome} canal={x.canal} utm={x.utm} /><EditarCampanha campanha={x} /></td>
                 </tr>
               )
             })}
