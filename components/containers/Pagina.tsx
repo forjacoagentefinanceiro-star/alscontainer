@@ -46,14 +46,14 @@ function Logo({ tamanho = 34 }: { tamanho?: number }) {
   return <Image src="/containers/alm-logo.png" alt={MARCA} width={Math.round(h * 900 / 512)} height={h} priority style={{ height: h, width: 'auto' }} />
 }
 
-export default function Pagina({ precoMin, precoMax, unidades }: { precoMin: number; precoMax: number | null; unidades: number | null }) {
+export default function Pagina({ precoMin, unidades }: { precoMin: number; unidades: number | null }) {
   const [ref] = useState(gerarRef)
   const [nome, setNome] = useState('')
   const [tel, setTel] = useState('')
   const [enviado, setEnviado] = useState(false)
   const [erro, setErro] = useState('')
   const [salvoParcial, setSalvoParcial] = useState('')
-  const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   function enviar(corpo: Record<string, unknown>, beacon = false) {
     const dados = JSON.stringify({ ref, ...origemDaVisita(), ...corpo })
@@ -118,7 +118,7 @@ export default function Pagina({ precoMin, precoMax, unidades }: { precoMin: num
     if (!novo) window.location.assign(url)
   }
 
-  const preco = precoMax && precoMax !== precoMin ? `${brl(precoMin)} a ${brl(precoMax)}` : `a partir de ${brl(precoMin)}`
+  const preco = `a partir de ${brl(precoMin)}`
 
   const formulario = enviado ? (
     <div className="rounded-3xl p-6 text-center" style={{ background: PAINEL, border: `2px solid ${ACENTO}` }} id="form">
@@ -202,7 +202,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
               ))}
             </ul>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-white sm:text-3xl" style={{ background: ACENTO }}>{preco}</span>
+              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-white sm:text-3xl" style={{ background: ACENTO }}>{preco.charAt(0).toUpperCase() + preco.slice(1)}</span>
               {unidades != null && unidades > 0 && (
                 <span className="rounded-full border px-4 py-2 text-sm font-bold" style={{ borderColor: 'rgba(255,255,255,.25)' }}>
                   {unidades === 1 ? 'Última unidade disponível' : `${unidades} unidades disponíveis`}
@@ -279,7 +279,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
             ['Posso ver o container antes de comprar?', 'Sim. Agende uma visita ao pátio em Itajaí/SC e confira a unidade pessoalmente.'],
             ['Quais são as medidas?', "É um container de 40 pés High Cube: cerca de 12,19 m de comprimento, 2,44 m de largura e 2,90 m de altura (medidas externas padrão)."],
             ['Vocês entregam?', 'A retirada é no pátio em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
-            ['Quanto custa?', `O valor é ${preco}, conforme o tipo e o ano do container. Preencha o formulário e enviamos o preço da unidade e as fotos.`],
+            ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço da unidade e as fotos.`],
             ['Como é o pagamento?', 'As condições são combinadas no atendimento, pelo WhatsApp.'],
           ].map(([q, a]) => (
             <details key={q} className="group rounded-2xl p-4" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>

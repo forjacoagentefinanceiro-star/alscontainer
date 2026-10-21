@@ -14,22 +14,18 @@ export const metadata: Metadata = {
   },
 }
 
-// preço e estoque reais (tipos A/B/C e containers marcados para venda); sem acesso, usa a faixa padrão
-async function dados() {
-  let min = 10300, max: number | null = 11400, unidades: number | null = null
+// Preço de entrada fixo da campanha: "a partir de R$ 10.300,00" (sem teto). Estoque real = containers marcados para venda.
+const PRECO_INICIAL = 10300
+
+async function unidadesDisponiveis(): Promise<number | null> {
   try {
     const sb = createAdminClient()
-    const { data: t } = await sb.from('cv_tipos').select('preco')
-    const precos = (t ?? []).map(x => Number(x.preco)).filter(n => n > 0)
-    if (precos.length) { min = Math.min(...precos); max = Math.max(...precos) }
     const { count } = await sb.from('containers').select('id', { count: 'exact', head: true })
       .eq('para_venda', true).or('status.is.null,status.eq.disponivel')
-    if (count != null) unidades = count
-  } catch { /* sem service role: página segue com valores padrão */ }
-  return { min, max, unidades }
+    return count ?? null
+  } catch { return null }   // sem service role: a página segue sem o contador
 }
 
 export default async function ContainersPage() {
-  const d = await dados()
-  return <Pagina precoMin={d.min} precoMax={d.max} unidades={d.unidades} />
+  return <Pagina precoMin={PRECO_INICIAL} unidades={await unidadesDisponiveis()} />
 }
