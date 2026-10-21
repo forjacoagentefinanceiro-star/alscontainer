@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
-import { createAdminClient } from '@/lib/supabase/admin'
 import Pagina from '@/components/containers/Pagina'
 
 export const dynamic = 'force-dynamic'
@@ -21,18 +20,9 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-// Preço de entrada fixo da campanha: "a partir de R$ 8.500,00" (sem teto). Estoque real = containers marcados para venda.
+// Preço de entrada fixo da campanha: "a partir de R$ 8.500,00" (sem teto). A página não mostra quantidade de unidades.
 const PRECO_INICIAL = 8500
 
-async function unidadesDisponiveis(): Promise<number | null> {
-  try {
-    const sb = createAdminClient()
-    const { count } = await sb.from('containers').select('id', { count: 'exact', head: true })
-      .eq('para_venda', true).or('status.is.null,status.eq.disponivel')
-    return count ?? null
-  } catch { return null }   // sem service role: a página segue sem o contador
-}
-
-export default async function ContainersPage() {
-  return <Pagina precoMin={PRECO_INICIAL} unidades={await unidadesDisponiveis()} />
+export default function ContainersPage() {
+  return <Pagina precoMin={PRECO_INICIAL} />
 }

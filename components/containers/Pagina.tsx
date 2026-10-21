@@ -49,7 +49,7 @@ function Logo({ tamanho = 34 }: { tamanho?: number }) {
   return <Image src="/containers/alm-logo.png" alt={MARCA} width={Math.round(h * 900 / 512)} height={h} priority style={{ height: h, width: 'auto' }} />
 }
 
-export default function Pagina({ precoMin, unidades }: { precoMin: number; unidades: number | null }) {
+export default function Pagina({ precoMin }: { precoMin: number }) {
   const [ref] = useState(gerarRef)
   const [nome, setNome] = useState('')
   const [tel, setTel] = useState('')
@@ -206,11 +206,6 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
             </ul>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-white sm:text-3xl" style={{ background: ACENTO }}>Containers {preco}</span>
-              {unidades != null && unidades > 0 && (
-                <span className="rounded-full border px-4 py-2 text-sm font-bold" style={{ borderColor: 'rgba(255,255,255,.25)' }}>
-                  {unidades === 1 ? 'Última unidade disponível' : `${unidades} unidades disponíveis`}
-                </span>
-              )}
             </div>
             <p className="mt-2 text-sm text-white/60">Valor conforme o tipo e o ano do container · frete sob consulta.</p>
           </div>
