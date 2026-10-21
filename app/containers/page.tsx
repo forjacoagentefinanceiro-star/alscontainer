@@ -5,16 +5,16 @@ import Pagina from '@/components/containers/Pagina'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Container 40' High Cube usado em ótimo estado | ALS Logística",
-  description: "Container marítimo 40' High Cube usado, em ótimo estado, pronta entrega em Itajaí/SC. Veja pessoalmente e fale no WhatsApp.",
+  title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
+  description: "Container marítimo 40' High Cube usado, em ótimo estado, pronta entrega em Itajaí/SC. Receba o preço e as fotos no WhatsApp.",
   openGraph: {
-    title: "Container 40' High Cube usado em ótimo estado",
-    description: 'Pronta entrega em Itajaí/SC. Chame no WhatsApp.',
+    title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
+    description: 'Pronta entrega em Itajaí/SC. Veja pessoalmente antes de comprar.',
     images: ['/containers/lateral.jpg'],
   },
 }
 
-// preço e estoque reais (tipos A/B/C e containers marcados para venda); se não houver acesso, usa a faixa padrão
+// preço e estoque reais (tipos A/B/C e containers marcados para venda); sem acesso, usa a faixa padrão
 async function dados() {
   let min = 10300, max: number | null = 11400, unidades: number | null = null
   try {
