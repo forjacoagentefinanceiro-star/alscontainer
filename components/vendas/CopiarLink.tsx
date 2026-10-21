@@ -10,7 +10,8 @@ const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 export default function CopiarLink({ nome, canal, utm }: { nome: string; canal: string; utm: string | null }) {
   const [ok, setOk] = useState(false)
   function copiar() {
-    const url = `${window.location.origin}/containers?utm_source=${FONTE[canal] ?? 'outro'}&utm_medium=cpc&utm_campaign=${encodeURIComponent(slug(utm || nome))}`
+    const base = (process.env.NEXT_PUBLIC_LANDING_URL || window.location.origin).replace(/\/$/, '')
+    const url = `${base}/containers?utm_source=${FONTE[canal] ?? 'outro'}&utm_medium=cpc&utm_campaign=${encodeURIComponent(slug(utm || nome))}`
     navigator.clipboard?.writeText(url).then(() => { setOk(true); setTimeout(() => setOk(false), 2500) }).catch(() => window.prompt('Copie o link:', url))
   }
   return <button className={btnLeve} onClick={copiar} title="Copia o link da página de containers com esta campanha">{ok ? 'Link copiado ✓' : 'Copiar link'}</button>

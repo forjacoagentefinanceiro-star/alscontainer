@@ -99,7 +99,7 @@ export const MODELOS: ModeloMsg[] = [
   },
   {
     key: 'preco', titulo: 'Preço',
-    texto: (l, preco) => `${primeiroNome(l.nome) || 'Olá'}, o valor vai de R$ 10.300,00 a R$ 11.400,00, conforme o ano do container${preco ? ` (o ${l.ano_pref ?? 'desse ano'} está por ${preco})` : ''}. Posso te enviar fotos e vídeo do interior. Quer agendar uma visita?`,
+    texto: (l, preco) => `${primeiroNome(l.nome) || 'Olá'}, os containers saem a partir de R$ 8.500,00, conforme o tipo e o ano${preco ? ` (o ${l.ano_pref ?? 'desse ano'} está por ${preco})` : ''}. Posso te enviar fotos e vídeo do interior. Quer agendar uma visita?`,
   },
   {
     key: 'visita', titulo: 'Confirmar visita',

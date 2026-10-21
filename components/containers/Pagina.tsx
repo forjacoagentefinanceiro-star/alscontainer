@@ -205,7 +205,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
               ))}
             </ul>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-white sm:text-3xl" style={{ background: ACENTO }}>{preco.charAt(0).toUpperCase() + preco.slice(1)}</span>
+              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-white sm:text-3xl" style={{ background: ACENTO }}>Containers {preco}</span>
               {unidades != null && unidades > 0 && (
                 <span className="rounded-full border px-4 py-2 text-sm font-bold" style={{ borderColor: 'rgba(255,255,255,.25)' }}>
                   {unidades === 1 ? 'Última unidade disponível' : `${unidades} unidades disponíveis`}

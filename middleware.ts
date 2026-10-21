@@ -1,7 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Endereço público da landing (sem o nome do sistema): qualquer host que não seja o do sistema
+// (contém "alscontainer") nem local serve SOMENTE a página /containers e o endpoint de leads.
+function ehHostDaLanding(host: string) {
+  const h = host.toLowerCase().split(':')[0]
+  if (!h || h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost')) return false
+  const extras = (process.env.LANDING_HOSTS ?? '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean)
+  if (extras.includes(h)) return true
+  return !h.includes('alscontainer')
+}
+
 export async function middleware(request: NextRequest) {
+  if (ehHostDaLanding(request.headers.get('host') ?? '')) {
+    const p = request.nextUrl.pathname
+    if (p === '/containers' || p.startsWith('/containers/') || p.startsWith('/api/containers')) return NextResponse.next()
+    return NextResponse.redirect(new URL('/containers', request.url))
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
