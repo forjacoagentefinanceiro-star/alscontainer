@@ -40,7 +40,15 @@ export async function POST(req: Request) {
   try { supabase = createAdminClient() } catch { return NextResponse.json({ ok: false, erro: 'config' }, { status: 503 }) }
 
   const { data: ja } = await supabase.from('cv_leads').select('id, nome, telefone').like('obs', `%ref ${ref}%`).limit(1)
-  const existente = ja?.[0]
+  let existente = ja?.[0]
+
+  // mesmo telefone já em atendimento (outra visita ou requisição simultânea) = mesmo lead, não cria outro
+  if (!existente && telefone) {
+    const desde = new Date(Date.now() - 30 * 86400_000).toISOString()
+    const { data: mesmo } = await supabase.from('cv_leads').select('id, nome, telefone')
+      .eq('telefone', telefone).not('etapa', 'in', '(vendido,perdido)').gte('criado_em', desde).order('criado_em').limit(1)
+    existente = mesmo?.[0]
+  }
 
   // ---------- já existe: completa nome/telefone e registra o envio ----------
   if (existente) {

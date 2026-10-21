@@ -16,6 +16,9 @@ const BG = '#101217'
 const PAINEL = '#1a1d25'
 const ACENTO = '#2f7df6'
 
+// fila: as chamadas ao CRM saem uma de cada vez (evita lead duplicado por requisições simultâneas)
+let fila: Promise<unknown> = Promise.resolve()
+
 function gerarRef() {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join('')
@@ -59,7 +62,7 @@ export default function Pagina({ precoMin, unidades }: { precoMin: number; unida
     const dados = JSON.stringify({ ref, ...origemDaVisita(), ...corpo })
     try {
       if (beacon && navigator.sendBeacon) { navigator.sendBeacon('/api/containers/lead', new Blob([dados], { type: 'application/json' })); return }
-      fetch('/api/containers/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: dados, keepalive: true }).catch(() => {})
+      fila = fila.then(() => fetch('/api/containers/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: dados, keepalive: true })).catch(() => {})
     } catch { /* sem rede: o formulário final tenta de novo no envio */ }
   }
 
@@ -105,7 +108,7 @@ export default function Pagina({ precoMin, unidades }: { precoMin: number; unida
     rastrear('form')
     setEnviado(true)
     // leva a pessoa direto para a conversa no seu WhatsApp (dá tempo de registrar o lead e os pixels)
-    setTimeout(() => chamarWhats('formulário', true), 900)
+    Promise.race([fila, new Promise(r => setTimeout(r, 2500))]).then(() => setTimeout(() => chamarWhats('formulário', true), 300))
   }
 
   function chamarWhats(origem: string, auto = false) {
