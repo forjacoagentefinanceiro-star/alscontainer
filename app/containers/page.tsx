@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
     description: 'Pronta entrega em Itajaí/SC. Veja pessoalmente antes de comprar.',
-    images: ['/containers/lateral.jpg'],
+    images: ['/containers/alm-banner.jpg'],
   },
 }
 

@@ -41,19 +41,9 @@ function origemDaVisita(): Record<string, string | null> {
 }
 
 function Logo({ tamanho = 34 }: { tamanho?: number }) {
-  const aco = 'linear-gradient(180deg,#f4f6f9 0%,#aab2bd 45%,#6c7480 100%)'
-  return (
-    <span className="inline-flex items-center gap-2.5" aria-label={MARCA}>
-      <svg width={tamanho * 0.95} height={tamanho} viewBox="0 0 38 40" aria-hidden>
-        <polygon points="2,12 30,2 30,34 2,34" fill="#0d2a5c" />
-        {[5, 10, 15, 20, 25].map((x, i) => <polygon key={x} points={`${x},${12 - i * 2} ${x + 2.4},${11 - i * 2} ${x + 2.4},34 ${x},34`} fill={ACENTO} />)}
-      </svg>
-      <span className="leading-none">
-        <span className="block font-black italic tracking-tight" style={{ fontSize: tamanho * 0.72, background: aco, WebkitBackgroundClip: 'text', color: 'transparent' }}>ALM</span>
-        <span className="mt-0.5 block font-bold tracking-[.3em]" style={{ fontSize: tamanho * 0.27, background: aco, WebkitBackgroundClip: 'text', color: 'transparent' }}>CONTAINERS</span>
-      </span>
-    </span>
-  )
+  // logomarca original da ALM Containers (recorte do logotipo, com bordas esfumadas para fundir ao fundo escuro)
+  const h = Math.round(tamanho * 1.7)
+  return <Image src="/containers/alm-logo.png" alt={MARCA} width={Math.round(h * 900 / 512)} height={h} priority style={{ height: h, width: 'auto' }} />
 }
 
 export default function Pagina({ precoMin, precoMax, unidades }: { precoMin: number; precoMax: number | null; unidades: number | null }) {
@@ -225,6 +215,14 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         </div>
       </section>
 
+      {/* marca */}
+      <section className="mx-auto max-w-6xl px-4 pt-2 pb-8">
+        <div className="relative overflow-hidden rounded-3xl" style={{ aspectRatio: '16/8', border: '1px solid rgba(255,255,255,.1)' }}>
+          <Image src="/containers/alm-banner.jpg" alt="ALM Containers — venda e locação de containers" fill sizes="(max-width:1152px) 100vw, 1152px" className="object-cover" />
+        </div>
+        <p className="mt-3 text-center text-sm tracking-[.2em] text-white/60 uppercase">Venda e locação de containers · Itajaí/SC</p>
+      </section>
+
       {/* confiança */}
       <section className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-10 md:grid-cols-4">
         {[['👀', 'Veja antes de comprar', 'Visita liberada no pátio'], ['📦', 'Pronta entrega', 'Unidade real, como nas fotos'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
@@ -305,7 +303,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       </section>
 
       <footer className="px-4 pb-10 text-center text-xs text-white/45">
-        <Logo tamanho={28} />
+        <div className="flex justify-center"><Logo tamanho={48} /></div>
         <p className="mt-3">{MARCA} · Itajaí/SC · WhatsApp {WHATS_EXIBIDO}</p>
         <p className="mt-1">Seus dados são usados somente para o atendimento desta solicitação.</p>
       </footer>
