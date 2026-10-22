@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Script from 'next/script'
 import { useEffect, useState } from 'react'
 
-const MARCA = 'ALM Containers'
+const MARCA = 'MLA Containers'
 const WHATS = process.env.NEXT_PUBLIC_WHATSAPP_VENDAS || '5547989173801'
 const WHATS_EXIBIDO = '(47) 98917-3801'
 const META = process.env.NEXT_PUBLIC_META_PIXEL_ID
@@ -14,7 +14,7 @@ type W = Window & { fbq?: (...a: unknown[]) => void; ttq?: { track: (...a: unkno
 
 const BG = '#101217'
 const PAINEL = '#1a1d25'
-const ACENTO = '#2f7df6'
+const ACENTO = '#ff9f1a'
 
 // fila: as chamadas ao CRM saem uma de cada vez (evita lead duplicado por requisições simultâneas)
 let fila: Promise<unknown> = Promise.resolve()
@@ -34,8 +34,8 @@ const soDigitos = (v: string) => v.replace(/\D/g, '')
 function origemDaVisita(): Record<string, string | null> {
   let q = new URLSearchParams(window.location.search)
   try {
-    if ([...q.keys()].some(k => k.startsWith('utm_') || k === 'fbclid' || k === 'ttclid')) sessionStorage.setItem('alm-origem', q.toString())
-    else { const g = sessionStorage.getItem('alm-origem'); if (g) q = new URLSearchParams(g) }
+    if ([...q.keys()].some(k => k.startsWith('utm_') || k === 'fbclid' || k === 'ttclid')) sessionStorage.setItem('mla-origem', q.toString())
+    else { const g = sessionStorage.getItem('mla-origem'); if (g) q = new URLSearchParams(g) }
   } catch { /* modo privado */ }
   return {
     utm_source: q.get('utm_source'), utm_medium: q.get('utm_medium'), utm_campaign: q.get('utm_campaign'),
@@ -44,9 +44,9 @@ function origemDaVisita(): Record<string, string | null> {
 }
 
 function Logo({ tamanho = 34 }: { tamanho?: number }) {
-  // logomarca original da ALM Containers (recorte do logotipo, com bordas esfumadas para fundir ao fundo escuro)
+  // logomarca original da MLA Containers (recorte do logotipo, com bordas esfumadas para fundir ao fundo escuro)
   const h = Math.round(tamanho * 1.7)
-  return <Image src="/containers/alm-logo.png" alt={MARCA} width={Math.round(h * 900 / 512)} height={h} priority style={{ height: h, width: 'auto' }} />
+  return <Image src="/containers/mla-logo.png" alt={MARCA} width={Math.round(h * 922 / 541)} height={h} priority style={{ height: h, width: 'auto' }} />
 }
 
 export default function Pagina({ precoMin }: { precoMin: number }) {
@@ -147,7 +147,7 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
       {/* campo escondido contra robôs */}
       <input type="text" name="site" tabIndex={-1} autoComplete="off" aria-hidden className="hidden" onChange={() => {}} />
       {erro && <p className="mt-2 text-sm font-semibold text-red-400">{erro}</p>}
-      <button type="submit" className="mt-4 w-full rounded-2xl py-4 text-lg font-black uppercase tracking-wide text-white transition hover:brightness-110 active:scale-[.99]" style={{ background: ACENTO }}>
+      <button type="submit" className="mt-4 w-full rounded-2xl py-4 text-lg font-black uppercase tracking-wide text-[#101217] transition hover:brightness-110 active:scale-[.99]" style={{ background: ACENTO }}>
         Quero o preço agora
       </button>
       <p className="mt-3 text-center text-xs leading-snug text-white/50">
@@ -193,7 +193,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         </div>
         <div className="relative mx-auto grid max-w-6xl gap-8 px-4 pb-14 pt-10 lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:pt-16">
           <div>
-            <span className="inline-block rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white" style={{ background: ACENTO }}>Pronta entrega · Itajaí/SC</span>
+            <span className="inline-block rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-[#101217]" style={{ background: ACENTO }}>Pronta entrega · Itajaí/SC</span>
             <h1 className="mt-4 text-4xl font-black italic leading-[1.06] sm:text-5xl lg:text-[3.4rem]">
               Container<br />
               <span style={{ color: ACENTO }}>40&apos;&nbsp;High&nbsp;Cube</span><br />
@@ -206,7 +206,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
               ))}
             </ul>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-white sm:text-3xl" style={{ background: ACENTO }}>Containers {preco}</span>
+              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-[#101217] sm:text-3xl" style={{ background: ACENTO }}>Containers {preco}</span>
             </div>
             <p className="mt-2 text-sm text-white/60">Valor conforme o tipo e o ano do container · frete sob consulta.</p>
           </div>
@@ -217,7 +217,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       {/* marca */}
       <section className="mx-auto max-w-6xl px-4 pt-2 pb-8">
         <div className="relative overflow-hidden rounded-3xl" style={{ aspectRatio: '16/8', border: '1px solid rgba(255,255,255,.1)' }}>
-          <Image src="/containers/alm-banner.jpg" alt="ALM Containers — venda e locação de containers" fill sizes="(max-width:1152px) 100vw, 1152px" className="object-cover" />
+          <Image src="/containers/mla-banner.jpg" alt="MLA Containers — venda e locação de containers" fill sizes="(max-width:1152px) 100vw, 1152px" className="object-cover" />
         </div>
         <p className="mt-3 text-center text-sm tracking-[.2em] text-white/60 uppercase">Venda e locação de containers · Itajaí/SC</p>
       </section>
@@ -242,7 +242,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
             </div>
           ))}
         </div>
-        <div className="mt-6 text-center"><a href="#form" className="inline-block rounded-2xl px-8 py-4 text-lg font-black uppercase text-white" style={{ background: ACENTO }}>Quero o preço agora</a></div>
+        <div className="mt-6 text-center"><a href="#form" className="inline-block rounded-2xl px-8 py-4 text-lg font-black uppercase text-[#101217]" style={{ background: ACENTO }}>Quero o preço agora</a></div>
       </section>
 
       {/* usos */}
@@ -263,7 +263,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[['1', 'Peça o preço', 'Preencha seu nome e WhatsApp. Respondemos com o valor e as fotos.'], ['2', 'Veja no pátio', 'Agende a visita em Itajaí/SC e confira a unidade pessoalmente.'], ['3', 'Feche e retire', 'Combine o pagamento e a retirada, ou peça a cotação do frete.']].map(([n, t, s]) => (
             <div key={n} className="rounded-2xl p-5" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full text-lg font-black text-white" style={{ background: ACENTO }}>{n}</span>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full text-lg font-black text-[#101217]" style={{ background: ACENTO }}>{n}</span>
               <p className="mt-3 text-lg font-bold">{t}</p><p className="mt-1 text-sm text-white/65">{s}</p>
             </div>
           ))}
@@ -295,7 +295,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
           <h2 className="text-3xl font-black italic sm:text-5xl">Garanta o <span style={{ color: ACENTO }}>seu container</span></h2>
           <p className="mx-auto mt-3 max-w-xl text-white/75">Pronta entrega em Itajaí/SC. Peça o preço agora e veja a unidade antes de decidir.</p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a href="#form" className="rounded-2xl px-8 py-4 text-lg font-black uppercase text-white" style={{ background: ACENTO }}>Quero o preço agora</a>
+            <a href="#form" className="rounded-2xl px-8 py-4 text-lg font-black uppercase text-[#101217]" style={{ background: ACENTO }}>Quero o preço agora</a>
             <button onClick={() => chamarWhats('final')} className="rounded-2xl px-8 py-4 text-lg font-black text-white" style={{ background: '#25D366' }}>Falar no WhatsApp</button>
           </div>
         </div>
@@ -310,7 +310,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       {/* barra fixa no celular */}
       {!enviado && (
         <div className="fixed inset-x-3 bottom-3 z-40 sm:hidden">
-          <a href="#form" className="block rounded-2xl py-4 text-center text-lg font-black uppercase text-white shadow-2xl" style={{ background: ACENTO }}>Quero o preço agora</a>
+          <a href="#form" className="block rounded-2xl py-4 text-center text-lg font-black uppercase text-[#101217] shadow-2xl" style={{ background: ACENTO }}>Quero o preço agora</a>
         </div>
       )}
     </div>

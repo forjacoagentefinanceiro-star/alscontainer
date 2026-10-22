@@ -11,16 +11,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(`${proto}://${host}`),
     icons: {
-      icon: [{ url: '/containers/alm-favicon.ico', sizes: 'any' }, { url: '/containers/alm-favicon.png', type: 'image/png', sizes: '512x512' }],
-      shortcut: '/containers/alm-favicon.ico',
-      apple: '/containers/alm-apple-touch.png',
+      icon: [{ url: '/containers/mla-favicon.ico', sizes: 'any' }, { url: '/containers/mla-favicon.png', type: 'image/png', sizes: '512x512' }],
+      shortcut: '/containers/mla-favicon.ico',
+      apple: '/containers/mla-apple-touch.png',
     },
-    title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
+    title: "Container 40' High Cube usado em ótimo estado | MLA Containers",
     description: "Container marítimo 40' High Cube usado, em ótimo estado, pronta entrega em Itajaí/SC. Receba o preço e as fotos no WhatsApp.",
     openGraph: {
-      title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
+      title: "Container 40' High Cube usado em ótimo estado | MLA Containers",
       description: 'Pronta entrega em Itajaí/SC. Agende uma visita e veja pessoalmente antes de comprar.',
-      images: ['/containers/alm-banner.jpg'],
+      images: ['/containers/mla-banner.jpg'],
     },
   }
 }

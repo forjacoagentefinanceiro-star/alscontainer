@@ -12,10 +12,10 @@ function ehHostDaLanding(host: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  // favicon: o endereço da landing usa o ícone da ALM Containers; o sistema segue com o dele, sem checar login
+  // favicon: o endereço da landing usa o ícone da MLA Containers; o sistema segue com o dele, sem checar login
   if (request.nextUrl.pathname === '/favicon.ico') {
     return ehHostDaLanding(request.headers.get('host') ?? '')
-      ? NextResponse.rewrite(new URL('/containers/alm-favicon.ico', request.url))
+      ? NextResponse.rewrite(new URL('/containers/mla-favicon.ico', request.url))
       : NextResponse.next()
   }
   if (ehHostDaLanding(request.headers.get('host') ?? '')) {
