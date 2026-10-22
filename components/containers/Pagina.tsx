@@ -162,7 +162,6 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
     ['interior-porta', 'Container visto de dentro, da porta'],
     ['traseira', 'Traseira do container'],
     ['lateral-aberta', 'Container no pátio, Itajaí/SC'],
-    ['interior-1', 'Piso de madeira do container'],
   ]
 
   return (
