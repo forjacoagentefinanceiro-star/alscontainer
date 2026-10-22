@@ -12,6 +12,12 @@ function ehHostDaLanding(host: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  // favicon: o endereço da landing usa o ícone da ALM Containers; o sistema segue com o dele, sem checar login
+  if (request.nextUrl.pathname === '/favicon.ico') {
+    return ehHostDaLanding(request.headers.get('host') ?? '')
+      ? NextResponse.rewrite(new URL('/containers/alm-favicon.ico', request.url))
+      : NextResponse.next()
+  }
   if (ehHostDaLanding(request.headers.get('host') ?? '')) {
     const p = request.nextUrl.pathname
     if (p === '/containers' || p.startsWith('/containers/') || p.startsWith('/api/containers')) return NextResponse.next()
@@ -92,5 +98,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js)).*)'],
+  matcher: ['/favicon.ico', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js)).*)'],
 }

@@ -10,6 +10,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const proto = host.startsWith('localhost') ? 'http' : 'https'
   return {
     metadataBase: new URL(`${proto}://${host}`),
+    icons: {
+      icon: [{ url: '/containers/alm-favicon.ico', sizes: 'any' }, { url: '/containers/alm-favicon.png', type: 'image/png', sizes: '512x512' }],
+      shortcut: '/containers/alm-favicon.ico',
+      apple: '/containers/alm-apple-touch.png',
+    },
     title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
     description: "Container marítimo 40' High Cube usado, em ótimo estado, pronta entrega em Itajaí/SC. Receba o preço e as fotos no WhatsApp.",
     openGraph: {
