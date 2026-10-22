@@ -46,7 +46,7 @@ function origemDaVisita(): Record<string, string | null> {
 function Logo({ tamanho = 34 }: { tamanho?: number }) {
   // logomarca original da MLA Containers (recorte do logotipo, com bordas esfumadas para fundir ao fundo escuro)
   const h = Math.round(tamanho * 1.7)
-  return <Image src="/containers/mla-logo.png" alt={MARCA} width={Math.round(h * 922 / 541)} height={h} priority style={{ height: h, width: 'auto' }} />
+  return <Image src="/containers/mla-logo.png" alt={MARCA} width={Math.round(h * 930 / 539)} height={h} priority style={{ height: h, width: 'auto' }} />
 }
 
 export default function Pagina({ precoMin }: { precoMin: number }) {
