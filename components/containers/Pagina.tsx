@@ -194,12 +194,14 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         <div className="relative mx-auto grid max-w-6xl gap-8 px-4 pb-14 pt-10 lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:pt-16">
           <div>
             <span className="inline-block rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white" style={{ background: ACENTO }}>Pronta entrega · Itajaí/SC</span>
-            <h1 className="mt-4 text-4xl font-black italic leading-[1.02] sm:text-6xl">
-              Container <span style={{ color: ACENTO }}>40&apos; High Cube</span><br />usado, em ótimo estado
+            <h1 className="mt-4 text-4xl font-black italic leading-[1.06] sm:text-5xl lg:text-[3.4rem]">
+              Container<br />
+              <span style={{ color: ACENTO }}>40&apos;&nbsp;High&nbsp;Cube</span><br />
+              usado, em ótimo&nbsp;estado
             </h1>
-            <p className="mt-4 max-w-xl text-lg text-white/85">Obra, loja, depósito ou casa container: a estrutura que você precisa, pronta para usar. <strong>Veja pessoalmente antes de comprar.</strong></p>
+            <p className="mt-4 max-w-xl text-lg text-white/85">Obra, loja, depósito ou casa container: a estrutura que você precisa, pronta para usar. <strong>Agende uma visita e veja pessoalmente antes de comprar.</strong></p>
             <ul className="mt-5 space-y-2 text-base text-white/90">
-              {['Interior limpo e amplo, piso de madeira inteiro', 'High Cube: altura extra para mais espaço', 'Visita liberada no pátio, em Itajaí/SC'].map(t => (
+              {['Interior limpo e amplo', 'High Cube: altura extra para mais espaço', 'Visitas agendadas no pátio, em Itajaí/SC'].map(t => (
                 <li key={t} className="flex gap-2"><span style={{ color: ACENTO }}>✔</span>{t}</li>
               ))}
             </ul>
@@ -222,7 +224,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
 
       {/* confiança */}
       <section className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-10 md:grid-cols-4">
-        {[['👀', 'Veja antes de comprar', 'Visita liberada no pátio'], ['📦', 'Pronta entrega', 'Unidade real, como nas fotos'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
+        {[['👀', 'Veja antes de comprar', 'Visitas agendadas no pátio'], ['📦', 'Pronta entrega', 'Unidade real, como nas fotos'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
           <div key={t} className="rounded-2xl p-4" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>
             <p className="text-2xl">{i}</p><p className="mt-2 font-bold">{t}</p><p className="text-sm text-white/60">{s}</p>
           </div>
@@ -273,7 +275,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         <h2 className="text-3xl font-black italic sm:text-4xl">Perguntas <span style={{ color: ACENTO }}>frequentes</span></h2>
         <div className="mt-5 space-y-3">
           {[
-            ['Posso ver o container antes de comprar?', 'Sim. Agende uma visita ao pátio em Itajaí/SC e confira a unidade pessoalmente.'],
+            ['Posso ver o container antes de comprar?', 'Sim. As visitas são agendadas: chame no WhatsApp e combinamos o dia e o horário no pátio, em Itajaí/SC.'],
             ['Quais são as medidas?', "É um container de 40 pés High Cube: cerca de 12,19 m de comprimento, 2,44 m de largura e 2,90 m de altura (medidas externas padrão)."],
             ['Vocês entregam?', 'A retirada é no pátio em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
             ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço da unidade e as fotos.`],

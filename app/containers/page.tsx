@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: "Container marítimo 40' High Cube usado, em ótimo estado, pronta entrega em Itajaí/SC. Receba o preço e as fotos no WhatsApp.",
     openGraph: {
       title: "Container 40' High Cube usado em ótimo estado | ALM Containers",
-      description: 'Pronta entrega em Itajaí/SC. Veja pessoalmente antes de comprar.',
+      description: 'Pronta entrega em Itajaí/SC. Agende uma visita e veja pessoalmente antes de comprar.',
       images: ['/containers/alm-banner.jpg'],
     },
   }
