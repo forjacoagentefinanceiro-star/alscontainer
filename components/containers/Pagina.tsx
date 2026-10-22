@@ -46,7 +46,7 @@ function origemDaVisita(): Record<string, string | null> {
 function Logo({ tamanho = 34 }: { tamanho?: number }) {
   // logomarca original da MLA Containers (recorte do logotipo, com bordas esfumadas para fundir ao fundo escuro)
   const h = Math.round(tamanho * 1.7)
-  return <Image src="/containers/mla-logo.png" alt={MARCA} width={Math.round(h * 1706 / 607)} height={h} priority style={{ height: h, width: 'auto' }} />
+  return <Image src="/containers/mla-logo.png" alt={MARCA} width={Math.round(h * 1706 / 607)} height={h} priority unoptimized style={{ height: h, width: 'auto' }} />
 }
 
 export default function Pagina({ precoMin }: { precoMin: number }) {
@@ -187,7 +187,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <Image src="/containers/lateral.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
+          <Image src="/containers/lateral.jpg" alt="" fill priority quality={95} sizes="100vw" className="object-cover" />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(16,18,23,.93) 0%, rgba(16,18,23,.62) 42%, rgba(16,18,23,.12) 100%)' }} />
           <div className="absolute inset-x-0 bottom-0 h-40" style={{ background: `linear-gradient(180deg, transparent, ${BG})` }} />
         </div>
@@ -217,7 +217,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       {/* marca */}
       <section className="mx-auto max-w-6xl px-4 pt-2 pb-8">
         <div className="relative overflow-hidden rounded-3xl" style={{ aspectRatio: '16/8', border: '1px solid rgba(255,255,255,.1)' }}>
-          <Image src="/containers/mla-banner.jpg" alt="MLA Containers — venda e locação de containers" fill sizes="(max-width:1152px) 100vw, 1152px" className="object-cover" />
+          <Image src="/containers/mla-banner.jpg" alt="MLA Containers — venda e locação de containers" fill quality={95} sizes="(max-width:1152px) 100vw, 1152px" className="object-cover" />
         </div>
         <p className="mt-3 text-center text-sm tracking-[.2em] text-white/60 uppercase">Venda e locação de containers · Itajaí/SC</p>
       </section>
@@ -238,7 +238,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
           {fotos.map(([f, alt], i) => (
             <div key={f} className={`relative overflow-hidden rounded-2xl ${i === 0 ? 'col-span-2' : ''}`} style={{ aspectRatio: i === 0 ? '16/9' : '4/5' }}>
-              <Image src={`/containers/${f}.jpg`} alt={alt} fill sizes="(max-width:768px) 50vw, 33vw" className="object-cover" />
+              <Image src={`/containers/${f}.jpg`} alt={alt} fill quality={95} sizes="(max-width:768px) 50vw, 33vw" className="object-cover" />
             </div>
           ))}
         </div>
