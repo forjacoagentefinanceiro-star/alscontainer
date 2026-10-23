@@ -45,7 +45,7 @@ export default function Inicio() {
           <div className="hidden lg:block">
             <div className="relative h-[28rem]">
               <div className="vidro flutua absolute right-0 top-0 w-64 rounded-3xl p-5"><p className="tag">Pronta entrega</p><p className="display mt-1 text-4xl">20 · 40 HC · Dry</p><p className="mt-1 text-sm text-white/65">O tipo certo para o seu projeto.</p></div>
-              <div className="vidro flutua b absolute left-0 top-40 w-64 rounded-3xl p-5"><p className="tag">Sem surpresa</p><p className="display mt-1 text-4xl">Fotos reais</p><p className="mt-1 text-sm text-white/65">A unidade que está no pátio.</p></div>
+              <div className="vidro flutua b absolute left-0 top-40 w-64 rounded-3xl p-5"><p className="tag">Sem surpresa</p><p className="display mt-1 text-4xl">Fotos reais</p><p className="mt-1 text-sm text-white/65">Imagens do nosso pátio.</p></div>
               <div className="vidro flutua absolute bottom-0 right-6 w-64 rounded-3xl p-5"><p className="tag">Confira pessoalmente</p><p className="display mt-1 text-4xl">Visita agendada</p><p className="mt-1 text-sm text-white/65">Venha ao pátio e escolha.</p></div>
             </div>
           </div>
@@ -76,7 +76,7 @@ export default function Inicio() {
         <div className="mx-auto max-w-7xl px-5">
           <Titulo tag="O nosso diferencial" sub="A MLA Containers foi criada para trazer ao mercado mais clareza e menos dor de cabeça na operação de quem compra ou aluga.">Transparência e <span className="laranja-texto">tranquilidade</span></Titulo>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
-            {[['01', 'Transparência', 'Fotos reais da unidade, valores claros e visita ao pátio. Sem surpresa na hora de decidir.'], ['02', 'Tranquilidade', 'Atendimento direto e passo a passo simples, do primeiro contato à retirada ou entrega.'], ['03', 'Localização estratégica', 'Em Itajaí/SC, num ponto estratégico para facilitar a retirada e a logística da sua operação.']].map(([n, t, s], i) => (
+            {[['01', 'Transparência', 'Fotos reais do nosso estoque, valores claros e visita ao pátio. Sem surpresa na hora de decidir.'], ['02', 'Tranquilidade', 'Atendimento direto e passo a passo simples, do primeiro contato à retirada ou entrega.'], ['03', 'Localização estratégica', 'Em Itajaí/SC, num ponto estratégico para facilitar a retirada e a logística da sua operação.']].map(([n, t, s], i) => (
               <Rev key={n} d={i * 0.1} zoom>
                 <div className="cartao h-full p-7">
                   <p className="display text-7xl"><span className="laranja-texto">{n}</span></p>
@@ -141,7 +141,7 @@ export default function Inicio() {
 
       {/* FOTOS */}
       <section className="mx-auto max-w-7xl px-5 py-24">
-        <Titulo tag="Sem imagem de banco" sub="As fotos são da unidade que está no nosso pátio, por fora e por dentro.">É este container. <span className="laranja-texto">Fotos reais.</span></Titulo>
+        <Titulo tag="Sem imagem de banco" sub="Fotos reais de unidades do nosso estoque. Cada container é único: tipo, ano e detalhes podem variar, e você confere o seu pessoalmente na visita ao pátio.">Do nosso pátio. <span className="laranja-texto">Fotos reais.</span></Titulo>
         <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-4 md:grid-rows-2">
           {([['lateral', 'Lateral do container 40 pés HC', 'col-span-2 row-span-1 md:row-span-2 aspect-[4/3] md:aspect-auto'], ['interior-porta', 'Container visto de dentro, da porta', 'aspect-[4/5]'], ['traseira', 'Traseira do container', 'aspect-[4/5]'], ['lateral-aberta', 'Container no pátio em Itajaí/SC', 'col-span-2 aspect-[16/9]']] as const).map(([f, alt, cl], i) => (
             <Rev key={f} d={i * 0.08} zoom className={cl}>
@@ -191,7 +191,7 @@ export default function Inicio() {
       <section className="py-24" style={{ background: 'var(--bg2)' }}>
         <div className="mx-auto max-w-7xl px-5">
           <Titulo centro tag="Simples e sem enrolação">Como <span className="laranja-texto">funciona</span></Titulo>
-          <div className="mt-14"><ComoFunciona itens={[['Fale com a gente', 'Chame no WhatsApp ou deixe nome e telefone. Respondemos com o valor e as fotos da unidade.'], ['Veja no pátio', 'Agende a visita em Itajaí/SC, confira o container por fora e por dentro e escolha o seu.'], ['Feche e retire', 'Combine o pagamento e a retirada, ou peça a cotação do frete para a sua cidade.']]} /></div>
+          <div className="mt-14"><ComoFunciona itens={[['Fale com a gente', 'Chame no WhatsApp ou deixe nome e telefone. Respondemos com o valor e as fotos das unidades disponíveis.'], ['Veja no pátio', 'Agende a visita em Itajaí/SC, confira o container por fora e por dentro e escolha o seu.'], ['Feche e retire', 'Combine o pagamento e a retirada, ou peça a cotação do frete para a sua cidade.']]} /></div>
         </div>
       </section>
 

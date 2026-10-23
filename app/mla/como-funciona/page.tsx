@@ -14,7 +14,7 @@ export default function Como() {
       <Faixa itens={['FALE COM A GENTE', 'VEJA NO PÁTIO', 'FECHE E RETIRE']} />
       <section className="mx-auto max-w-7xl px-5 py-24">
         <Titulo centro tag="Para comprar">Passo a passo da <span className="laranja-texto">compra</span></Titulo>
-        <div className="mt-14"><ComoFunciona itens={[['Fale com a gente', 'Chame no WhatsApp ou deixe nome e telefone. Respondemos com o valor e as fotos da unidade.'], ['Agende a visita', 'Escolha o dia e o horário. Você vem ao pátio, em Itajaí/SC, e confere o container por fora e por dentro.'], ['Escolha o seu', 'Cada unidade é única. Veja pessoalmente e decida com tranquilidade.'], ['Feche e retire', 'Combinamos o pagamento e a retirada no pátio, ou cotamos o frete para a sua cidade.']]} /></div>
+        <div className="mt-14"><ComoFunciona itens={[['Fale com a gente', 'Chame no WhatsApp ou deixe nome e telefone. Respondemos com o valor e as fotos das unidades disponíveis.'], ['Agende a visita', 'Escolha o dia e o horário. Você vem ao pátio, em Itajaí/SC, e confere o container por fora e por dentro.'], ['Escolha o seu', 'Cada unidade é única. Veja pessoalmente e decida com tranquilidade.'], ['Feche e retire', 'Combinamos o pagamento e a retirada no pátio, ou cotamos o frete para a sua cidade.']]} /></div>
       </section>
       <section className="py-24" style={{ background: 'var(--bg2)' }}><div className="mx-auto max-w-7xl px-5"><Titulo centro tag="Dúvidas">Perguntas <span className="laranja-texto">frequentes</span></Titulo><div className="mt-12"><Faq itens={FAQ_GERAL} /></div></div></section>
       <CtaFinal pagina="como-funciona" assunto="informações sobre como comprar ou alugar um container" />

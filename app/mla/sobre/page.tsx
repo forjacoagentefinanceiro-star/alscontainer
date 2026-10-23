@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function Sobre() {
   const valores: [string, string][] = [
-    ['Transparência', 'Fotos reais da unidade e valores claros, sem surpresa na hora da visita.'],
+    ['Transparência', 'Fotos reais do nosso estoque e valores claros, sem surpresa na hora da visita.'],
     ['Tranquilidade', 'Processo simples e atendimento direto: você sabe cada passo e confere pessoalmente antes de decidir.'],
     ['Localização estratégica', 'Sediados em Itajaí/SC, num ponto estratégico para facilitar a retirada e a logística da sua operação.'],
   ]

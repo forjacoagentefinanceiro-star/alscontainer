@@ -224,7 +224,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
 
       {/* confiança */}
       <section className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-10 md:grid-cols-4">
-        {[['👀', 'Veja antes de comprar', 'Visitas agendadas no pátio'], ['📦', 'Pronta entrega', 'Unidade real, como nas fotos'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
+        {[['👀', 'Veja antes de comprar', 'Visitas agendadas no pátio'], ['📦', 'Pronta entrega', 'Fotos reais do nosso pátio'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
           <div key={t} className="rounded-2xl p-4" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>
             <p className="text-2xl">{i}</p><p className="mt-2 font-bold">{t}</p><p className="text-sm text-white/60">{s}</p>
           </div>
@@ -233,8 +233,8 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
 
       {/* fotos reais */}
       <section className="mx-auto max-w-6xl px-4 pb-12">
-        <h2 className="text-3xl font-black italic sm:text-4xl">É este container. <span style={{ color: ACENTO }}>Fotos reais.</span></h2>
-        <p className="mt-2 text-white/70">Sem imagem de banco: a unidade que está no nosso pátio, por fora e por dentro.</p>
+        <h2 className="text-3xl font-black italic sm:text-4xl">Do nosso pátio. <span style={{ color: ACENTO }}>Fotos reais.</span></h2>
+        <p className="mt-2 text-white/70">Sem imagem de banco: fotos reais de unidades do nosso estoque. Cada container é único: tipo, ano e detalhes podem variar, e você confere o seu na visita.</p>
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
           {fotos.map(([f, alt], i) => (
             <div key={f} className={`relative overflow-hidden rounded-2xl ${i === 0 ? 'col-span-2' : ''}`} style={{ aspectRatio: i === 0 ? '16/9' : '4/5' }}>
@@ -278,7 +278,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
             ['Posso ver o container antes de comprar?', 'Sim. As visitas são agendadas: chame no WhatsApp e combinamos o dia e o horário no pátio, em Itajaí/SC.'],
             ['Quais são as medidas?', "É um container de 40 pés High Cube: cerca de 12,19 m de comprimento, 2,44 m de largura e 2,90 m de altura (medidas externas padrão)."],
             ['Vocês entregam?', 'A retirada é no pátio em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
-            ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço da unidade e as fotos.`],
+            ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço e as fotos das unidades disponíveis.`],
             ['Como é o pagamento?', 'As condições são combinadas no atendimento, pelo WhatsApp.'],
           ].map(([q, a]) => (
             <details key={q} className="group rounded-2xl p-4" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>
@@ -293,7 +293,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       <section className="px-4 pb-16">
         <div className="mx-auto max-w-4xl rounded-3xl p-8 text-center sm:p-12" style={{ background: `linear-gradient(135deg, #2a2f3a, ${PAINEL})`, border: `1px solid ${ACENTO}` }}>
           <h2 className="text-3xl font-black italic sm:text-5xl">Garanta o <span style={{ color: ACENTO }}>seu container</span></h2>
-          <p className="mx-auto mt-3 max-w-xl text-white/75">Pronta entrega em Itajaí/SC. Peça o preço agora e veja a unidade antes de decidir.</p>
+          <p className="mx-auto mt-3 max-w-xl text-white/75">Pronta entrega em Itajaí/SC. Peça o preço agora e veja o container pessoalmente antes de decidir.</p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href="#form" className="rounded-2xl px-8 py-4 text-lg font-black uppercase text-[#101217]" style={{ background: ACENTO }}>Quero o preço agora</a>
             <button onClick={() => chamarWhats('final')} className="rounded-2xl px-8 py-4 text-lg font-black text-white" style={{ background: '#25D366' }}>Falar no WhatsApp</button>
