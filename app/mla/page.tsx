@@ -44,9 +44,9 @@ export default function Inicio() {
           </div>
           <div className="hidden lg:block">
             <div className="relative h-[28rem]">
-              <div className="vidro flutua absolute right-0 top-0 w-72 rounded-3xl p-5" style={{ background: 'rgba(13,15,20,.82)' }}><p className="tag">Pronta entrega</p><p className="display mt-1 text-4xl">20 · 40 HC · Dry</p><p className="mt-2 text-base leading-snug text-white/90">O tipo certo para o seu projeto.</p></div>
-              <div className="vidro flutua b absolute left-0 top-40 w-72 rounded-3xl p-5" style={{ background: 'rgba(13,15,20,.82)' }}><p className="tag">Sem surpresa</p><p className="display mt-1 text-4xl">Fotos reais</p><p className="mt-2 text-base leading-snug text-white/90">Exemplos reais do nosso pátio.</p></div>
-              <div className="vidro flutua absolute bottom-0 right-6 w-72 rounded-3xl p-5" style={{ background: 'rgba(13,15,20,.82)' }}><p className="tag">Confira pessoalmente</p><p className="display mt-1 text-4xl whitespace-nowrap">Visita agendada</p><p className="mt-2 text-base leading-snug text-white/90">Venha ao pátio, confira de perto e escolha a sua.</p></div>
+              <div className="vidro flutua flex absolute right-0 top-0 w-72 h-36 flex-col justify-center rounded-3xl p-5" style={{ background: 'rgba(13,15,20,.82)' }}><p className="tag">Pronta entrega</p><p className="display mt-1 whitespace-nowrap text-3xl">20 · 40 HC · Dry</p><p className="mt-1.5 text-sm leading-snug text-white/90">O tipo certo para o seu projeto.</p></div>
+              <div className="vidro flutua flex b absolute left-0 top-40 w-72 h-36 flex-col justify-center rounded-3xl p-5" style={{ background: 'rgba(13,15,20,.82)' }}><p className="tag">Sem surpresa</p><p className="display mt-1 whitespace-nowrap text-3xl">Fotos reais</p><p className="mt-1.5 text-sm leading-snug text-white/90">Exemplos reais do nosso pátio.</p></div>
+              <div className="vidro flutua flex absolute bottom-0 right-6 w-72 h-36 flex-col justify-center rounded-3xl p-5" style={{ background: 'rgba(13,15,20,.82)' }}><p className="tag">Confira pessoalmente</p><p className="display mt-1 whitespace-nowrap text-3xl">Visita agendada</p><p className="mt-1.5 text-sm leading-snug text-white/90">Venha ao pátio e escolha a sua.</p></div>
             </div>
           </div>
         </div>
