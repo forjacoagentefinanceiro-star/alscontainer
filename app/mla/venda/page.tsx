@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function Venda() {
   return (
     <>
-      <TopoInterno atual="/venda" tag="Pronta entrega · Itajaí/SC" titulo={<><span className="aco-texto">Containers</span><br /><span className="laranja-texto">à venda</span></>} sub={`40' High Cube usados, em ótimo estado. Containers ${PRECO}, conforme o tipo, o tamanho e o ano.`} foto="/containers/lateral.jpg" />
+      <TopoInterno atual="/venda" tag="Pronta entrega · Itajaí/SC" titulo={<><span className="aco-texto">Containers</span><br /><span className="laranja-texto">à venda</span></>} sub={`Containers de 20 e 40 pés usados, em ótimo estado. Containers ${PRECO}, conforme o tipo, o tamanho e o ano.`} foto="/containers/lateral.jpg" />
       <Faixa itens={['20 E 40 PÉS', 'ÓTIMO ESTADO', 'FOTOS REAIS', 'VISITA AGENDADA', 'PRONTA ENTREGA']} />
 
       <section className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-24 lg:grid-cols-2">
