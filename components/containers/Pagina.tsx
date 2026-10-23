@@ -228,7 +228,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
 
       {/* confiança */}
       <section className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-10 md:grid-cols-4">
-        {[['👀', 'Veja antes de comprar', 'Visitas agendadas no pátio'], ['📦', 'Pronta entrega', 'Fotos reais do nosso pátio'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
+        {[['👀', 'Veja antes de comprar', 'Visitas agendadas no pátio'], ['📦', 'Pronta entrega', 'Fotos reais do pátio, e da unidade negociada'], ['💬', 'Atendimento direto', 'Tire dúvidas pelo WhatsApp'], ['🚚', 'Frete sob consulta', 'Cotamos para a sua cidade']].map(([i, t, s]) => (
           <div key={t} className="rounded-2xl p-4" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>
             <p className="text-2xl">{i}</p><p className="mt-2 font-bold">{t}</p><p className="text-sm text-white/60">{s}</p>
           </div>
@@ -238,7 +238,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       {/* fotos reais */}
       <section className="mx-auto max-w-6xl px-4 pb-12">
         <h2 className="text-3xl font-black italic sm:text-4xl">Do nosso pátio. <span style={{ color: ACENTO }}>Fotos reais.</span></h2>
-        <p className="mt-2 text-white/70">Sem imagem de banco: fotos reais de unidades do nosso estoque. Cada container é único: tipo, ano e detalhes podem variar, e você confere o seu na visita.</p>
+        <p className="mt-2 text-white/70">Fotos reais do nosso pátio, para você conhecer os tipos. Cada unidade é única: pelo WhatsApp enviamos fotos e vídeos reais da unidade que você vai negociar, e você confere na visita.</p>
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
           {fotos.map(([f, alt], i) => (
             <div key={f} className={`relative overflow-hidden rounded-2xl ${i === 0 ? 'col-span-2' : ''}`} style={{ aspectRatio: i === 0 ? '16/9' : '4/5' }}>
@@ -265,7 +265,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
       <section className="mx-auto max-w-6xl px-4 pb-12">
         <h2 className="text-3xl font-black italic sm:text-4xl">Como <span style={{ color: ACENTO }}>comprar</span></h2>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          {[['1', 'Peça o preço', 'Preencha seu nome e WhatsApp. Respondemos com o valor e as fotos.'], ['2', 'Veja no pátio', 'Agende a visita em Itajaí/SC e confira a unidade pessoalmente.'], ['3', 'Feche e retire', 'Combine o pagamento e a retirada, ou peça a cotação do frete.']].map(([n, t, s]) => (
+          {[['1', 'Peça o preço', 'Preencha seu nome e WhatsApp. Respondemos com o valor e enviamos fotos e vídeos reais da unidade.'], ['2', 'Veja no pátio', 'Agende a visita em Itajaí/SC e confira a unidade pessoalmente.'], ['3', 'Feche e retire', 'Combine o pagamento e a retirada, ou peça a cotação do frete.']].map(([n, t, s]) => (
             <div key={n} className="rounded-2xl p-5" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-full text-lg font-black text-[#101217]" style={{ background: ACENTO }}>{n}</span>
               <p className="mt-3 text-lg font-bold">{t}</p><p className="mt-1 text-sm text-white/65">{s}</p>
@@ -282,7 +282,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
             ['Posso ver o container antes de comprar?', 'Sim. As visitas são agendadas: chame no WhatsApp e combinamos o dia e o horário no pátio, em Itajaí/SC.'],
             ['Quais são as medidas?', "20 pés: cerca de 6,06 × 2,44 × 2,59 m. 40 Dry: 12,19 × 2,44 × 2,59 m. 40 HC (High Cube): 12,19 × 2,44 × 2,90 m, cerca de 30 cm mais alto. Medidas externas padrão."],
             ['Vocês entregam?', 'A retirada é no pátio em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
-            ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço e as fotos das unidades disponíveis.`],
+            ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço e fotos e vídeos reais da unidade que você vai negociar.`],
             ['Como é o pagamento?', 'As condições são combinadas no atendimento, pelo WhatsApp.'],
           ].map(([q, a]) => (
             <details key={q} className="group rounded-2xl p-4" style={{ background: PAINEL, border: '1px solid rgba(255,255,255,.08)' }}>

@@ -41,7 +41,7 @@ export default function Venda() {
 
       <section className="py-20" style={{ background: 'var(--bg2)' }}>
         <div className="mx-auto max-w-7xl px-5">
-          <Titulo tag="Veja por fora e por dentro" sub="Fotos reais de unidades do nosso estoque. Cada container é único: tipo, ano e detalhes podem variar, e você confere o seu pessoalmente na visita ao pátio.">Galeria <span className="laranja-texto">real</span></Titulo>
+          <Titulo tag="Veja por fora e por dentro" sub="Estas são fotos reais do nosso pátio, para você conhecer os tipos de container. Cada unidade é única: no atendimento pelo WhatsApp enviamos fotos e vídeos reais da unidade que você vai negociar, e você ainda confere pessoalmente na visita.">Galeria <span className="laranja-texto">real</span></Titulo>
           <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3">
             {['lateral', 'lateral-aberta', 'traseira', 'interior-1', 'interior-porta'].map((f, i) => (
               <Rev key={f} d={i * 0.06} zoom className={i === 0 ? 'col-span-2' : ''}>

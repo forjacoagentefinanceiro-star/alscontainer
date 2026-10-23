@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function Sobre() {
   const valores: [string, string][] = [
-    ['Transparência', 'Fotos reais do nosso estoque e valores claros, sem surpresa na hora da visita.'],
+    ['Transparência', 'Fotos e vídeos reais da unidade negociada e valores claros, sem surpresa na hora da visita.'],
     ['Tranquilidade', 'Processo simples e atendimento direto: você sabe cada passo e confere pessoalmente antes de decidir.'],
     ['Localização estratégica', 'Sediados em Itajaí/SC, num ponto estratégico para facilitar a retirada e a logística da sua operação.'],
   ]
@@ -24,7 +24,7 @@ export default function Sobre() {
           <p className="tag">Nosso propósito</p>
           <h2 className="display mt-2 text-5xl sm:text-6xl">Um diferencial <span className="laranja-texto">para o mercado</span></h2>
           <p className="mt-5 text-lg text-white/75">A MLA Containers foi criada para trazer um diferencial ao mercado de containers: <strong className="text-white">transparência e tranquilidade</strong> na operação dos nossos clientes, do primeiro contato à retirada.</p>
-          <p className="mt-4 text-lg text-white/75">Trabalhamos com containers marítimos de 20 pés, 40 HC e Dry, usados e em ótimo estado, para venda e locação. Você vê as fotos reais, agenda a visita no nosso pátio e escolhe a unidade com calma.</p>
+          <p className="mt-4 text-lg text-white/75">Trabalhamos com containers marítimos de 20 pés, 40 HC e Dry, usados e em ótimo estado, para venda e locação. Você recebe fotos e vídeos reais da unidade, agenda a visita no nosso pátio e escolhe a unidade com calma.</p>
           <p className="mt-4 text-lg text-white/75">Estamos em Itajaí/SC, em uma localização estratégica para a logística da sua operação.</p>
         </Rev>
         <Rev tipo="dir" zoom><div className="foto aspect-[4/3]"><Image src="/containers/lateral-aberta.jpg" alt="Pátio da MLA Containers em Itajaí/SC" fill quality={90} sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" /></div></Rev>

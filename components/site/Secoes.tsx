@@ -109,7 +109,7 @@ export const FAQ_GERAL: [string, string][] = [
   ['Qual a diferença entre HC e Dry?', 'Os dois têm o mesmo comprimento e a mesma largura. O HC (High Cube) é cerca de 30 cm mais alto, ótimo para loja, casa container e projetos que pedem pé-direito generoso. O Dry tem a altura padrão.'],
   ['Qual tamanho escolher?', 'O 20 pés é ótimo para depósito, canteiro, quiosque e ateliê. O 40 HC dá mais espaço e altura para loja, casa container e armazenagem maior. O 40 Dry atende quem quer o espaço de 40 pés com altura padrão. Conte o que você precisa e indicamos o ideal.'],
   ['Vocês entregam?', 'A retirada é no pátio, em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
-  ['Quanto custa?', `Os containers de 20 pés saem ${PRECO20}, os de 40 HC ${PRECO40} e os de 40 Dry ${PRECODRY}, conforme o tipo e o ano. Peça pelo WhatsApp e enviamos o valor e as fotos das unidades disponíveis.`],
+  ['Quanto custa?', `Os containers de 20 pés saem ${PRECO20}, os de 40 HC ${PRECO40} e os de 40 Dry ${PRECODRY}, conforme o tipo e o ano. Peça pelo WhatsApp e enviamos o valor e fotos e vídeos reais da unidade que você vai negociar.`],
   ['Como é o pagamento?', 'As condições são combinadas no atendimento, direto pelo WhatsApp.'],
   ['Vocês também alugam containers?', 'Sim. A MLA trabalha com venda e locação. Fale com a gente para saber disponibilidade e condições.'],
 ]
