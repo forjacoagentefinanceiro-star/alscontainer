@@ -7,10 +7,11 @@ import { useEffect, useState } from 'react'
 const MARCA = 'MLA Containers'
 const WHATS = process.env.NEXT_PUBLIC_WHATSAPP_VENDAS || '5547989173801'
 const WHATS_EXIBIDO = '(47) 98917-3801'
+const GA = process.env.NEXT_PUBLIC_GA_ID || 'G-KLTBKS3WBV'
 const META = process.env.NEXT_PUBLIC_META_PIXEL_ID
 const TIKTOK = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID
 
-type W = Window & { fbq?: (...a: unknown[]) => void; ttq?: { track: (...a: unknown[]) => void } }
+type W = Window & { fbq?: (...a: unknown[]) => void; ttq?: { track: (...a: unknown[]) => void }; gtag?: (...a: unknown[]) => void }
 
 const BG = '#101217'
 const PAINEL = '#1a1d25'
@@ -96,6 +97,7 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
     const w = window as W
     try { if (evento === 'form') w.fbq?.('track', 'Lead', { content_name: 'Containers usados 20 pés, 40 HC e Dry' }); else w.fbq?.('track', 'Contact') } catch { /* */ }
     try { w.ttq?.track(evento === 'form' ? 'SubmitForm' : 'Contact', { content_name: 'Containers usados 20 pés, 40 HC e Dry' }) } catch { /* */ }
+    try { w.gtag?.('event', evento === 'form' ? 'generate_lead' : 'contact_whatsapp', { content_name: 'Containers usados 20 pés, 40 HC e Dry' }) } catch { /* */ }
   }
 
   function submeter(e: React.FormEvent) {
@@ -166,6 +168,9 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
 
   return (
     <div style={{ background: BG, color: '#fff', fontFamily: '"Segoe UI", Arial, sans-serif' }} className="min-h-screen pb-24 sm:pb-0">
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA}`} strategy="afterInteractive" />
+      <Script id="ga4-landing" strategy="afterInteractive">{`
+window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config','${GA}');`}</Script>
       {META && (
         <Script id="meta-pixel" strategy="afterInteractive">{`
 !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');

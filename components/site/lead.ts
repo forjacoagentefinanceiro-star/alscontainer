@@ -1,5 +1,5 @@
 // Funções de captação de lead do site (rodam só no navegador). Usam o mesmo endpoint e CRM da landing.
-type W = Window & { fbq?: (...a: unknown[]) => void; ttq?: { track: (...a: unknown[]) => void } }
+type W = Window & { fbq?: (...a: unknown[]) => void; ttq?: { track: (...a: unknown[]) => void }; gtag?: (...a: unknown[]) => void }
 
 let fila: Promise<unknown> = Promise.resolve()
 
@@ -38,6 +38,7 @@ export function rastrear(evento: 'form' | 'whats', nome: string) {
   const w = window as W
   try { if (evento === 'form') w.fbq?.('track', 'Lead', { content_name: nome }); else w.fbq?.('track', 'Contact') } catch { /* */ }
   try { w.ttq?.track(evento === 'form' ? 'SubmitForm' : 'Contact', { content_name: nome }) } catch { /* */ }
+  try { w.gtag?.('event', evento === 'form' ? 'generate_lead' : 'contact_whatsapp', { content_name: nome }) } catch { /* */ }
 }
 
 export function urlWhats(numero: string, texto: string) {
