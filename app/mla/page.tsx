@@ -152,7 +152,7 @@ export default function Inicio() {
         </div>
       </section>
 
-      {/* CAMILA */}
+      {/* MILA */}
       <section className="mx-auto max-w-7xl px-5 pb-24">
         <div className="cartao grid items-center gap-10 overflow-hidden p-6 sm:p-12 lg:grid-cols-[.8fr_1.2fr]" style={{ background: 'linear-gradient(135deg, rgba(255,159,26,.12), rgba(255,255,255,.02))' }}>
           <Rev tipo="esq" className="mx-auto w-full max-w-[290px]">
@@ -163,10 +163,10 @@ export default function Inicio() {
             </div>
           </Rev>
           <Rev tipo="dir">
-            <p className="tag">Conheça a Camila</p>
+            <p className="tag">Conheça a Mila</p>
             <h2 className="display mt-2 text-5xl sm:text-6xl">Um tour <span className="laranja-texto">pelo pátio</span></h2>
-            <p className="mt-4 max-w-lg text-lg text-white/75">A Camila é a personagem virtual da MLA Containers. Ela apresenta os containers, os usos e como agendar a sua visita, em menos de um minuto.</p>
-            <BotaoWhats origem="camila" className="btn btn-laranja mt-6">Quero agendar a minha visita</BotaoWhats>
+            <p className="mt-4 max-w-lg text-lg text-white/75">A Mila é a personagem virtual da MLA Containers. Ela apresenta os containers, os usos e como agendar a sua visita, em menos de um minuto.</p>
+            <BotaoWhats origem="mila" className="btn btn-laranja mt-6">Quero agendar a minha visita</BotaoWhats>
           </Rev>
         </div>
       </section>
