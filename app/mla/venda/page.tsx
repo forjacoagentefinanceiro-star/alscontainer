@@ -5,22 +5,22 @@ import { Faixa, Planta } from '@/components/site/Pecas'
 import { CtaFinal, Faq, FAQ_GERAL, PRECO, Titulo, TopoInterno } from '@/components/site/Secoes'
 
 export const metadata: Metadata = {
-  title: "Containers 40' High Cube usados à venda em Itajaí/SC",
-  description: `Containers marítimos 40 pés High Cube usados, em ótimo estado, ${PRECO}. Fotos reais, visita agendada no pátio em Itajaí/SC e atendimento pelo WhatsApp.`,
+  title: 'Containers de 20 e 40 pés usados à venda em Itajaí/SC',
+  description: `Containers marítimos de 20 e 40 pés usados, em ótimo estado, ${PRECO}. Fotos reais, visita agendada no pátio em Itajaí/SC e atendimento pelo WhatsApp.`,
 }
 
 export default function Venda() {
   return (
     <>
-      <TopoInterno atual="/venda" tag="Pronta entrega · Itajaí/SC" titulo={<><span className="aco-texto">Containers</span><br /><span className="laranja-texto">à venda</span></>} sub={`40' High Cube usados, em ótimo estado. Containers ${PRECO}, conforme o tipo e o ano.`} foto="/containers/lateral.jpg" />
-      <Faixa itens={["40' HIGH CUBE", 'ÓTIMO ESTADO', 'FOTOS REAIS', 'VISITA AGENDADA', 'PRONTA ENTREGA']} />
+      <TopoInterno atual="/venda" tag="Pronta entrega · Itajaí/SC" titulo={<><span className="aco-texto">Containers</span><br /><span className="laranja-texto">à venda</span></>} sub={`40' High Cube usados, em ótimo estado. Containers ${PRECO}, conforme o tipo, o tamanho e o ano.`} foto="/containers/lateral.jpg" />
+      <Faixa itens={['20 E 40 PÉS', 'ÓTIMO ESTADO', 'FOTOS REAIS', 'VISITA AGENDADA', 'PRONTA ENTREGA']} />
 
       <section className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-24 lg:grid-cols-2">
         <Rev tipo="esq">
           <p className="tag">O que você leva</p>
           <h2 className="display mt-2 text-5xl sm:text-6xl">Container pronto <span className="laranja-texto">pra usar</span></h2>
           <ul className="mt-6 space-y-3 text-lg text-white/85">
-            {['Interior limpo e amplo', 'High Cube: altura extra para mais espaço', 'Estrutura em aço, resistente ao tempo', 'Porta com fechamento seguro', 'Visita agendada: você confere pessoalmente antes de decidir'].map(t => (
+            {['Interior limpo e amplo', 'Opções de 20 e 40 pés (High Cube no 40 pés)', 'Estrutura em aço, resistente ao tempo', 'Porta com fechamento seguro', 'Visita agendada: você confere pessoalmente antes de decidir'].map(t => (
               <li key={t} className="flex gap-3"><span className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm font-black text-[#14110c]" style={{ background: 'var(--acento)' }}>✓</span>{t}</li>
             ))}
           </ul>
@@ -50,7 +50,7 @@ export default function Venda() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 py-24">
-        <Titulo tag="Medidas" sub="Padrão do tipo 40' High Cube. Cada unidade pode ter pequenas variações.">Planta <span className="laranja-texto">técnica</span></Titulo>
+        <Titulo tag="Medidas" sub="Planta do 40' High Cube (padrão). Cada unidade pode ter pequenas variações; o 20 pés tem cerca de 6,06 m de comprimento.">Planta <span className="laranja-texto">técnica</span></Titulo>
         <Rev className="cartao mt-10 p-3 sm:p-8"><Planta /></Rev>
       </section>
 

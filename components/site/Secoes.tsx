@@ -102,9 +102,10 @@ export function CtaFinal({ pagina, assunto, titulo = 'Vamos conversar?' }: { pag
 
 export const FAQ_GERAL: [string, string][] = [
   ['Posso ver o container antes de comprar?', 'Sim. As visitas são agendadas: chame no WhatsApp e combinamos o dia e o horário no pátio, em Itajaí/SC.'],
-  ['Quais são as medidas?', "Container de 40 pés High Cube: cerca de 12,19 m de comprimento, 2,44 m de largura e 2,90 m de altura (medidas externas padrão)."],
+  ['Quais são as medidas?', "Trabalhamos com 20 e 40 pés. O 20 pés tem cerca de 6,06 m de comprimento, 2,44 m de largura e 2,59 m de altura; o 40 pés High Cube, cerca de 12,19 m, 2,44 m e 2,90 m (medidas externas padrão)."],
+  ['Qual tamanho escolher: 20 ou 40 pés?', 'O 20 pés é ótimo para depósito, canteiro, quiosque e ateliê. O 40 pés dá mais espaço para loja, casa container e armazenagem maior. Conte o que você precisa e indicamos o ideal.'],
   ['Vocês entregam?', 'A retirada é no pátio, em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
-  ['Quanto custa?', `Os containers saem ${PRECO}, conforme o tipo e o ano. Peça pelo WhatsApp e enviamos o valor da unidade e as fotos.`],
+  ['Quanto custa?', `Os containers saem ${PRECO}, conforme o tipo, o tamanho (20 ou 40 pés) e o ano. Peça pelo WhatsApp e enviamos o valor da unidade e as fotos.`],
   ['Como é o pagamento?', 'As condições são combinadas no atendimento, direto pelo WhatsApp.'],
   ['Vocês também alugam containers?', 'Sim. A MLA trabalha com venda e locação. Fale com a gente para saber disponibilidade e condições.'],
 ]

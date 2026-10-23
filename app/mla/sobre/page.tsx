@@ -23,7 +23,7 @@ export default function Sobre() {
         <Rev tipo="esq">
           <p className="tag">Nossa proposta</p>
           <h2 className="display mt-2 text-5xl sm:text-6xl">Container bom <span className="laranja-texto">se vê de perto</span></h2>
-          <p className="mt-5 text-lg text-white/75">A MLA Containers nasceu para facilitar a vida de quem precisa de espaço: obra, loja, depósito, ateliê ou até uma casa container. Trabalhamos com containers marítimos 40&apos; High Cube usados, em ótimo estado, para venda e locação.</p>
+          <p className="mt-5 text-lg text-white/75">A MLA Containers nasceu para facilitar a vida de quem precisa de espaço: obra, loja, depósito, ateliê ou até uma casa container. Trabalhamos com containers marítimos de 20 e 40 pés, usados e em ótimo estado, para venda e locação.</p>
           <p className="mt-4 text-lg text-white/75">Você vê as fotos reais, agenda a visita no nosso pátio, em Itajaí/SC, e escolhe a unidade com calma.</p>
         </Rev>
         <Rev tipo="dir" zoom><div className="foto aspect-[4/3]"><Image src="/containers/lateral-aberta.jpg" alt="Pátio da MLA Containers em Itajaí/SC" fill quality={90} sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" /></div></Rev>

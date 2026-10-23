@@ -5,9 +5,9 @@ import { ComoFunciona, CtaFinal, Faq, FAQ_GERAL, Mapa, PRECO, Titulo } from '@/c
 
 export default function Inicio() {
   const numeros: [string, string, string][] = [
-    ['40', "pés", 'de comprimento'],
-    ['2,90', 'm', 'de altura · High Cube'],
-    ['≈ 28', 'm²', 'úteis por dentro*'],
+    ['20 e 40', 'pés', 'dois tamanhos'],
+    ['2,90', 'm', 'de altura no High Cube'],
+    ['≈ 28', 'm²', 'úteis no 40 pés*'],
     ['Itajaí', '/SC', 'pronta entrega'],
   ]
   return (
@@ -32,7 +32,7 @@ export default function Inicio() {
                 <Palavras lista={['obra', 'loja', 'casa', 'empresa', 'ideia', 'oficina']} />
               </h1>
             </Rev>
-            <Rev d={0.2}><p className="mt-7 max-w-xl text-lg text-white/80 sm:text-xl">Containers marítimos 40&apos; High Cube usados, em ótimo estado. <strong className="text-white">Fotos reais, visita agendada no pátio</strong> e atendimento direto no WhatsApp.</p></Rev>
+            <Rev d={0.2}><p className="mt-7 max-w-xl text-lg text-white/80 sm:text-xl">Containers marítimos de 20 e 40 pés, usados e em ótimo estado. <strong className="text-white">Fotos reais, visita agendada no pátio</strong> e atendimento direto no WhatsApp.</p></Rev>
             <Rev d={0.3}>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="/venda" className="btn btn-laranja">Ver containers à venda</a>
@@ -43,7 +43,7 @@ export default function Inicio() {
           </div>
           <div className="hidden lg:block">
             <div className="relative h-[28rem]">
-              <div className="vidro flutua absolute right-0 top-0 w-64 rounded-3xl p-5"><p className="tag">Pronta entrega</p><p className="display mt-1 text-4xl">40&apos; High Cube</p><p className="mt-1 text-sm text-white/65">Altura extra, mais espaço útil.</p></div>
+              <div className="vidro flutua absolute right-0 top-0 w-64 rounded-3xl p-5"><p className="tag">Pronta entrega</p><p className="display mt-1 text-4xl">20 e 40 pés</p><p className="mt-1 text-sm text-white/65">O tamanho certo para o seu projeto.</p></div>
               <div className="vidro flutua b absolute left-0 top-40 w-64 rounded-3xl p-5"><p className="tag">Sem surpresa</p><p className="display mt-1 text-4xl">Fotos reais</p><p className="mt-1 text-sm text-white/65">A unidade que está no pátio.</p></div>
               <div className="vidro flutua absolute bottom-0 right-6 w-64 rounded-3xl p-5"><p className="tag">Confira pessoalmente</p><p className="display mt-1 text-4xl">Visita agendada</p><p className="mt-1 text-sm text-white/65">Venha ao pátio e escolha.</p></div>
             </div>
@@ -52,7 +52,7 @@ export default function Inicio() {
         <a href="#numeros" aria-label="Rolar" className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 sm:block"><span className="flutua block h-12 w-7 rounded-full border-2 border-white/40 p-1.5"><i className="block h-2 w-1.5 rounded bg-[var(--acento)] mx-auto" /></span></a>
       </section>
 
-      <Faixa itens={['VENDA', 'LOCAÇÃO', 'PRONTA ENTREGA', 'ITAJAÍ/SC', "40' HIGH CUBE", 'FOTOS REAIS', 'VISITA AGENDADA']} />
+      <Faixa itens={['VENDA', 'LOCAÇÃO', 'PRONTA ENTREGA', 'ITAJAÍ/SC', '20 E 40 PÉS', 'FOTOS REAIS', 'VISITA AGENDADA']} />
 
       {/* NÚMEROS */}
       <section id="numeros" className="mx-auto max-w-7xl px-5 py-24">
@@ -75,10 +75,28 @@ export default function Inicio() {
         <div className="mt-10"><Rev><EscolhaUso /></Rev></div>
       </section>
 
+      {/* TAMANHOS */}
+      <section className="mx-auto max-w-7xl px-5 pb-24">
+        <Titulo tag="Dois tamanhos" sub="Escolha pelo espaço que o seu projeto pede. Se tiver dúvida, a gente indica.">20 pés ou <span className="laranja-texto">40 pés?</span></Titulo>
+        <div className="mt-10 grid gap-4 md:grid-cols-2">
+          {[['20', 'Compacto e versátil', '≈ 6,06 × 2,44 × 2,59 m', ['Depósito e almoxarifado', 'Canteiro e escritório de obra', 'Quiosque e ateliê', 'Cabe em terrenos menores']], ['40', 'Mais espaço, mais projeto', "≈ 12,19 × 2,44 × 2,90 m (High Cube)", ['Loja, lanchonete e showroom', 'Casa container e escritório', 'Armazenagem maior', 'Altura extra para divisórias']]].map(([n, t, m, l], i) => (
+            <Rev key={n as string} d={i * 0.1} zoom>
+              <div className="cartao h-full p-7 sm:p-9">
+                <p className="display text-[7rem] leading-none sm:text-[9rem]"><span className="laranja-texto">{n}</span><span className="text-4xl text-white/60"> PÉS</span></p>
+                <p className="display mt-2 text-3xl">{t as string}</p>
+                <p className="mt-1 text-sm text-white/50">Medidas externas padrão: {m as string}</p>
+                <ul className="mt-4 space-y-2 text-white/80">{(l as string[]).map(x => <li key={x} className="flex gap-2"><span style={{ color: 'var(--acento)' }}>✓</span>{x}</li>)}</ul>
+                <BotaoWhats origem={`tamanho-${n}`} texto={`Olá! Vim pelo site da MLA Containers e quero saber preço e disponibilidade do container de ${n} pés.`} className="btn btn-laranja mt-6">Quero o de {n as string} pés</BotaoWhats>
+              </div>
+            </Rev>
+          ))}
+        </div>
+      </section>
+
       {/* PLANTA */}
       <section className="relative isolate overflow-hidden py-24" style={{ background: 'var(--bg2)' }}>
         <div className="mx-auto max-w-7xl px-5">
-          <Titulo tag="Conheça o espaço" sub="O High Cube tem altura extra: mais respiro, mais pé-direito e mais possibilidades de projeto.">Medidas <span className="laranja-texto">sem mistério</span></Titulo>
+          <Titulo tag="Conheça o espaço · planta do 40 pés" sub="O High Cube tem altura extra: mais respiro, mais pé-direito e mais possibilidades de projeto.">Medidas <span className="laranja-texto">sem mistério</span></Titulo>
           <Rev className="cartao mt-10 p-3 sm:p-8"><Planta /></Rev>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {[['Aço corten resistente', 'Estrutura pensada para o mar: aguenta chuva, sol e uso pesado.'], ['Porta com trava', 'Fechamento seguro para guardar ferramentas, estoque e equipamentos.'], ['Pé-direito generoso', 'A altura extra do High Cube facilita instalações, divisórias e mezanino.']].map(([t, s], i) => (

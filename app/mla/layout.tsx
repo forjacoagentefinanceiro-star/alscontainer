@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(`${proto}://${host}`),
     title: { default: 'MLA Containers — venda e locação de containers em Itajaí/SC', template: '%s | MLA Containers' },
-    description: 'Containers marítimos 40 pés High Cube usados, em ótimo estado, para venda e locação em Itajaí/SC. Fotos reais, visita agendada no pátio e atendimento direto pelo WhatsApp.',
+    description: 'Containers marítimos de 20 e 40 pés usados, em ótimo estado, para venda e locação em Itajaí/SC. Fotos reais, visita agendada no pátio e atendimento direto pelo WhatsApp.',
     icons: {
       icon: [{ url: '/containers/mla-favicon.ico', sizes: 'any' }, { url: '/containers/mla-favicon.png', type: 'image/png', sizes: '512x512' }],
       shortcut: '/containers/mla-favicon.ico', apple: '/containers/mla-apple-touch.png',
