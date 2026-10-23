@@ -94,8 +94,8 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
 
   function rastrear(evento: 'form' | 'whats') {
     const w = window as W
-    try { if (evento === 'form') w.fbq?.('track', 'Lead', { content_name: "Container 40' High Cube usado" }); else w.fbq?.('track', 'Contact') } catch { /* */ }
-    try { w.ttq?.track(evento === 'form' ? 'SubmitForm' : 'Contact', { content_name: "Container 40' High Cube usado" }) } catch { /* */ }
+    try { if (evento === 'form') w.fbq?.('track', 'Lead', { content_name: 'Containers usados 20 pés, 40 HC e Dry' }); else w.fbq?.('track', 'Contact') } catch { /* */ }
+    try { w.ttq?.track(evento === 'form' ? 'SubmitForm' : 'Contact', { content_name: 'Containers usados 20 pés, 40 HC e Dry' }) } catch { /* */ }
   }
 
   function submeter(e: React.FormEvent) {
@@ -114,14 +114,14 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
   function chamarWhats(origem: string, auto = false) {
     rastrear('whats')
     if (soDigitos(tel).length < 10) enviar({ nome: nome.trim() })   // cria o lead mesmo sem telefone (clique no WhatsApp)
-    const texto = `Olá! Sou ${nome.trim() || 'interessado'} e vi o container 40' High Cube usado (${origem}). Quero saber o preço e ver as fotos. (ref. ${ref})`
+    const texto = `Olá! Sou ${nome.trim() || 'interessado'} e vi os containers usados de 20 pés, 40 HC e Dry (${origem}). Quero saber o preço e ver as fotos. (ref. ${ref})`
     const url = `https://wa.me/${WHATS}?text=${encodeURIComponent(texto)}`
     if (auto) { window.location.assign(url); return }
     const novo = window.open(url, '_blank')
     if (!novo) window.location.assign(url)
   }
 
-  const preco = `a partir de ${brl(precoMin)}`
+  const preco = `20 pés a partir de ${brl(6500)}, 40 HC a partir de ${brl(precoMin)} e 40 Dry a partir de ${brl(8200)}`
 
   const formulario = enviado ? (
     <div className="rounded-3xl p-6 text-center" style={{ background: PAINEL, border: `2px solid ${ACENTO}` }} id="form">
@@ -195,20 +195,24 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
           <div>
             <span className="inline-block rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-[#101217]" style={{ background: ACENTO }}>Pronta entrega · Itajaí/SC</span>
             <h1 className="mt-4 text-4xl font-black italic leading-[1.06] sm:text-5xl lg:text-[3.4rem]">
-              Container<br />
-              <span style={{ color: ACENTO }}>40&apos;&nbsp;High&nbsp;Cube</span><br />
-              usado, em ótimo&nbsp;estado
+              Containers<br />
+              <span style={{ color: ACENTO }}>20&nbsp;·&nbsp;40&nbsp;HC&nbsp;·&nbsp;Dry</span><br />
+              usados, em ótimo&nbsp;estado
             </h1>
             <p className="mt-4 max-w-xl text-lg text-white/85">Obra, loja, depósito ou casa container: a estrutura que você precisa, pronta para usar. <strong>Agende uma visita e veja pessoalmente antes de comprar.</strong></p>
             <ul className="mt-5 space-y-2 text-base text-white/90">
-              {['Interior limpo e amplo', 'High Cube: altura extra para mais espaço', 'Visitas agendadas no pátio, em Itajaí/SC'].map(t => (
+              {['Interior limpo e amplo', 'Três opções: 20 pés, 40 HC e 40 Dry', 'Visitas agendadas no pátio, em Itajaí/SC'].map(t => (
                 <li key={t} className="flex gap-2"><span style={{ color: ACENTO }}>✔</span>{t}</li>
               ))}
             </ul>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="rounded-2xl px-5 py-3 text-2xl font-black italic text-[#101217] sm:text-3xl" style={{ background: ACENTO }}>Containers {preco}</span>
+              <div className="flex flex-col gap-2">
+                {[['20 pés', 'R$ 6.500', '#4da3ff'], ['40 HC', 'R$ 8.500', ACENTO], ['40 Dry', 'R$ 8.200', '#2dd4bf']].map(([t, v, cor]) => (
+                  <span key={t} className="rounded-2xl px-5 py-2.5 text-xl font-black italic text-[#101217] sm:text-2xl" style={{ background: cor }}>{t} · a partir de {v}</span>
+                ))}
+              </div>
             </div>
-            <p className="mt-2 text-sm text-white/60">Valor conforme o tipo e o ano do container · frete sob consulta.</p>
+            <p className="mt-2 text-sm text-white/60">Valor conforme o tipo e o ano do container · frete sob consulta. HC = High Cube (mais alto).</p>
           </div>
           <div>{formulario}</div>
         </div>
@@ -276,7 +280,7 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         <div className="mt-5 space-y-3">
           {[
             ['Posso ver o container antes de comprar?', 'Sim. As visitas são agendadas: chame no WhatsApp e combinamos o dia e o horário no pátio, em Itajaí/SC.'],
-            ['Quais são as medidas?', "É um container de 40 pés High Cube: cerca de 12,19 m de comprimento, 2,44 m de largura e 2,90 m de altura (medidas externas padrão)."],
+            ['Quais são as medidas?', "20 pés: cerca de 6,06 × 2,44 × 2,59 m. 40 Dry: 12,19 × 2,44 × 2,59 m. 40 HC (High Cube): 12,19 × 2,44 × 2,90 m, cerca de 30 cm mais alto. Medidas externas padrão."],
             ['Vocês entregam?', 'A retirada é no pátio em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
             ['Quanto custa?', `Os containers saem ${preco}, conforme o tipo e o ano. Preencha o formulário e enviamos o preço e as fotos das unidades disponíveis.`],
             ['Como é o pagamento?', 'As condições são combinadas no atendimento, pelo WhatsApp.'],

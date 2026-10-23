@@ -16,10 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
       shortcut: '/containers/mla-favicon.ico',
       apple: '/containers/mla-apple-touch.png',
     },
-    title: "Container 40' High Cube usado em ótimo estado | MLA Containers",
-    description: "Container marítimo 40' High Cube usado, em ótimo estado, pronta entrega em Itajaí/SC. Receba o preço e as fotos no WhatsApp.",
+    title: 'Containers 20 pés, 40 HC e Dry usados em ótimo estado | MLA Containers',
+    description: 'Containers marítimos usados de 20 pés, 40 HC e Dry, em ótimo estado, com pronta entrega em Itajaí/SC. Receba o preço e as fotos no WhatsApp.',
     openGraph: {
-      title: "Container 40' High Cube usado em ótimo estado | MLA Containers",
+      title: 'Containers 20 pés, 40 HC e Dry usados | MLA Containers',
       description: 'Pronta entrega em Itajaí/SC. Agende uma visita e veja pessoalmente antes de comprar.',
       images: ['/containers/mla-banner.jpg'],
     },
