@@ -4,7 +4,7 @@ import { BotaoWhats, Captar, Cabecalho, Rev } from './Interativos'
 
 export const PRECO20 = 'a partir de R$ 6.500,00'
 export const PRECO40 = 'a partir de R$ 8.500,00'
-export const PRECO = `de 20 pés ${PRECO20} e de 40 pés ${PRECO40}`
+export const PRECO = `de 20 pés ${PRECO20} e de 40 HC ${PRECO40}`
 
 export function Titulo({ tag, children, sub, centro = false }: { tag: string; children: React.ReactNode; sub?: string; centro?: boolean }) {
   return (
@@ -104,10 +104,11 @@ export function CtaFinal({ pagina, assunto, titulo = 'Vamos conversar?' }: { pag
 
 export const FAQ_GERAL: [string, string][] = [
   ['Posso ver o container antes de comprar?', 'Sim. As visitas são agendadas: chame no WhatsApp e combinamos o dia e o horário no pátio, em Itajaí/SC.'],
-  ['Quais são as medidas?', "Trabalhamos com 20 e 40 pés. O 20 pés tem cerca de 6,06 m de comprimento, 2,44 m de largura e 2,59 m de altura; o 40 pés High Cube, cerca de 12,19 m, 2,44 m e 2,90 m (medidas externas padrão)."],
-  ['Qual tamanho escolher: 20 ou 40 pés?', 'O 20 pés é ótimo para depósito, canteiro, quiosque e ateliê. O 40 pés dá mais espaço para loja, casa container e armazenagem maior. Conte o que você precisa e indicamos o ideal.'],
+  ['Quais são as medidas?', "Trabalhamos com 20 pés (cerca de 6,06 × 2,44 × 2,59 m), 40 pés Dry (12,19 × 2,44 × 2,59 m) e 40 pés HC, o High Cube (12,19 × 2,44 × 2,90 m). Medidas externas padrão."],
+  ['Qual a diferença entre HC e Dry?', 'Os dois têm o mesmo comprimento e a mesma largura. O HC (High Cube) é cerca de 30 cm mais alto, ótimo para loja, casa container e projetos que pedem pé-direito generoso. O Dry tem a altura padrão.'],
+  ['Qual tamanho escolher?', 'O 20 pés é ótimo para depósito, canteiro, quiosque e ateliê. O 40 HC dá mais espaço e altura para loja, casa container e armazenagem maior. O 40 Dry atende quem quer o espaço de 40 pés com altura padrão. Conte o que você precisa e indicamos o ideal.'],
   ['Vocês entregam?', 'A retirada é no pátio, em Itajaí/SC. Para entrega, cotamos o frete para a sua cidade.'],
-  ['Quanto custa?', `Os containers de 20 pés saem ${PRECO20} e os de 40 pés ${PRECO40}, conforme o tipo e o ano. Peça pelo WhatsApp e enviamos o valor da unidade e as fotos.`],
+  ['Quanto custa?', `Os containers de 20 pés saem ${PRECO20} e os de 40 HC ${PRECO40}, conforme o tipo e o ano. Para o 40 Dry, consulte o valor pelo WhatsApp: enviamos o preço da unidade e as fotos.`],
   ['Como é o pagamento?', 'As condições são combinadas no atendimento, direto pelo WhatsApp.'],
   ['Vocês também alugam containers?', 'Sim. A MLA trabalha com venda e locação. Fale com a gente para saber disponibilidade e condições.'],
 ]

@@ -32,35 +32,3 @@ export function Faixa({ itens }: { itens: string[] }) {
     </div>
   )
 }
-
-/** Planta técnica animada do container 40' High Cube (vista lateral + frontal) */
-export function Planta() {
-  const ondas = Array.from({ length: 46 }, (_, i) => 78 + i * 15.6)
-  return (
-    <svg viewBox="0 0 900 330" className="w-full" role="img" aria-label="Planta técnica do container de 40 pés High Cube, com 12,19 metros de comprimento e 2,90 metros de altura">
-      <defs>
-        <pattern id="malha" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="rgba(255,255,255,.05)" /></pattern>
-      </defs>
-      <rect width="900" height="330" fill="url(#malha)" />
-      {/* vista lateral */}
-      <g fill="none" stroke="#ff9f1a" strokeWidth="2.2" strokeLinejoin="round">
-        <rect className="traco" x="70" y="60" width="720" height="172" rx="3" />
-        <path className="traco" d="M70 84H790M70 208H790" strokeWidth="1.2" stroke="rgba(255,159,26,.55)" />
-        <path className="traco" d="M70 60v-12h26v12M764 60v-12h26v12M70 232v12h26v-12M764 232v12h26v-12" strokeWidth="1.6" />
-      </g>
-      <g stroke="rgba(255,159,26,.35)" strokeWidth="1">
-        {ondas.map(x => <path key={x} className="traco" d={`M${x} 90V202`} />)}
-      </g>
-      {/* cotas */}
-      <g className="cota" fill="none" stroke="#c9d0da" strokeWidth="1.2">
-        <path d="M70 282H790M70 274v16M790 274v16" />
-        <path d="M840 60V232M832 60h16M832 232h16" />
-      </g>
-      <g className="cota" fill="#fff" fontFamily="var(--font-titulo), sans-serif" fontWeight="700" textAnchor="middle">
-        <text x="430" y="272" fontSize="22" letterSpacing="2">12,19 m · 40 PÉS</text>
-        <text x="866" y="150" fontSize="20" letterSpacing="2" transform="rotate(90 866 150)">2,90 m · HIGH CUBE</text>
-        <text x="430" y="150" fontSize="38" fill="rgba(255,159,26,.9)" fontStyle="italic" fontWeight="800" letterSpacing="3">MLA CONTAINERS</text>
-      </g>
-    </svg>
-  )
-}

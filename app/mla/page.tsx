@@ -1,12 +1,13 @@
 import Image from 'next/image'
 import { Cabecalho, EscolhaUso, BotaoWhats, Palavras, Rev } from '@/components/site/Interativos'
-import { Faixa, Planta } from '@/components/site/Pecas'
+import { Faixa } from '@/components/site/Pecas'
+import Planta from '@/components/site/Planta'
 import { ComoFunciona, CtaFinal, Faq, FAQ_GERAL, Mapa, PRECO, PRECO20, PRECO40, Titulo } from '@/components/site/Secoes'
 
 export default function Inicio() {
   const numeros: [string, string, string][] = [
-    ['20 e 40', 'pés', 'dois tamanhos'],
-    ['2,90', 'm', 'de altura no High Cube'],
+    ['20 e 40', 'pés', 'HC e Dry'],
+    ['2,90', 'm', 'de altura no 40 HC'],
     ['≈ 28', 'm²', 'úteis no 40 pés*'],
     ['Itajaí', '/SC', 'pronta entrega'],
   ]
@@ -32,7 +33,7 @@ export default function Inicio() {
                 <Palavras lista={['obra', 'loja', 'casa', 'empresa', 'ideia', 'oficina']} />
               </h1>
             </Rev>
-            <Rev d={0.2}><p className="mt-7 max-w-xl text-lg text-white/80 sm:text-xl">Containers marítimos de 20 e 40 pés, usados e em ótimo estado. <strong className="text-white">Fotos reais, visita agendada no pátio</strong> e atendimento direto no WhatsApp.</p></Rev>
+            <Rev d={0.2}><p className="mt-7 max-w-xl text-lg text-white/80 sm:text-xl">Containers marítimos de 20 pés e 40 HC, e também Dry: usados e em ótimo estado. <strong className="text-white">Fotos reais, visita agendada no pátio</strong> e atendimento direto no WhatsApp.</p></Rev>
             <Rev d={0.3}>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="/venda" className="btn btn-laranja">Ver containers à venda</a>
@@ -43,7 +44,7 @@ export default function Inicio() {
           </div>
           <div className="hidden lg:block">
             <div className="relative h-[28rem]">
-              <div className="vidro flutua absolute right-0 top-0 w-64 rounded-3xl p-5"><p className="tag">Pronta entrega</p><p className="display mt-1 text-4xl">20 e 40 pés</p><p className="mt-1 text-sm text-white/65">O tamanho certo para o seu projeto.</p></div>
+              <div className="vidro flutua absolute right-0 top-0 w-64 rounded-3xl p-5"><p className="tag">Pronta entrega</p><p className="display mt-1 text-4xl">20 · 40 HC · Dry</p><p className="mt-1 text-sm text-white/65">O tipo certo para o seu projeto.</p></div>
               <div className="vidro flutua b absolute left-0 top-40 w-64 rounded-3xl p-5"><p className="tag">Sem surpresa</p><p className="display mt-1 text-4xl">Fotos reais</p><p className="mt-1 text-sm text-white/65">A unidade que está no pátio.</p></div>
               <div className="vidro flutua absolute bottom-0 right-6 w-64 rounded-3xl p-5"><p className="tag">Confira pessoalmente</p><p className="display mt-1 text-4xl">Visita agendada</p><p className="mt-1 text-sm text-white/65">Venha ao pátio e escolha.</p></div>
             </div>
@@ -52,7 +53,7 @@ export default function Inicio() {
         <a href="#numeros" aria-label="Rolar" className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 sm:block"><span className="flutua block h-12 w-7 rounded-full border-2 border-white/40 p-1.5"><i className="block h-2 w-1.5 rounded bg-[var(--acento)] mx-auto" /></span></a>
       </section>
 
-      <Faixa itens={['VENDA', 'LOCAÇÃO', 'PRONTA ENTREGA', 'ITAJAÍ/SC', '20 E 40 PÉS', 'FOTOS REAIS', 'VISITA AGENDADA']} />
+      <Faixa itens={['VENDA', 'LOCAÇÃO', 'PRONTA ENTREGA', 'ITAJAÍ/SC', '20 PÉS', '40 HC', 'DRY', 'FOTOS REAIS', 'VISITA AGENDADA']} />
 
       {/* NÚMEROS */}
       <section id="numeros" className="mx-auto max-w-7xl px-5 py-24">
@@ -66,7 +67,7 @@ export default function Inicio() {
             </Rev>
           ))}
         </div>
-        <p className="mt-3 text-center text-xs text-white/40">*Medidas padrão do tipo 40&apos; High Cube. Podem variar de acordo com a unidade.</p>
+        <p className="mt-3 text-center text-xs text-white/40">*Medidas padrão do 40 HC (High Cube). Podem variar de acordo com a unidade.</p>
       </section>
 
       {/* DIFERENCIAL */}
@@ -96,24 +97,30 @@ export default function Inicio() {
 
       {/* TAMANHOS */}
       <section className="mx-auto max-w-7xl px-5 pb-24">
-        <Titulo tag="Dois tamanhos" sub="Escolha pelo espaço que o seu projeto pede. Se tiver dúvida, a gente indica.">20 pés ou <span className="laranja-texto">40 pés?</span></Titulo>
-        <div className="mt-10 grid gap-4 md:grid-cols-2">
-          {[['20', 'Compacto e versátil', '≈ 6,06 × 2,44 × 2,59 m', ['Depósito e almoxarifado', 'Canteiro e escritório de obra', 'Quiosque e ateliê', 'Cabe em terrenos menores']], ['40', 'Mais espaço, mais projeto', "≈ 12,19 × 2,44 × 2,90 m (High Cube)", ['Loja, lanchonete e showroom', 'Casa container e escritório', 'Armazenagem maior', 'Altura extra para divisórias']]].map(([n, t, m, l], i) => (
-            <Rev key={n as string} d={i * 0.1} zoom>
-              <div className="cartao h-full overflow-hidden">
-                <div className="relative h-56 sm:h-64">
-                  <Image src={n === '20' ? '/containers/20pes-ilustrativa.jpg' : '/containers/lateral-aberta.jpg'} alt={n === '20' ? 'Ilustração de um container de 20 pés' : 'Container de 40 pés no pátio'} fill quality={90} sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
-                  {n === '20' && <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white/90">Imagem ilustrativa</span>}
-                  <div className="absolute inset-x-0 bottom-0 h-24" style={{ background: 'linear-gradient(180deg, transparent, #1a1d25)' }} />
+        <Titulo tag="Três opções" sub="Escolha pelo espaço e pela altura que o seu projeto pede. Se tiver dúvida, a gente indica.">20 pés, 40 HC <span className="laranja-texto">ou Dry?</span></Titulo>
+        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+          {([
+            { id: '20', cor: '#4da3ff', nome: '20 pés', t: 'Compacto e versátil', m: '≈ 6,06 × 2,44 × 2,59 m', l: ['Depósito e almoxarifado', 'Canteiro e escritório de obra', 'Quiosque e ateliê', 'Cabe em terrenos menores'], preco: PRECO20, img: '/containers/20pes-ilustrativa.jpg', ilus: true },
+            { id: 'hc', cor: '#ff9f1a', nome: '40 HC', t: 'Mais espaço e pé-direito', m: '≈ 12,19 × 2,44 × 2,90 m', l: ['Loja, lanchonete e showroom', 'Casa container e escritório', 'Altura extra: divisórias e mezanino', 'Maior volume de armazenagem'], preco: PRECO40, img: '/containers/lateral-aberta.jpg', ilus: false },
+            { id: 'dry', cor: '#2dd4bf', nome: '40 Dry', t: 'Espaço de 40 pés, altura padrão', m: '≈ 12,19 × 2,44 × 2,59 m', l: ['Armazenagem de grande volume', 'Obras e canteiros', 'Projetos com altura padrão', 'Disponível em unidades selecionadas'], preco: 'Consulte o valor', img: '', ilus: false },
+          ]).map((x, i) => (
+            <Rev key={x.id} d={i * 0.1} zoom>
+              <div className="cartao h-full overflow-hidden" style={{ borderColor: `${x.cor}66` }}>
+                <div className="relative h-52" style={x.img ? undefined : { background: `radial-gradient(ellipse at 50% 120%, ${x.cor}40, transparent 70%), #12151b` }}>
+                  {x.img ? <Image src={x.img} alt={`Container de ${x.nome}`} fill quality={90} sizes="(max-width:1024px) 100vw, 33vw" className="object-cover" /> : <p className="display absolute inset-0 grid place-items-center text-8xl" style={{ color: x.cor }}>DRY</p>}
+                  {x.ilus && <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white/90">Imagem ilustrativa</span>}
+                  <div className="absolute inset-x-0 bottom-0 h-20" style={{ background: 'linear-gradient(180deg, transparent, #1a1d25)' }} />
+                  <span className="absolute left-0 top-0 h-full w-1.5" style={{ background: x.cor }} />
                 </div>
-              <div className="p-7 sm:p-9">
-                <p className="display text-[7rem] leading-none sm:text-[9rem]"><span className="laranja-texto">{n}</span><span className="text-4xl text-white/60"> PÉS</span></p>
-                <p className="display mt-2 text-3xl">{t as string}</p>
-                <p className="mt-1 text-sm text-white/50">Medidas externas padrão: {m as string}</p>
-                <p className="mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-black text-[#14110c]" style={{ background: 'var(--acento)' }}>{n === '20' ? PRECO20 : PRECO40}</p>
-                <ul className="mt-4 space-y-2 text-white/80">{(l as string[]).map(x => <li key={x} className="flex gap-2"><span style={{ color: 'var(--acento)' }}>✓</span>{x}</li>)}</ul>
-                <BotaoWhats origem={`tamanho-${n}`} texto={`Olá! Vim pelo site da MLA Containers e quero saber preço e disponibilidade do container de ${n} pés.`} className="btn btn-laranja mt-6">Quero o de {n as string} pés</BotaoWhats>
-              </div></div>
+                <div className="p-6">
+                  <p className="display text-6xl" style={{ color: x.cor }}>{x.nome}</p>
+                  <p className="display mt-1 text-2xl">{x.t}</p>
+                  <p className="mt-1 text-sm text-white/50">Medidas externas padrão: {x.m}</p>
+                  <p className="mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-black text-[#14110c]" style={{ background: x.cor }}>{x.preco}</p>
+                  <ul className="mt-4 space-y-2 text-white/80">{x.l.map(y => <li key={y} className="flex gap-2"><span style={{ color: x.cor }}>✓</span>{y}</li>)}</ul>
+                  <BotaoWhats origem={`tamanho-${x.id}`} texto={`Olá! Vim pelo site da MLA Containers e quero saber preço e disponibilidade do container ${x.nome}.`} className="btn btn-laranja mt-6 w-full">Quero o {x.nome}</BotaoWhats>
+                </div>
+              </div>
             </Rev>
           ))}
         </div>
@@ -122,10 +129,10 @@ export default function Inicio() {
       {/* PLANTA */}
       <section className="relative isolate overflow-hidden py-24" style={{ background: 'var(--bg2)' }}>
         <div className="mx-auto max-w-7xl px-5">
-          <Titulo tag="Conheça o espaço · planta do 40 pés" sub="O High Cube tem altura extra: mais respiro, mais pé-direito e mais possibilidades de projeto.">Medidas <span className="laranja-texto">sem mistério</span></Titulo>
+          <Titulo tag="Compare as medidas" sub="Os três tipos desenhados na mesma escala: o 20 pés (azul) e o 40 Dry (verde) cabem dentro do contorno do 40 HC (laranja). Toque nas legendas para mostrar ou ocultar cada um.">Medidas <span className="laranja-texto">sem mistério</span></Titulo>
           <Rev className="cartao mt-10 p-3 sm:p-8"><Planta /></Rev>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {[['Aço corten resistente', 'Estrutura pensada para o mar: aguenta chuva, sol e uso pesado.'], ['Porta com trava', 'Fechamento seguro para guardar ferramentas, estoque e equipamentos.'], ['Pé-direito generoso', 'A altura extra do High Cube facilita instalações, divisórias e mezanino.']].map(([t, s], i) => (
+            {[['Aço corten resistente', 'Estrutura pensada para o mar: aguenta chuva, sol e uso pesado.'], ['Porta com trava', 'Fechamento seguro para guardar ferramentas, estoque e equipamentos.'], ['Pé-direito generoso', 'A altura extra do HC facilita instalações, divisórias e mezanino.']].map(([t, s], i) => (
               <Rev key={t} d={i * 0.1}><div className="cartao h-full p-5"><p className="display text-2xl">{t}</p><p className="mt-1 text-sm text-white/65">{s}</p></div></Rev>
             ))}
           </div>
@@ -136,7 +143,7 @@ export default function Inicio() {
       <section className="mx-auto max-w-7xl px-5 py-24">
         <Titulo tag="Sem imagem de banco" sub="As fotos são da unidade que está no nosso pátio, por fora e por dentro.">É este container. <span className="laranja-texto">Fotos reais.</span></Titulo>
         <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-4 md:grid-rows-2">
-          {([['lateral', 'Lateral do container 40 pés High Cube', 'col-span-2 row-span-1 md:row-span-2 aspect-[4/3] md:aspect-auto'], ['interior-porta', 'Container visto de dentro, da porta', 'aspect-[4/5]'], ['traseira', 'Traseira do container', 'aspect-[4/5]'], ['lateral-aberta', 'Container no pátio em Itajaí/SC', 'col-span-2 aspect-[16/9]']] as const).map(([f, alt, cl], i) => (
+          {([['lateral', 'Lateral do container 40 pés HC', 'col-span-2 row-span-1 md:row-span-2 aspect-[4/3] md:aspect-auto'], ['interior-porta', 'Container visto de dentro, da porta', 'aspect-[4/5]'], ['traseira', 'Traseira do container', 'aspect-[4/5]'], ['lateral-aberta', 'Container no pátio em Itajaí/SC', 'col-span-2 aspect-[16/9]']] as const).map(([f, alt, cl], i) => (
             <Rev key={f} d={i * 0.08} zoom className={cl}>
               <div className="foto h-full w-full"><Image src={`/containers/${f}.jpg`} alt={alt} fill quality={90} sizes="(max-width:768px) 50vw, 33vw" className="object-cover" /></div>
             </Rev>
