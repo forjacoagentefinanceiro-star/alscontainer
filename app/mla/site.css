@@ -7,6 +7,7 @@
 }
 .mla .display { font-family: var(--font-titulo), 'Arial Narrow', Impact, sans-serif; font-style: italic; font-weight: 800; letter-spacing: -.01em; text-transform: uppercase; line-height: .94; }
 .mla .tag { font-family: var(--font-titulo), sans-serif; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; font-size: .78rem; color: var(--acento); }
+.mla .aco-texto, .mla .laranja-texto { padding: 0 .14em .06em 0; margin-right: -.14em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .mla .aco-texto { background: linear-gradient(180deg, #f4f6f9 0%, #aab2bd 45%, #e8ebf0 60%, #8b94a1 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .mla .laranja-texto { background: linear-gradient(180deg, #ffc15c, #ff8a00); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .mla .vidro { background: rgba(20,23,30,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.14); }
