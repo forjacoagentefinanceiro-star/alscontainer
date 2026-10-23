@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // Endpoint PÚBLICO da página /containers. Recebe:
-//  - cliques em "Chamar no WhatsApp" (só ref + utm)
+//  - cliques em "Chamar no WhatsApp" (agora com nome e telefone; sem telefone não cria lead)
 //  - nome/telefone enquanto a pessoa preenche (parcial) e no envio do formulário (final)
 // Cria ou atualiza o lead no CRM de vendas, já com canal e campanha (utm do anúncio).
 
@@ -73,6 +73,7 @@ export async function POST(req: Request) {
   }
 
   // ---------- novo lead ----------
+  if (!telefone) return NextResponse.json({ ok: false, erro: 'telefone' }, { status: 422 })   // lead sem telefone não entra no CRM
   const canal = canalDe(source || (click === 'ttclid' ? 'tiktok' : click === 'fbclid' ? 'facebook' : ''), medium)
   let campanhaId: string | null = null
   if (campanha) {
