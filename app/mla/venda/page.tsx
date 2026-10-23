@@ -3,7 +3,7 @@ import Image from 'next/image'
 import { BotaoWhats, Rev } from '@/components/site/Interativos'
 import { Faixa } from '@/components/site/Pecas'
 import Planta from '@/components/site/Planta'
-import { CtaFinal, Faq, FAQ_GERAL, PRECO, PRECO20, PRECO40, Titulo, TopoInterno } from '@/components/site/Secoes'
+import { CtaFinal, Faq, FAQ_GERAL, PRECO, PRECO20, PRECO40, PRECODRY, Titulo, TopoInterno } from '@/components/site/Secoes'
 
 export const metadata: Metadata = {
   title: 'Containers 20 pés, 40 HC e Dry usados à venda em Itajaí/SC',
@@ -29,7 +29,7 @@ export default function Venda() {
             <p className="tag !text-[#14110c]/70">Valores</p>
             <p className="display text-4xl sm:text-5xl">20 pés {PRECO20}</p>
             <p className="display text-4xl sm:text-5xl">40 HC {PRECO40}</p>
-            <p className="display text-3xl sm:text-4xl">40 Dry: consulte o valor</p>
+            <p className="display text-4xl sm:text-5xl">40 Dry {PRECODRY}</p>
             <p className="mt-1 text-sm font-semibold">Conforme o tipo e o ano · frete sob consulta</p>
           </div>
           <div className="mt-6"><BotaoWhats origem="venda" texto="Olá! Vim pelo site da MLA Containers e quero o preço e as fotos de um container à venda." className="btn btn-zap">Pedir preço no WhatsApp</BotaoWhats></div>
