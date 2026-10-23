@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(`${proto}://${host}`),
     title: { default: 'MLA Containers — venda e locação de containers em Itajaí/SC', template: '%s | MLA Containers' },
-    description: 'Containers marítimos de 20 e 40 pés usados, em ótimo estado, para venda e locação em Itajaí/SC. Fotos reais, visita agendada no pátio e atendimento direto pelo WhatsApp.',
+    description: 'Venda e locação de containers de 20 e 40 pés em Itajaí/SC, com transparência e tranquilidade para a sua operação. Fotos reais, visita agendada no pátio e atendimento direto pelo WhatsApp.',
     icons: {
       icon: [{ url: '/containers/mla-favicon.ico', sizes: 'any' }, { url: '/containers/mla-favicon.png', type: 'image/png', sizes: '512x512' }],
       shortcut: '/containers/mla-favicon.ico', apple: '/containers/mla-apple-touch.png',
@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   const ld = {
     '@context': 'https://schema.org', '@type': 'LocalBusiness', name: MARCA,
-    description: 'Venda e locação de containers em Itajaí/SC.', telephone: '+55 47 98917-3801', image: '/containers/mla-banner.jpg',
+    description: 'Venda e locação de containers de 20 e 40 pés em Itajaí/SC, com transparência e tranquilidade para a operação do cliente.', telephone: '+55 47 98917-3801', image: '/containers/mla-banner.jpg',
     address: { '@type': 'PostalAddress', streetAddress: 'Av. Gov. Adolfo Konder, 2600', addressLocality: 'Itajaí', addressRegion: 'SC', postalCode: '88308-000', addressCountry: 'BR' },
   }
   return (

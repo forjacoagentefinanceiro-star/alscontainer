@@ -203,7 +203,7 @@ export function Rodape() {
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 md:grid-cols-[1.2fr_1fr_1fr]">
         <div>
           <Image src="/containers/mla-logo.png" alt="MLA Containers" width={240} height={87} unoptimized style={{ height: 78, width: 'auto' }} />
-          <p className="mt-4 max-w-sm text-sm text-white/60">Venda e locação de containers em Itajaí/SC. Visitas agendadas no pátio, fotos reais e atendimento direto pelo WhatsApp.</p>
+          <p className="mt-4 max-w-sm text-sm text-white/60">Venda e locação de containers de 20 e 40 pés, com transparência e tranquilidade para a sua operação. Itajaí/SC, em localização estratégica.</p>
         </div>
         <div>
           <p className="tag">Navegue</p>

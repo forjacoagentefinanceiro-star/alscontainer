@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import { Cabecalho, EscolhaUso, BotaoWhats, Palavras, Rev } from '@/components/site/Interativos'
 import { Faixa, Planta } from '@/components/site/Pecas'
-import { ComoFunciona, CtaFinal, Faq, FAQ_GERAL, Mapa, PRECO, Titulo } from '@/components/site/Secoes'
+import { ComoFunciona, CtaFinal, Faq, FAQ_GERAL, Mapa, PRECO, PRECO20, PRECO40, Titulo } from '@/components/site/Secoes'
 
 export default function Inicio() {
   const numeros: [string, string, string][] = [
@@ -69,6 +69,25 @@ export default function Inicio() {
         <p className="mt-3 text-center text-xs text-white/40">*Medidas padrão do tipo 40&apos; High Cube. Podem variar de acordo com a unidade.</p>
       </section>
 
+      {/* DIFERENCIAL */}
+      <section className="relative isolate overflow-hidden py-24" style={{ background: 'var(--bg2)' }}>
+        <div className="absolute inset-0 -z-10" style={{ background: 'radial-gradient(ellipse at 85% 0%, rgba(255,159,26,.14), transparent 55%)' }} />
+        <div className="mx-auto max-w-7xl px-5">
+          <Titulo tag="O nosso diferencial" sub="A MLA Containers foi criada para trazer ao mercado mais clareza e menos dor de cabeça na operação de quem compra ou aluga.">Transparência e <span className="laranja-texto">tranquilidade</span></Titulo>
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            {[['01', 'Transparência', 'Fotos reais da unidade, valores claros e visita ao pátio. Sem surpresa na hora de decidir.'], ['02', 'Tranquilidade', 'Atendimento direto e passo a passo simples, do primeiro contato à retirada ou entrega.'], ['03', 'Localização estratégica', 'Em Itajaí/SC, num ponto estratégico para facilitar a retirada e a logística da sua operação.']].map(([n, t, s], i) => (
+              <Rev key={n} d={i * 0.1} zoom>
+                <div className="cartao h-full p-7">
+                  <p className="display text-7xl"><span className="laranja-texto">{n}</span></p>
+                  <p className="display mt-2 text-3xl">{t}</p><p className="mt-2 text-white/70">{s}</p>
+                </div>
+              </Rev>
+            ))}
+          </div>
+          <Rev className="mt-8"><a href="/sobre" className="btn btn-borda">Conheça a MLA</a></Rev>
+        </div>
+      </section>
+
       {/* ESCOLHA O USO */}
       <section className="mx-auto max-w-7xl px-5 pb-24">
         <Titulo tag="Um container, mil usos" sub="Escolha para que você quer o container e veja como ele resolve. Ao final, a mensagem já vai pronta para o nosso WhatsApp.">Para que você <span className="laranja-texto">precisa?</span></Titulo>
@@ -85,6 +104,7 @@ export default function Inicio() {
                 <p className="display text-[7rem] leading-none sm:text-[9rem]"><span className="laranja-texto">{n}</span><span className="text-4xl text-white/60"> PÉS</span></p>
                 <p className="display mt-2 text-3xl">{t as string}</p>
                 <p className="mt-1 text-sm text-white/50">Medidas externas padrão: {m as string}</p>
+                <p className="mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-black text-[#14110c]" style={{ background: 'var(--acento)' }}>{n === '20' ? PRECO20 : PRECO40}</p>
                 <ul className="mt-4 space-y-2 text-white/80">{(l as string[]).map(x => <li key={x} className="flex gap-2"><span style={{ color: 'var(--acento)' }}>✓</span>{x}</li>)}</ul>
                 <BotaoWhats origem={`tamanho-${n}`} texto={`Olá! Vim pelo site da MLA Containers e quero saber preço e disponibilidade do container de ${n} pés.`} className="btn btn-laranja mt-6">Quero o de {n as string} pés</BotaoWhats>
               </div>

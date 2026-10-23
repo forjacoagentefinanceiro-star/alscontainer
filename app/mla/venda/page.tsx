@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import { BotaoWhats, Rev } from '@/components/site/Interativos'
 import { Faixa, Planta } from '@/components/site/Pecas'
-import { CtaFinal, Faq, FAQ_GERAL, PRECO, Titulo, TopoInterno } from '@/components/site/Secoes'
+import { CtaFinal, Faq, FAQ_GERAL, PRECO, PRECO20, PRECO40, Titulo, TopoInterno } from '@/components/site/Secoes'
 
 export const metadata: Metadata = {
   title: 'Containers de 20 e 40 pés usados à venda em Itajaí/SC',
@@ -25,9 +25,10 @@ export default function Venda() {
             ))}
           </ul>
           <div className="mt-8 inline-block rounded-3xl p-6" style={{ background: 'linear-gradient(135deg,#ffb73d,#ff8a00)', color: '#14110c' }}>
-            <p className="tag !text-[#14110c]/70">Valor</p>
-            <p className="display text-5xl sm:text-6xl">{PRECO}</p>
-            <p className="text-sm font-semibold">Conforme o tipo e o ano · frete sob consulta</p>
+            <p className="tag !text-[#14110c]/70">Valores</p>
+            <p className="display text-4xl sm:text-5xl">20 pés {PRECO20}</p>
+            <p className="display text-4xl sm:text-5xl">40 pés {PRECO40}</p>
+            <p className="mt-1 text-sm font-semibold">Conforme o tipo e o ano · frete sob consulta</p>
           </div>
           <div className="mt-6"><BotaoWhats origem="venda" texto="Olá! Vim pelo site da MLA Containers e quero o preço e as fotos de um container à venda." className="btn btn-zap">Pedir preço no WhatsApp</BotaoWhats></div>
         </Rev>
