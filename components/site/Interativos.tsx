@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ENDERECO_LINHA1, ENDERECO_LINHA2, MENU, WHATS, WHATS_EXIBIDO } from '@/lib/site/dados'
 import { enviarLead, gerarRef, mascara, rastrear, soDigitos, urlWhats } from './lead'
+import ModalContato, { contatoSalvo } from './ModalContato'
 
 /* ---------- revelação ao rolar ---------- */
 export function Rev({ children, className = '', d = 0, tipo = '', zoom = false }: { children: React.ReactNode; className?: string; d?: number; tipo?: '' | 'esq' | 'dir' | 'zoom'; zoom?: boolean }) {
@@ -78,13 +79,25 @@ export function Cabecalho({ atual }: { atual: string }) {
 /* ---------- botão de WhatsApp (cria o lead no CRM e abre a conversa) ---------- */
 export function BotaoWhats({ origem, texto, className, children }: { origem: string; texto?: string; className?: string; children: React.ReactNode }) {
   const [ref] = useState(gerarRef)
-  function clicar() {
+  const [pedir, setPedir] = useState(false)
+  function ir(nome: string, tel: string) {
+    setPedir(false)
     rastrear('whats', 'Site MLA Containers')
-    enviarLead(ref, origem, {})
-    const msg = texto ?? `Olá! Vim pelo site da MLA Containers (${origem}) e quero informações. (ref. ${ref})`
+    enviarLead(ref, origem, { nome, telefone: tel })
+    const base = texto ?? `Olá! Vim pelo site da MLA Containers (${origem}) e quero informações.`
+    const msg = `${base.replace(/^Olá!/, `Olá! Sou ${nome}.`)} (ref. ${ref})`
     const w = window.open(urlWhats(WHATS, msg), '_blank'); if (!w) window.location.assign(urlWhats(WHATS, msg))
   }
-  return <button type="button" onClick={clicar} className={className}>{children}</button>
+  function clicar() {
+    const g = contatoSalvo()
+    if (g) ir(g.nome, g.tel); else setPedir(true)
+  }
+  return (
+    <>
+      <button type="button" onClick={clicar} className={className}>{children}</button>
+      {pedir && <ModalContato onConfirmar={ir} onFechar={() => setPedir(false)} />}
+    </>
+  )
 }
 
 /* ---------- botão flutuante + barra no celular ---------- */

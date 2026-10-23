@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Script from 'next/script'
 import { useEffect, useState } from 'react'
+import ModalContato, { contatoSalvo } from '@/components/site/ModalContato'
 
 const MARCA = 'MLA Containers'
 const WHATS = process.env.NEXT_PUBLIC_WHATSAPP_VENDAS || '5547989173801'
@@ -57,6 +58,7 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
   const [enviado, setEnviado] = useState(false)
   const [erro, setErro] = useState('')
   const [salvoParcial, setSalvoParcial] = useState('')
+  const [pedir, setPedir] = useState<string | null>(null)
   const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   function enviar(corpo: Record<string, unknown>, beacon = false) {
@@ -113,10 +115,18 @@ export default function Pagina({ precoMin }: { precoMin: number }) {
     Promise.race([fila, new Promise(r => setTimeout(r, 2500))]).then(() => setTimeout(() => chamarWhats('formulário', true), 300))
   }
 
-  function chamarWhats(origem: string, auto = false) {
+  function chamarWhats(origem: string, auto = false, dados?: { nome: string; tel: string }) {
+    const n = dados?.nome ?? nome.trim()
+    const d = dados?.tel ?? soDigitos(tel)
+    if (!auto && d.length < 10) {                      // sem telefone não abre: o lead precisa chegar completo no CRM
+      const g = contatoSalvo()
+      if (g) { chamarWhats(origem, false, g); return }
+      setPedir(origem); return
+    }
+    setPedir(null)
     rastrear('whats')
-    if (soDigitos(tel).length < 10) enviar({ nome: nome.trim() })   // cria o lead mesmo sem telefone (clique no WhatsApp)
-    const texto = `Olá! Sou ${nome.trim() || 'interessado'} e vi os containers usados de 20 pés, 40 HC e Dry (${origem}). Quero saber o preço e ver as fotos. (ref. ${ref})`
+    if (dados) enviar({ nome: n, telefone: d })
+    const texto = `Olá! Sou ${n || 'interessado'} e vi os containers usados de 20 pés, 40 HC e Dry (${origem}). Quero saber o preço e ver as fotos. (ref. ${ref})`
     const url = `https://wa.me/${WHATS}?text=${encodeURIComponent(texto)}`
     if (auto) { window.location.assign(url); return }
     const novo = window.open(url, '_blank')
@@ -180,6 +190,8 @@ fbq('init','${META}');fbq('track','PageView');`}</Script>
         <Script id="tiktok-pixel" strategy="afterInteractive">{`
 !function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};ttq.load('${TIKTOK}');ttq.page();}(window,document,'ttq');`}</Script>
       )}
+
+      {pedir && <ModalContato onConfirmar={(n, t) => chamarWhats(pedir, false, { nome: n, tel: t })} onFechar={() => setPedir(null)} />}
 
       {/* topo */}
       <header className="sticky top-0 z-30" style={{ background: 'rgba(16,18,23,.92)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
