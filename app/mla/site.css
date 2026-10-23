@@ -1,0 +1,69 @@
+/* Site MLA Containers — identidade industrial: aço, laranja e fundo grafite */
+.mla {
+  --bg: #0d0f14; --bg2: #13161d; --painel: #1a1d25; --linha: rgba(255,255,255,.09);
+  --acento: #ff9f1a; --acento2: #ff7a1a; --aco: #c9d0da; --verde: #25d366;
+  background: var(--bg); color: #fff; font-family: var(--font-corpo), 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-x: clip;
+}
+.mla .display { font-family: var(--font-titulo), 'Arial Narrow', Impact, sans-serif; font-style: italic; font-weight: 800; letter-spacing: -.01em; text-transform: uppercase; line-height: .94; }
+.mla .tag { font-family: var(--font-titulo), sans-serif; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; font-size: .78rem; color: var(--acento); }
+.mla .aco-texto { background: linear-gradient(180deg, #f4f6f9 0%, #aab2bd 45%, #e8ebf0 60%, #8b94a1 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mla .laranja-texto { background: linear-gradient(180deg, #ffc15c, #ff8a00); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mla .vidro { background: rgba(20,23,30,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.14); }
+.mla .cartao { background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)); border: 1px solid var(--linha); border-radius: 1.25rem; }
+.mla .btn { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; border-radius: 999px; padding: 1rem 1.7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: .95rem; transition: transform .25s, box-shadow .25s, filter .25s; cursor: pointer; border: 0; }
+.mla .btn:hover { transform: translateY(-2px) scale(1.02); filter: brightness(1.08); }
+.mla .btn-laranja { background: linear-gradient(135deg, #ffb73d, #ff8a00); color: #14110c; box-shadow: 0 10px 40px -8px rgba(255,138,0,.65); }
+.mla .btn-zap { background: var(--verde); color: #05250f; box-shadow: 0 10px 40px -10px rgba(37,211,102,.7); }
+.mla .btn-borda { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.35); }
+.mla .btn-borda:hover { border-color: var(--acento); color: var(--acento); }
+
+/* fita de segurança (listras) */
+.mla .fita { background: repeating-linear-gradient(-45deg, #ff9f1a 0 18px, #14110c 18px 36px); }
+.mla .marquee { display: flex; width: max-content; animation: mla-marquee 38s linear infinite; }
+.mla .marquee:hover { animation-play-state: paused; }
+@keyframes mla-marquee { to { transform: translateX(-50%); } }
+
+/* hero */
+.mla .kenburns { animation: mla-kb 28s ease-in-out infinite alternate; transform-origin: 60% 50%; }
+@keyframes mla-kb { from { transform: scale(1.04) translate3d(0,0,0); } to { transform: scale(1.18) translate3d(-2%,-1.5%,0); } }
+.mla .flutua { animation: mla-flutua 6s ease-in-out infinite; }
+.mla .flutua.b { animation-delay: -3s; }
+@keyframes mla-flutua { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+.mla .grao { position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+/* revelação ao rolar */
+.mla .rev { opacity: 0; transform: translate3d(0,34px,0); transition: opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0s); }
+.mla .rev.esq { transform: translate3d(-48px,0,0); }
+.mla .rev.dir { transform: translate3d(48px,0,0); }
+.mla .rev.zoom { transform: scale(.92); }
+.mla .rev.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .mla .rev { opacity: 1; transform: none; transition: none; } .mla .kenburns, .mla .flutua, .mla .marquee { animation: none; } }
+
+/* troca de palavras */
+.mla .palavra { display: inline-block; animation: mla-palavra .6s cubic-bezier(.2,.8,.2,1); }
+@keyframes mla-palavra { from { opacity: 0; transform: translateY(.45em) rotateX(40deg); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* planta técnica */
+.mla .traco { stroke-dasharray: 2000; stroke-dashoffset: 2000; transition: stroke-dashoffset 2.4s ease; }
+.mla .in .traco, .mla .traco.in { stroke-dashoffset: 0; }
+.mla .cota { opacity: 0; transition: opacity .8s ease 1.8s; }
+.mla .in .cota, .mla .cota.in { opacity: 1; }
+
+/* galeria */
+.mla .foto { overflow: hidden; border-radius: 1.25rem; position: relative; }
+.mla .foto img { transition: transform 1.2s cubic-bezier(.2,.7,.2,1); }
+.mla .foto:hover img { transform: scale(1.08); }
+.mla .foto::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,.55)); pointer-events: none; }
+
+/* botão flutuante do WhatsApp */
+.mla .pulso { position: relative; }
+.mla .pulso::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--verde); z-index: -1; animation: mla-pulso 2.2s ease-out infinite; }
+@keyframes mla-pulso { from { transform: scale(1); opacity: .6; } to { transform: scale(1.7); opacity: 0; } }
+
+.mla .linha-tempo { background: linear-gradient(180deg, var(--acento), rgba(255,159,26,.05)); }
+.mla details > summary::-webkit-details-marker { display: none; }
+.mla details[open] .mais { transform: rotate(45deg); }
+.mla .mais { transition: transform .3s; display: inline-block; }
+.mla ::selection { background: var(--acento); color: #111; }

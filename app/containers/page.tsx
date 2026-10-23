@@ -10,6 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const proto = host.startsWith('localhost') ? 'http' : 'https'
   return {
     metadataBase: new URL(`${proto}://${host}`),
+    robots: { index: false, follow: true },   // landing é só para anúncios; quem aparece no Google é o site
     icons: {
       icon: [{ url: '/containers/mla-favicon.ico', sizes: 'any' }, { url: '/containers/mla-favicon.png', type: 'image/png', sizes: '512x512' }],
       shortcut: '/containers/mla-favicon.ico',

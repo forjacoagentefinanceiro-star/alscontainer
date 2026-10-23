@@ -1,15 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Endereço público da landing (sem o nome do sistema): qualquer host que não seja o do sistema
-// (contém "alscontainer") nem local serve SOMENTE a página /containers e o endpoint de leads.
-function ehHostDaLanding(host: string) {
-  const h = host.toLowerCase().split(':')[0]
-  if (!h || h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost')) return false
-  const extras = (process.env.LANDING_HOSTS ?? '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean)
-  if (extras.includes(h)) return true
-  return !h.includes('alscontainer')
-}
+import { ehHostDaLanding, PAGINAS_SITE } from '@/lib/site/host'
 
 export async function middleware(request: NextRequest) {
   // favicon: o endereço da landing usa o ícone da MLA Containers; o sistema segue com o dele, sem checar login
@@ -19,9 +11,11 @@ export async function middleware(request: NextRequest) {
       : NextResponse.next()
   }
   if (ehHostDaLanding(request.headers.get('host') ?? '')) {
-    const p = request.nextUrl.pathname
-    if (p === '/containers' || p.startsWith('/containers/') || p.startsWith('/api/containers')) return NextResponse.next()
-    return NextResponse.redirect(new URL('/containers', request.url))
+    const p = request.nextUrl.pathname.replace(/(.)\/$/, '$1')
+    if (PAGINAS_SITE[p]) return NextResponse.rewrite(new URL(PAGINAS_SITE[p], request.url))   // site: endereços limpos (/venda, /locacao…)
+    if (p === '/robots.txt' || p === '/sitemap.xml') return NextResponse.next()
+    if (p === '/containers' || p.startsWith('/containers/') || p.startsWith('/api/containers') || p.startsWith('/mla') || p.startsWith('/site/')) return NextResponse.next()
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   let supabaseResponse = NextResponse.next({ request })
@@ -45,7 +39,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rotas públicas — sem verificação
-  const publicPaths = ['/login', '/aguardando', '/reset-senha', '/api/barra/update', '/containers', '/api/containers']
+  const publicPaths = ['/login', '/aguardando', '/reset-senha', '/api/barra/update', '/containers', '/api/containers', '/mla', '/site']
   const isPublic = publicPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
 
   if (isPublic) {
@@ -98,5 +92,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/favicon.ico', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js)).*)'],
+  matcher: ['/favicon.ico', '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|css|js|mp4|webm)).*)'],
 }
