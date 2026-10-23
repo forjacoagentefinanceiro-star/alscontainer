@@ -168,7 +168,7 @@ const USOS_IMG: { id: string; nome: string; emoji: string; titulo: string; texto
 export function EscolhaUso() {
   const [i, setI] = useState(0)
   const u = USOS_IMG[i]
-  const imgs = ['/containers/lateral.jpg', '/containers/interior-porta.jpg', '/containers/lateral-aberta.jpg', '/containers/traseira.jpg', '/containers/interior-1.jpg', '/containers/mla-banner.jpg']
+  const imgs = USOS_IMG.map(x => `/containers/usos/${x.id}.jpg`)   // imagens ilustrativas dos usos (as mesmas do Reel)
   const msg = `Olá! Vim pelo site da MLA Containers e quero um container para ${u.nome.toLowerCase()} (${u.titulo.toLowerCase()}). Podem me passar o preço e as fotos?`
   return (
     <div className="grid gap-6 lg:grid-cols-[.9fr_1.1fr]">
@@ -179,14 +179,15 @@ export function EscolhaUso() {
           </button>
         ))}
       </div>
-      <div className="cartao overflow-hidden" key={u.id}>
-        <div className="relative h-56 sm:h-72">
-          <Image src={imgs[i]} alt={u.titulo} fill quality={90} sizes="(max-width:1024px) 100vw, 55vw" className="palavra object-cover" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 30%, rgba(13,15,20,.95))' }} />
-          <h3 className="display absolute bottom-4 left-5 right-5 text-3xl sm:text-4xl">{u.titulo}</h3>
+      <div className="cartao overflow-hidden sm:grid sm:grid-cols-[.85fr_1.15fr]" key={u.id}>
+        <div className="relative aspect-[4/5] max-h-[34rem] w-full sm:aspect-auto sm:min-h-[30rem]">
+          <Image src={imgs[i]} alt={u.titulo} fill quality={90} sizes="(max-width:640px) 100vw, 28vw" className="palavra object-cover object-center" />
+          <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white/90">Imagem ilustrativa</span>
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 55%, rgba(13,15,20,.85))' }} />
         </div>
-        <div className="p-5 sm:p-6">
-          <p className="text-white/75">{u.texto}</p>
+        <div className="flex flex-col justify-center p-5 sm:p-8">
+          <h3 className="display text-4xl sm:text-5xl">{u.titulo}</h3>
+          <p className="mt-3 text-white/75">{u.texto}</p>
           <div className="mt-4 flex flex-wrap gap-2">{u.ideias.map(t => <span key={t} className="rounded-full border border-white/15 px-3 py-1 text-sm text-white/80">{t}</span>)}</div>
           <BotaoWhats origem={`uso-${u.id}`} texto={msg} className="btn btn-laranja mt-5 w-full sm:w-auto">Quero um para {u.nome.toLowerCase()}</BotaoWhats>
         </div>
