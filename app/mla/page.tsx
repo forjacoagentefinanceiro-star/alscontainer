@@ -174,12 +174,12 @@ export default function Inicio() {
       {/* VENDA x LOCAÇÃO */}
       <section className="mx-auto max-w-7xl px-5 pb-24">
         <div className="grid gap-4 md:grid-cols-2">
-          {[['/venda', 'Comprar', 'Containers à venda', `Containers ${PRECO}, conforme tipo e ano. Fotos reais e visita no pátio.`, '/containers/lateral.jpg'], ['/locacao', 'Alugar', 'Locação de containers', 'Precisa por um período? Consulte disponibilidade e condições.', '/containers/lateral-aberta.jpg']].map(([h, tag, t, s, img], i) => (
+          {[['/venda', 'Comprar', 'Containers à venda', 'Pronta entrega, fotos reais e visita agendada no pátio, em Itajaí/SC.', '/containers/lateral.jpg'], ['/locacao', 'Alugar', 'Locação de containers', 'Precisa por um período? Consulte disponibilidade e condições.', '/containers/lateral-aberta.jpg']].map(([h, tag, t, s, img], i) => (
             <Rev key={h} d={i * 0.1} zoom>
-              <a href={h} className="foto group block h-80">
+              <a href={h} className="foto group block h-[26rem] sm:h-96">
                 <Image src={img} alt="" fill quality={85} sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
-                <div className="absolute inset-0 z-10 flex flex-col justify-end p-7" style={{ background: 'linear-gradient(180deg, transparent 20%, rgba(13,15,20,.92))' }}>
-                  <p className="tag">{tag}</p><p className="display mt-1 text-5xl">{t}</p><p className="mt-2 max-w-sm text-white/75">{s}</p>
+                <div className="absolute inset-0 z-10 flex flex-col justify-end p-7" style={{ background: 'linear-gradient(180deg, rgba(13,15,20,.05) 0%, rgba(13,15,20,.72) 38%, rgba(13,15,20,.97) 100%)' }}>
+                  <p className="tag">{tag}</p><p className="display mt-1 text-5xl [text-shadow:0_2px_14px_rgba(0,0,0,.6)]">{t}</p><p className="mt-2 max-w-md text-white/85">{s}</p>{h === '/venda' && <div className="mt-3 flex flex-wrap gap-2 text-sm font-black text-[#14110c]"><span className="rounded-full px-3 py-1" style={{ background: '#4da3ff' }}>20 pés · R$ 6.500</span><span className="rounded-full px-3 py-1" style={{ background: 'var(--acento)' }}>40 HC · R$ 8.500</span><span className="rounded-full px-3 py-1" style={{ background: '#2dd4bf' }}>40 Dry · R$ 8.200</span></div>}
                   <p className="mt-3 font-bold text-[var(--acento)] transition group-hover:translate-x-2">Saiba mais →</p>
                 </div>
               </a>
