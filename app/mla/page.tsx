@@ -100,14 +100,20 @@ export default function Inicio() {
         <div className="mt-10 grid gap-4 md:grid-cols-2">
           {[['20', 'Compacto e versátil', '≈ 6,06 × 2,44 × 2,59 m', ['Depósito e almoxarifado', 'Canteiro e escritório de obra', 'Quiosque e ateliê', 'Cabe em terrenos menores']], ['40', 'Mais espaço, mais projeto', "≈ 12,19 × 2,44 × 2,90 m (High Cube)", ['Loja, lanchonete e showroom', 'Casa container e escritório', 'Armazenagem maior', 'Altura extra para divisórias']]].map(([n, t, m, l], i) => (
             <Rev key={n as string} d={i * 0.1} zoom>
-              <div className="cartao h-full p-7 sm:p-9">
+              <div className="cartao h-full overflow-hidden">
+                <div className="relative h-56 sm:h-64">
+                  <Image src={n === '20' ? '/containers/20pes-ilustrativa.jpg' : '/containers/lateral-aberta.jpg'} alt={n === '20' ? 'Ilustração de um container de 20 pés' : 'Container de 40 pés no pátio'} fill quality={90} sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
+                  {n === '20' && <span className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white/90">Imagem ilustrativa</span>}
+                  <div className="absolute inset-x-0 bottom-0 h-24" style={{ background: 'linear-gradient(180deg, transparent, #1a1d25)' }} />
+                </div>
+              <div className="p-7 sm:p-9">
                 <p className="display text-[7rem] leading-none sm:text-[9rem]"><span className="laranja-texto">{n}</span><span className="text-4xl text-white/60"> PÉS</span></p>
                 <p className="display mt-2 text-3xl">{t as string}</p>
                 <p className="mt-1 text-sm text-white/50">Medidas externas padrão: {m as string}</p>
                 <p className="mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-black text-[#14110c]" style={{ background: 'var(--acento)' }}>{n === '20' ? PRECO20 : PRECO40}</p>
                 <ul className="mt-4 space-y-2 text-white/80">{(l as string[]).map(x => <li key={x} className="flex gap-2"><span style={{ color: 'var(--acento)' }}>✓</span>{x}</li>)}</ul>
                 <BotaoWhats origem={`tamanho-${n}`} texto={`Olá! Vim pelo site da MLA Containers e quero saber preço e disponibilidade do container de ${n} pés.`} className="btn btn-laranja mt-6">Quero o de {n as string} pés</BotaoWhats>
-              </div>
+              </div></div>
             </Rev>
           ))}
         </div>
