@@ -100,9 +100,9 @@ export default function Inicio() {
         <Titulo tag="Três opções" sub="Escolha pelo espaço e pela altura que o seu projeto pede. Se tiver dúvida, a gente indica.">20 pés, 40 HC <span className="laranja-texto">ou Dry?</span></Titulo>
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
           {([
-            { id: '20', cor: '#4da3ff', nome: '20 pés', t: 'Compacto e versátil', m: '≈ 6,06 × 2,44 × 2,59 m', l: ['Depósito e almoxarifado', 'Canteiro e escritório de obra', 'Quiosque e ateliê', 'Cabe em terrenos menores'], preco: PRECO20, img: '/containers/20pes-ilustrativa.jpg', ilus: true },
+            { id: '20', cor: '#4da3ff', nome: '20 pés', t: 'Compacto e versátil', m: '≈ 6,06 × 2,44 × 2,59 m', l: ['Depósito e almoxarifado', 'Canteiro e escritório de obra', 'Quiosque e ateliê', 'Cabe em terrenos menores'], preco: PRECO20, img: '/containers/20pes-ilustrativa.jpg', ilus: false },
             { id: 'hc', cor: '#ff9f1a', nome: '40 HC', t: 'Mais espaço e pé-direito', m: '≈ 12,19 × 2,44 × 2,90 m', l: ['Loja, lanchonete e showroom', 'Casa container e escritório', 'Altura extra: divisórias e mezanino', 'Maior volume de armazenagem'], preco: PRECO40, img: '/containers/lateral-aberta.jpg', ilus: false },
-            { id: 'dry', cor: '#2dd4bf', nome: '40 Dry', t: 'Espaço de 40 pés, altura padrão', m: '≈ 12,19 × 2,44 × 2,59 m', l: ['Armazenagem de grande volume', 'Obras e canteiros', 'Projetos com altura padrão', 'Disponível em unidades selecionadas'], preco: PRECODRY, img: '/containers/40dry-ilustrativa.jpg', ilus: true },
+            { id: 'dry', cor: '#2dd4bf', nome: '40 Dry', t: 'Espaço de 40 pés, altura padrão', m: '≈ 12,19 × 2,44 × 2,59 m', l: ['Armazenagem de grande volume', 'Obras e canteiros', 'Projetos com altura padrão', 'Disponível em unidades selecionadas'], preco: PRECODRY, img: '/containers/40dry-ilustrativa.jpg', ilus: false },
           ]).map((x, i) => (
             <Rev key={x.id} d={i * 0.1} zoom>
               <div className="cartao h-full overflow-hidden" style={{ borderColor: `${x.cor}66` }}>
@@ -124,6 +124,7 @@ export default function Inicio() {
             </Rev>
           ))}
         </div>
+        <p className="mt-4 text-center text-xs text-white/40">Cada unidade é única: tipo, ano e detalhes podem variar. Você confere a sua pessoalmente na visita ao pátio.</p>
       </section>
 
       {/* PLANTA */}
