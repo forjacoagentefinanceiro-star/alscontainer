@@ -27,6 +27,30 @@ async function baselineHorimetro(supabase: SB, checklistId: string, equipamento:
   return max
 }
 
+// recalcula consumo_lh de todos os eventos com litros da máquina (ordenados por horímetro)
+// usado após inserção retroativa de abastecimento para corrigir os subsequentes automaticamente
+async function recalcConsumoMaquina(supabase: SB, equipamento: string) {
+  const { data: cks } = await supabase.from('checklists').select('id').eq('equipamento', equipamento)
+  const ids = (cks ?? []).map(c => c.id as string)
+  if (!ids.length) return
+  const { data: evs } = await supabase.from('operacao_eventos')
+    .select('id, horimetro, litros')
+    .in('checklist_id', ids)
+    .not('litros', 'is', null)
+    .order('horimetro', { ascending: true })
+  if (!evs?.length) return
+  for (let i = 0; i < evs.length; i++) {
+    const ev = evs[i]
+    if (ev.horimetro == null || ev.litros == null) continue
+    const prevH = i > 0 ? Number(evs[i - 1].horimetro) : null
+    const deltaH = prevH != null ? Number(ev.horimetro) - prevH : null
+    const consumo_lh = deltaH != null && deltaH > 0
+      ? Math.round((Number(ev.litros) / deltaH) * 100) / 100
+      : null
+    await supabase.from('operacao_eventos').update({ consumo_lh }).eq('id', ev.id)
+  }
+}
+
 // recalcula o horímetro atual da máquina = maior valor entre todos os lançamentos
 async function recalcHorimetro(supabase: SB, equipamento: string) {
   const { data: cks } = await supabase.from('checklists').select('id, horimetro, horimetro_final').eq('equipamento', equipamento)
@@ -1987,6 +2011,35 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
     empSt?.setor as string | null,
     supabase
   )
+  revalidatePath('/checklist')
+  revalidatePath('/historico')
+  revalidatePath('/', 'layout')
+  return { error: null }
+}
+
+// insere abastecimento retroativo em qualquer checklist (admin) e recalcula consumo_lh de toda a máquina
+export async function addAbastecimentoRetroativo(checklistId: string, horimetro: number, litros: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (perfil?.role !== 'admin' && perfil?.role !== 'editor') return { error: 'Sem permissão' }
+  const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
+  if (!ck?.equipamento) return { error: 'Checklist não encontrado' }
+  const { error } = await supabase.from('operacao_eventos').insert({
+    checklist_id: checklistId,
+    tipo: 'parada',
+    horimetro,
+    litros,
+    abastecimento: true,
+    motivo: 'Abastecimento',
+    origem: 'admin-fix',
+    user_id: user.id,
+  })
+  if (error) return { error: error.message }
+  // recalcula consumo_lh de todos os abastecimentos da máquina (corrige os subsequentes automaticamente)
+  await recalcConsumoMaquina(supabase, ck.equipamento)
+  await recalcHorimetro(supabase, ck.equipamento)
   revalidatePath('/checklist')
   revalidatePath('/historico')
   revalidatePath('/', 'layout')

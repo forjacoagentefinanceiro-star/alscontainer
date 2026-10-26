@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Checklist, OperacaoEvento, ChecklistItem } from '@/app/actions'
-import { updateChecklistItens, updateChecklistHorimetro } from '@/app/actions'
+import { updateChecklistItens, updateChecklistHorimetro, addAbastecimentoRetroativo } from '@/app/actions'
 import { ProblemaTratativa } from '@/components/ProblemaTratativa'
 import { HorimetroInput } from '@/components/HorimetroInput'
 import { EventoEditor } from '@/components/EventoEditor'
@@ -29,6 +29,9 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
   const [editVal, setEditVal] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [addAbast, setAddAbast] = useState(false)
+  const [abastHorim, setAbastHorim] = useState<number | null>(null)
+  const [abastLitros, setAbastLitros] = useState<string>('')
   const router = useRouter()
 
   // re-sincroniza com o servidor (LiveRefresh) — sem sobrescrever uma edição em andamento
@@ -46,6 +49,19 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
       const tem_pendencia = itensEdit.some(i => i.status === 'nok')
       setC(prev => ({ ...prev, itens: itensEdit, tem_pendencia }))
       setEditandoItens(false)
+      router.refresh()
+    })
+  }
+
+  function confirmarAddAbast() {
+    const litros = parseFloat(abastLitros.replace(',', '.'))
+    if (!abastHorim || abastHorim <= 0) { setErro('Informe o horímetro.'); return }
+    if (!litros || litros <= 0) { setErro('Informe a quantidade de litros.'); return }
+    setErro(null)
+    startTransition(async () => {
+      const res = await addAbastecimentoRetroativo(c.id, abastHorim, litros)
+      if (res.error) { setErro(res.error); return }
+      setAddAbast(false); setAbastHorim(null); setAbastLitros('')
       router.refresh()
     })
   }
@@ -182,6 +198,33 @@ export function HistoricoCard({ checklist, eventos, podeEditar }: { checklist: C
             <EventoEditor key={e.id} evento={e} podeEditar={podeEditar} onDeleted={() => setEvs(prev => prev.filter(x => x.id !== e.id))} />
           ))}
         </ul>
+      )}
+
+      {podeEditar && (
+        <div className="mt-2">
+          {addAbast ? (
+            <div className="rounded-lg px-3 py-2.5 flex items-center gap-2 flex-wrap" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+              <span className="text-xs font-semibold" style={{ color: '#9a3412' }}>⛽ Abastecimento retroativo</span>
+              <HorimetroInput value={abastHorim} onChange={setAbastHorim} placeholder="Horímetro" autoFocus
+                className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#c2410c', color: '#1a2a3a', width: 100 }} />
+              <span className="inline-flex items-center gap-1">
+                <input type="number" min="1" step="0.1" value={abastLitros} onChange={e => setAbastLitros(e.target.value)}
+                  placeholder="Litros" className="rounded border px-2 py-1 text-xs outline-none" style={{ borderColor: '#c2410c', color: '#1a2a3a', width: 80 }} />
+                <span className="text-xs" style={{ color: '#9a3412' }}>L</span>
+              </span>
+              <button onClick={confirmarAddAbast} disabled={isPending}
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: '#c2410c' }}>
+                Confirmar
+              </button>
+              <button onClick={() => { setAddAbast(false); setErro(null) }} className="text-xs" style={{ color: '#6b7280' }}>cancelar</button>
+            </div>
+          ) : (
+            <button onClick={() => { setAddAbast(true); setErro(null) }}
+              className="text-xs px-2.5 py-1 rounded-lg border" style={{ color: '#c2410c', borderColor: '#fed7aa', background: '#fff7ed' }}>
+              ⛽ Adicionar abastecimento
+            </button>
+          )}
+        </div>
       )}
 
       {c.observacoes && <p className="mt-2 text-xs" style={{ color: '#6b7280' }}>Obs: {c.observacoes}</p>}
