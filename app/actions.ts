@@ -1047,9 +1047,11 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
   if (!user) return vazio
   const filtroNomes = await filtroEquipamentosSetor(setorFiltro)
 
-  let empQ = supabase.from('empilhadeiras').select('nome, horimetro_atual')
+  let empQ = supabase.from('empilhadeiras').select('nome, horimetro_atual, ativo')
   if (filtroNomes) empQ = empQ.in('nome', filtroNomes)
   const { data: emp } = await empQ
+  const inativas = new Set((emp ?? []).filter((e: { ativo: boolean | null }) => e.ativo === false).map((e: { nome: string }) => e.nome as string))
+  const empAtivos = (emp ?? []).filter((e: { ativo: boolean | null }) => e.ativo !== false)
   let q = supabase.from('checklists').select('id, equipamento, horimetro, horimetro_final, tem_pendencia, excluir_indicadores, created_at')
   if (inicio) q = q.gte('created_at', inicio)
   if (fim) q = q.lt('created_at', fim)
@@ -1066,8 +1068,8 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
     eventos = evs ?? []
   }
 
-  const nomes = [...new Set([...(emp ?? []).map(e => e.nome as string), ...checklists.map(c => c.equipamento as string)])].sort((a, b) => a.localeCompare(b))
-  const horimetroAtualMap = new Map((emp ?? []).map(e => [e.nome as string, e.horimetro_atual as number | null]))
+  const nomes = [...new Set([...empAtivos.map((e: { nome: string }) => e.nome as string), ...checklists.map(c => c.equipamento as string).filter(n => !inativas.has(n))])].sort((a, b) => a.localeCompare(b))
+  const horimetroAtualMap = new Map(empAtivos.map((e: { nome: string; horimetro_atual: number | null }) => [e.nome as string, e.horimetro_atual as number | null]))
   const fimMs = fim ? new Date(fim).getTime() : Date.now()
   const periodoHoras = inicio ? (fimMs - new Date(inicio).getTime()) / 3600000 : null
 
