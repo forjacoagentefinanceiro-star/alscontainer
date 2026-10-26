@@ -77,7 +77,7 @@ async function ultimoAbastecimentoHorimetro(supabase: SB, equipamento: string): 
   const { data: cks } = await supabase.from('checklists').select('id').eq('equipamento', equipamento)
   const ids = (cks ?? []).map(c => c.id)
   if (!ids.length) return null
-  const { data: evs } = await supabase.from('operacao_eventos').select('horimetro').in('checklist_id', ids).not('litros', 'is', null).order('created_at', { ascending: false }).limit(1)
+  const { data: evs } = await supabase.from('operacao_eventos').select('horimetro').in('checklist_id', ids).not('litros', 'is', null).order('horimetro', { ascending: false }).limit(1)
   return (evs?.[0]?.horimetro as number | null) ?? null
 }
 
@@ -987,6 +987,7 @@ export type IndicadorMaquina = {
   tempoRespostaMedioMin: number | null
   utilizacaoPct: number | null
   pendenciaPct: number | null
+  horasDesdeAbastecimento: number | null
 }
 
 export type DashboardEquipamentos = {
@@ -1045,6 +1046,30 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
   const fimMs = fim ? new Date(fim).getTime() : Date.now()
   const periodoHoras = inicio ? (fimMs - new Date(inicio).getTime()) / 3600000 : null
 
+  // Último abastecimento global (sem filtro de período) por máquina — para calcular horas desde o abastecimento
+  const ultimoAbastHorimetroMap = new Map<string, number>()
+  {
+    let cksGlobalQ = supabase.from('checklists').select('id, equipamento')
+    if (filtroNomes) cksGlobalQ = cksGlobalQ.in('equipamento', filtroNomes)
+    const { data: cksGlobal } = await cksGlobalQ
+    const idsGlobal = (cksGlobal ?? []).map(c => c.id as string)
+    if (idsGlobal.length) {
+      const { data: evAbast } = await supabase.from('operacao_eventos')
+        .select('checklist_id, horimetro')
+        .in('checklist_id', idsGlobal)
+        .not('litros', 'is', null)
+        .order('horimetro', { ascending: false })
+      if (evAbast) {
+        const ckEquipMap = new Map((cksGlobal ?? []).map(c => [c.id as string, c.equipamento as string]))
+        for (const ev of evAbast) {
+          const eq = ckEquipMap.get(ev.checklist_id)
+          if (eq && !ultimoAbastHorimetroMap.has(eq) && ev.horimetro != null)
+            ultimoAbastHorimetroMap.set(eq, Number(ev.horimetro))
+        }
+      }
+    }
+  }
+
   const maquinas: IndicadorMaquina[] = nomes.map(nome => {
     const cksM = checklists.filter(c => c.equipamento === nome)
     // checklists excluídos dos indicadores (ex.: máquina ainda não entregue) não entram nos cálculos de horas/litros/problemas
@@ -1084,9 +1109,15 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
     const comPendencia = cksM.filter(c => c.tem_pendencia).length
     const pendenciaPct = cksM.length ? Math.round((comPendencia / cksM.length) * 1000) / 10 : null
 
+    const horAtual = horimetroAtualMap.get(nome) ?? null
+    const lastAbastH = ultimoAbastHorimetroMap.get(nome) ?? null
+    const horasDesdeAbastecimento = (horAtual != null && lastAbastH != null && horAtual >= lastAbastH)
+      ? Math.round((horAtual - lastAbastH) * 10) / 10
+      : null
+
     return {
       equipamento: nome,
-      horimetroAtual: horimetroAtualMap.get(nome) ?? null,
+      horimetroAtual: horAtual,
       horasTrabalhadas: Math.round(horasTrabalhadas * 10) / 10,
       horasSemChecklist: Math.round(horasSemChecklist * 10) / 10,
       litrosTotal: Math.round(litrosTotal * 10) / 10,
@@ -1099,6 +1130,7 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
       tempoRespostaMedioMin,
       utilizacaoPct,
       pendenciaPct,
+      horasDesdeAbastecimento,
     }
   })
 

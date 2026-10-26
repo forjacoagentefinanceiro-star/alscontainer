@@ -165,7 +165,7 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
             <table className="w-full text-xs" style={{ color: '#374151' }}>
               <thead>
                 <tr style={{ background: '#f9fafb' }}>
-                  {['Equipamento', 'Horímetro', 'Horas trab.', 'Sem checklist', 'Consumo', 'Litros', 'Problemas', 'Tempo parado', 'Resposta', 'Utilização', '% pendência'].map(h => (
+                  {['Equipamento', 'Horímetro', 'Desde abast.', 'Horas trab.', 'Sem checklist', 'Consumo', 'Litros', 'Problemas', 'Tempo parado', 'Resposta', 'Utilização', '% pendência'].map(h => (
                     <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -175,6 +175,9 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
                   <tr key={m.equipamento} className="border-t" style={{ borderColor: '#f3f4f6' }}>
                     <td className="px-3 py-2 font-medium whitespace-nowrap" style={{ color: '#1a2a3a' }}>{m.equipamento}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.horimetroAtual ?? '—'}h</td>
+                    <td className="px-3 py-2 whitespace-nowrap font-semibold" style={{ color: m.horasDesdeAbastecimento == null ? '#9ca3af' : m.horasDesdeAbastecimento >= 20 ? '#b91c1c' : m.horasDesdeAbastecimento >= 12 ? '#d97706' : '#047857' }}>
+                      {m.horasDesdeAbastecimento != null ? `${m.horasDesdeAbastecimento}h` : '—'}
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.horasTrabalhadas}h</td>
                     <td className="px-3 py-2 whitespace-nowrap" style={{ color: m.horasSemChecklist > 0 ? '#9a3412' : 'inherit' }}>{m.horasSemChecklist > 0 ? `${m.horasSemChecklist}h` : '—'}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{m.consumoMedio != null ? `${m.consumoMedio} L/h` : '—'}</td>
@@ -237,6 +240,24 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
             {d.maquinas.map(m => (
               <Card key={m.equipamento} label={m.equipamento} value={m.consumoMedio != null ? `${m.consumoMedio} L/h` : '—'} cor="#9a3412" sub={`${m.litrosTotal}L no período`} />
             ))}
+          </div>
+
+          <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Horas desde o último abastecimento</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 max-w-full mb-6">
+            {d.maquinas.map(m => {
+              const h = m.horasDesdeAbastecimento
+              const litrosEst = (h != null && m.consumoMedio != null) ? Math.round(h * m.consumoMedio) : null
+              const cor = h == null ? '#9ca3af' : h >= 20 ? '#b91c1c' : h >= 12 ? '#d97706' : '#047857'
+              return (
+                <div key={m.equipamento} className="bg-white rounded-xl p-4" style={{ border: '1px solid #e5e7eb', borderLeft: `4px solid ${cor}` }}>
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6b7280' }}>{m.equipamento}</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: cor }}>{h != null ? `${h}h` : '—'}</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                    {litrosEst != null ? `≈ ${litrosEst}L consumidos est.` : 'desde o último abastecimento'}
+                  </p>
+                </div>
+              )
+            })}
           </div>
 
           <h2 className="text-sm font-bold mb-3" style={{ color: '#1a2a3a' }}>Gráficos</h2>
