@@ -2017,6 +2017,30 @@ export async function liberarEquipamento(eventoId: string, horimetro: number) {
   return { error: null }
 }
 
+// insere abastecimento retroativo usando só o nome da máquina — encontra o checklist correto automaticamente
+export async function addAbastecimentoParaMaquina(equipamento: string, horimetro: number, litros: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (perfil?.role !== 'admin' && perfil?.role !== 'editor') return { error: 'Sem permissão' }
+  const { data: cks } = await supabase.from('checklists')
+    .select('id, horimetro, horimetro_final')
+    .eq('equipamento', equipamento)
+    .order('created_at', { ascending: false })
+  if (!cks?.length) return { error: 'Nenhum checklist encontrado para esta máquina' }
+  // 1) checklist cujo range cobre o horímetro
+  let targetId = cks.find(c =>
+    c.horimetro != null && c.horimetro_final != null &&
+    Number(c.horimetro) <= horimetro && horimetro <= Number(c.horimetro_final)
+  )?.id
+  // 2) checklist mais recente cujo horímetro inicial é ≤ X
+  if (!targetId) targetId = cks.find(c => c.horimetro != null && Number(c.horimetro) <= horimetro)?.id
+  // 3) fallback: mais recente
+  if (!targetId) targetId = cks[0].id
+  return addAbastecimentoRetroativo(targetId, horimetro, litros)
+}
+
 // insere abastecimento retroativo em qualquer checklist (admin) e recalcula consumo_lh de toda a máquina
 export async function addAbastecimentoRetroativo(checklistId: string, horimetro: number, litros: number) {
   const supabase = await createClient()
