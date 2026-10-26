@@ -2022,7 +2022,7 @@ export async function addAbastecimentoParaMaquina(equipamento: string, horimetro
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: perfil } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
   if (perfil?.role !== 'admin' && perfil?.role !== 'editor') return { error: 'Sem permissão' }
   const { data: cks } = await supabase.from('checklists')
     .select('id, horimetro, horimetro_final')
@@ -2046,7 +2046,7 @@ export async function addAbastecimentoRetroativo(checklistId: string, horimetro:
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
-  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: perfil } = await supabase.from('user_profiles').select('role').eq('id', user.id).single()
   if (perfil?.role !== 'admin' && perfil?.role !== 'editor') return { error: 'Sem permissão' }
   const { data: ck } = await supabase.from('checklists').select('equipamento').eq('id', checklistId).single()
   if (!ck?.equipamento) return { error: 'Checklist não encontrado' }
