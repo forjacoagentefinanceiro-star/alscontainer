@@ -66,6 +66,26 @@ async function recalcHorimetro(supabase: SB, equipamento: string) {
     for (const e of evs ?? []) if (e.horimetro != null) max = Math.max(max, Number(e.horimetro))
   }
   await supabase.from('empilhadeiras').update({ horimetro_atual: max || null }).eq('nome', equipamento)
+  if (max > 0) await verificarAlerta18h(supabase, equipamento, max)
+}
+
+// dispara alerta Telegram quando a máquina ultrapassa 18h sem abastecer — dedup de 12h
+async function verificarAlerta18h(supabase: SB, equipamento: string, horimetroAtual: number) {
+  const lastAbastH = await ultimoAbastecimentoHorimetro(supabase, equipamento)
+  if (lastAbastH == null) return
+  const horasDesde = Math.round((horimetroAtual - lastAbastH) * 10) / 10
+  if (horasDesde < 18) return
+  const { data: empRow } = await supabase.from('empilhadeiras')
+    .select('setor, alerta_18h_em').eq('nome', equipamento).maybeSingle()
+  const ultimoAlerta = empRow?.alerta_18h_em ? new Date(empRow.alerta_18h_em as string).getTime() : 0
+  if ((Date.now() - ultimoAlerta) / 3600000 < 12) return
+  await supabase.from('empilhadeiras').update({ alerta_18h_em: new Date().toISOString() }).eq('nome', equipamento)
+  const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  await notificarTelegramSetor(
+    `⛽ ABASTECIMENTO PENDENTE\n\nEquipamento: ${equipamento}\nHoras desde o último abastecimento: ${horasDesde}h\nHorímetro atual: ${horimetroAtual}h | Último abast: ${lastAbastH}h\nHorário: ${hora}\n\nFavor abastecer o equipamento.`,
+    empRow?.setor as string | null,
+    supabase
+  )
 }
 
 // maior horímetro da máquina considerando TODOS os checklists/eventos, exceto o checklist informado —
