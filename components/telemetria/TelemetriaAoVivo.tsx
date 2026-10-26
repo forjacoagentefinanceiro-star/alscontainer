@@ -113,13 +113,18 @@ export function TelemetriaAoVivo() {
       .select('maquina, latitude, longitude, created_at')
       .not('latitude', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(500)
     if (error) { setErro(error.message); return }
-    const visto = new Set<string>(); const ultimas: MaquinaPos[] = []
+    const visto = new Set<string>(); const novas: MaquinaPos[] = []
     for (const r of data ?? []) {
-      if (!visto.has(r.maquina)) { visto.add(r.maquina); ultimas.push(r as MaquinaPos) }
+      if (!visto.has(r.maquina)) { visto.add(r.maquina); novas.push(r as MaquinaPos) }
     }
-    setPosicoes(ultimas)
+    // merge: mantém última posição conhecida mesmo se a máquina sumiu da query
+    setPosicoes(prev => {
+      const mapa = new Map(prev.map(p => [p.maquina, p]))
+      for (const p of novas) mapa.set(p.maquina, p)
+      return [...mapa.values()]
+    })
     setAtualizado(new Date().toLocaleTimeString('pt-BR'))
     setErro(null)
   }
@@ -177,36 +182,40 @@ export function TelemetriaAoVivo() {
       const L = (await import('leaflet')).default
       const map = mapInstance.current as ReturnType<typeof L.map>
       for (const pos of posicoes) {
-        const cor = COR[pos.maquina] ?? '#888'
         const mins = Math.round((Date.now() - new Date(pos.created_at).getTime()) / 60000)
-        const tempo = mins < 2 ? 'agora mesmo' : `${mins} min atrás`
+        const offline = mins >= 10
+        const corBase = COR[pos.maquina] ?? '#888'
+        const cor = offline ? '#6b7280' : corBase
+        const tempo = mins < 2 ? 'agora mesmo' : mins < 60 ? `${mins} min atrás` : `${Math.round(mins / 60)}h atrás`
         const nome = pos.maquina.charAt(0).toUpperCase() + pos.maquina.slice(1)
         const info = abastInfo.get(pos.maquina)
         const horasDesde = info?.horasDesde ?? null
         const horAtual = info?.horimetroAtual ?? null
-        const pulsando = horasDesde != null && horasDesde >= 18
+        const pulsando = !offline && horasDesde != null && horasDesde >= 18
         const corHoras = horasDesde == null ? '#8ca5c8' : horasDesde >= 18 ? '#f85149' : horasDesde >= 12 ? '#e3b341' : '#3fb950'
 
         const tooltipHtml = `
-          <div style="font-weight:700;color:${cor};margin-bottom:3px;">${LABEL[pos.maquina] ?? nome}</div>
+          <div style="font-weight:700;color:${offline ? '#9ca3af' : corBase};margin-bottom:3px;">${LABEL[pos.maquina] ?? nome}${offline ? ' · <span style="color:#f85149">sem sinal</span>' : ''}</div>
           <div style="color:#cfe0f2;">⏱ Horímetro: <b>${horAtual != null ? horAtual + 'h' : '—'}</b></div>
-          <div style="color:${corHoras};">⛽ ${horasDesde != null ? horasDesde + 'h sem abastecer' : 'abastecimento sem dados'}${pulsando ? ' ⚠️' : ''}</div>
-          <div style="color:#5f7da0;font-size:10px;margin-top:4px;">${tempo}</div>`
+          <div style="color:${offline ? '#6b7280' : corHoras};">⛽ ${horasDesde != null ? horasDesde + 'h sem abastecer' : 'sem registro'}${pulsando ? ' ⚠️' : ''}</div>
+          <div style="color:${offline ? '#f85149' : '#5f7da0'};font-size:10px;margin-top:4px;">${offline ? '📡 Última posição · ' : ''}${tempo}</div>`
 
+        const filtroImg = offline ? 'grayscale(100%) opacity(0.55)' : 'none'
         const icon = L.divIcon({
           className: '',
           html: `<div class="maq-wrap" style="width:80px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 4px rgba(0,0,0,.65));position:relative;cursor:pointer;">
             <div class="maq-tip" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);white-space:nowrap;background:rgba(10,18,34,0.97);border:1.5px solid ${cor};border-radius:10px;padding:8px 12px;font-size:12px;color:#e6eef7;pointer-events:none;z-index:2000;min-width:160px;">
               ${tooltipHtml}
             </div>
-            <div class="${pulsando ? 'maq-pulsar' : ''}" style="width:64px;height:64px;border-radius:50%;background:#fff;border:5px solid ${cor};box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-              <img src="/telemetria/maquina.png" alt="${nome}" style="width:100%;height:100%;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-              <svg style="display:none" width="58" height="38" viewBox="0 0 80 52" stroke="#0b1220" stroke-width="1.6" stroke-linejoin="round">
+            <div class="${pulsando ? 'maq-pulsar' : ''}" style="width:64px;height:64px;border-radius:50%;background:${offline ? '#1f2937' : '#fff'};border:5px solid ${cor};box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;">
+              <img src="/telemetria/maquina.png" alt="${nome}" style="width:100%;height:100%;object-fit:contain;display:block;filter:${filtroImg}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+              <svg style="display:none;filter:${filtroImg}" width="58" height="38" viewBox="0 0 80 52" stroke="#0b1220" stroke-width="1.6" stroke-linejoin="round">
                 <rect x="44" y="2" width="34" height="14" rx="1.5" fill="${cor}"/>
                 <path d="M30 28 L50 14" stroke="#0b1220" stroke-width="6" stroke-linecap="round"/>
                 <path d="M6 30h10v-9a3 3 0 0 1 3-3h9v12h30v10H6z" fill="${cor}"/>
                 <circle cx="20" cy="42" r="7" fill="#0b1220"/><circle cx="52" cy="42" r="7" fill="#0b1220"/>
               </svg>
+              ${offline ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;">📡</div>` : ''}
             </div>
             <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid ${pulsando ? '#f85149' : cor};margin-top:-2px"></div>
           </div>`,
@@ -239,11 +248,14 @@ export function TelemetriaAoVivo() {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {posicoes.map(pos => {
           const mins = Math.round((Date.now() - new Date(pos.created_at).getTime()) / 60000)
+          const offline = mins >= 10
+          const cor = offline ? '#6b7280' : (COR[pos.maquina] ?? '#888')
+          const tempoLabel = mins < 2 ? 'agora' : mins < 60 ? `${mins}m atrás` : `${Math.round(mins / 60)}h atrás`
           return (
-            <div key={pos.maquina} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: COR[pos.maquina] ?? '#888' }} />
-              <span style={{ color: '#cfe0f2', fontSize: 13, fontWeight: 600 }}>{LABEL[pos.maquina] ?? pos.maquina}</span>
-              <span style={{ color: mins < 5 ? '#3fb950' : '#5f7da0', fontSize: 11 }}>{mins < 2 ? 'agora' : `${mins}m atrás`}</span>
+            <div key={pos.maquina} style={{ display: 'flex', alignItems: 'center', gap: 8, background: offline ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '6px 12px', border: `1px solid ${offline ? 'rgba(107,114,128,0.3)' : 'rgba(255,255,255,0.08)'}` }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: cor }} />
+              <span style={{ color: offline ? '#6b7280' : '#cfe0f2', fontSize: 13, fontWeight: 600 }}>{LABEL[pos.maquina] ?? pos.maquina}</span>
+              <span style={{ color: offline ? '#f85149' : mins < 5 ? '#3fb950' : '#5f7da0', fontSize: 11 }}>{offline ? `📡 ${tempoLabel}` : tempoLabel}</span>
             </div>
           )
         })}
