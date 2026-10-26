@@ -118,6 +118,22 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
         <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Indicadores da frota: abastecimento, problemas, tempo parado e utilização.</p>
       </div>
 
+      {(() => {
+        const criticas = d.maquinas.filter(m => m.horasDesdeAbastecimento != null && m.horasDesdeAbastecimento >= 18)
+        if (!criticas.length) return null
+        return (
+          <div className="rounded-xl px-4 py-3 mb-4 flex items-start gap-3" style={{ background: '#fef2f2', border: '2px solid #fca5a5' }}>
+            <span className="text-lg leading-none mt-0.5">⛽</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#b91c1c' }}>Abastecimento pendente — {criticas.length} máquina{criticas.length > 1 ? 's' : ''} acima de 18h</p>
+              <p className="text-xs mt-0.5" style={{ color: '#7f1d1d' }}>
+                {criticas.map(m => `${m.equipamento} (${m.horasDesdeAbastecimento}h)`).join(' · ')}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="flex items-center gap-4 flex-wrap mb-3">
         <IndicadoresFiltro />
         {gestor && setores.length > 0 && podeFiltrárSetor && (

@@ -894,11 +894,9 @@ async function notificarTelegramSetor(mensagem: string, setorNome: string | null
   if (!token) return
   const chatIds = new Set<string>()
 
-  // Env var global só entra em alertas sem setor específico.
-  // Quando há setor, a filtragem acontece via user_profiles (abaixo) para
-  // não vazar alertas de outros setores para admins com setor fixo.
+  // TELEGRAM_CHAT_ID global sempre recebe todos os alertas de máquinas.
   const globalId = process.env.TELEGRAM_CHAT_ID
-  if (globalId && !setorNome) chatIds.add(globalId)
+  if (globalId) chatIds.add(globalId)
 
   // Editores do setor com telegram_chat_id configurado
   if (setorNome) {
