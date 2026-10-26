@@ -252,9 +252,17 @@ export default async function IndicadoresPage({ searchParams }: { searchParams: 
                 <div key={m.equipamento} className="bg-white rounded-xl p-4" style={{ border: '1px solid #e5e7eb', borderLeft: `4px solid ${cor}` }}>
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6b7280' }}>{m.equipamento}</p>
                   <p className="text-2xl font-bold mt-1" style={{ color: cor }}>{h != null ? `${h}h` : '—'}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
                     {litrosEst != null ? `≈ ${litrosEst}L consumidos est.` : 'desde o último abastecimento'}
                   </p>
+                  <div className="mt-1.5 flex flex-col gap-0.5">
+                    <p className="text-[11px]" style={{ color: '#6b7280' }}>
+                      ⛽ abast: <span className="font-semibold">{m.ultimoAbastHorimetro != null ? `${m.ultimoAbastHorimetro}h` : '—'}</span>
+                    </p>
+                    <p className="text-[11px]" style={{ color: '#6b7280' }}>
+                      📍 atual: <span className="font-semibold">{m.horimetroAtual != null ? `${m.horimetroAtual}h` : '—'}</span>
+                    </p>
+                  </div>
                 </div>
               )
             })}

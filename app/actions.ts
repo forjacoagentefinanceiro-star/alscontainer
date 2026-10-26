@@ -988,6 +988,7 @@ export type IndicadorMaquina = {
   utilizacaoPct: number | null
   pendenciaPct: number | null
   horasDesdeAbastecimento: number | null
+  ultimoAbastHorimetro: number | null
 }
 
 export type DashboardEquipamentos = {
@@ -1131,6 +1132,7 @@ export async function getDashboardEquipamentos(inicio: string | null, fim: strin
       utilizacaoPct,
       pendenciaPct,
       horasDesdeAbastecimento,
+      ultimoAbastHorimetro: lastAbastH,
     }
   })
 
