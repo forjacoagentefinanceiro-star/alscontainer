@@ -236,11 +236,8 @@ let DATA={
   S('E1',11,'maersk','SAINDO','DC20 E','11 MAERSK DC20 E OK SAINDO','OK · saindo'),
   S('E2',19,'maersk','SAINDO','DC20 Q','19 MAERSK DC20 Q OK SAINDO','OK · saindo')],
  'R4 D':[
-  S('D1',20,'hapag','OK','DC20 CG','20 HAPAG DC20 CG OK'),S('D2',null,'evergreen','NA','DC20 · Baixa','BAIXA EVERGREEN DC20'),
-  S('D3',null,'login','SOF','DC20 CGA','LOGIN DC20 CGA S.OF'),S('D4',null,'login','SOF','DC20 CGB','LOGIN DC 20 CGB S.OF'),
-  S('D5',null,'maersk','AV','DC20 · Baixa','BAIXA MAERSK DC20 AV'),S('D6',21,'login','AV','Dry','21 DRY LOGIN AV'),
-  S('D7',null,'login','AV','DC20 · Baixa','BAIXA LOGIN DC20 AV'),
-  S('D8',null,'oficina','OFICINA','','OFICINA 3','Oficina 3'),S('D9',null,'oficina','OFICINA','','OFICINA 3','Oficina 3 · veio escrito “D19”, confirmar')]
+  S('D1',null,'livre','LIVRE','','VAZIA'),S('D2',null,'livre','LIVRE','','VAZIA'),S('D3',null,'livre','LIVRE','','VAZIA'),S('D4',null,'livre','LIVRE','','VAZIA'),
+  S('D5',null,'oficina','OFICINA','','OFICINA 3','Oficina 3'),S('D6',null,'oficina','OFICINA','','OFICINA 3','Oficina 3')]
 };
 // posições iniciais aproximadas (pixels da foto 1024×628): a = posição 1, b = última
 // posições ajustadas pelo Anderson no mapa em 24/09/2026 (antes: calibradas pelas oficinas marcadas na foto (pixels 1024×628): a = início da posição 1, b = fim da última
