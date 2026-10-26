@@ -12,8 +12,21 @@ type MaquinaPos = {
   created_at: string
 }
 
+type AbastInfo = {
+  horimetroAtual: number | null
+  horasDesde: number | null
+  nomeEmp: string | null
+}
+
 const COR: Record<string, string> = { kone: '#f2c230', ferrari: '#f85149', linde: '#3fb950' }
 const LABEL: Record<string, string> = { kone: '🏗 Kone', ferrari: '🚜 Ferrari', linde: '🏭 Linde' }
+
+const CSS_TELEMETRIA = `
+.maq-wrap .maq-tip { display:none; }
+.maq-wrap:hover .maq-tip { display:block !important; }
+@keyframes maq-ring { 0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,0);} 50%{box-shadow:0 0 0 10px rgba(248,81,73,0.55);} }
+.maq-pulsar { animation: maq-ring 1.3s ease-in-out infinite; border-color:#f85149 !important; }
+`
 const CENTER: [number, number] = [-26.9163, -48.7075]
 
 export function TelemetriaAoVivo() {
@@ -21,6 +34,7 @@ export function TelemetriaAoVivo() {
   const mapInstance = useRef<unknown>(null)
   const markers = useRef<Map<string, unknown>>(new Map())
   const [posicoes, setPosicoes] = useState<MaquinaPos[]>([])
+  const [abastInfo, setAbastInfo] = useState<Map<string, AbastInfo>>(new Map())
   const [atualizado, setAtualizado] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [mapaPronto, setMapaPronto] = useState(false)
@@ -31,6 +45,13 @@ export function TelemetriaAoVivo() {
   const [salvando, setSalvando] = useState(false)
   const poligono = useRef<unknown>(null)
 
+  // injeta CSS de animação uma vez
+  useEffect(() => {
+    if (document.getElementById('maq-telemetria-css')) return
+    const el = document.createElement('style'); el.id = 'maq-telemetria-css'; el.textContent = CSS_TELEMETRIA
+    document.head.appendChild(el)
+  }, [])
+
   useEffect(() => {
     createClient().from('telemetria_config').select('valor').eq('chave', 'limite_patio').maybeSingle()
       .then(({ data }) => {
@@ -38,6 +59,37 @@ export function TelemetriaAoVivo() {
         if (Array.isArray(v) && v.length >= 3) setLimite(v as Ponto[])
       })
   }, [])
+
+  async function buscarAbastInfo() {
+    const sb = createClient()
+    const { data: emps } = await sb.from('empilhadeiras').select('nome, horimetro_atual').neq('ativo', false)
+    if (!emps?.length) return
+    const nomes = emps.map(e => e.nome as string)
+    const { data: cks } = await sb.from('checklists').select('id, equipamento').in('equipamento', nomes)
+    const allIds = (cks ?? []).map(c => c.id as string)
+    const ckEqMap = new Map((cks ?? []).map(c => [c.id as string, c.equipamento as string]))
+    const lastAbastMap = new Map<string, number>()
+    if (allIds.length) {
+      const { data: evAbast } = await sb.from('operacao_eventos')
+        .select('checklist_id, horimetro').in('checklist_id', allIds)
+        .not('litros', 'is', null).order('horimetro', { ascending: false })
+      for (const ev of evAbast ?? []) {
+        const eq = ckEqMap.get(ev.checklist_id)
+        if (eq && !lastAbastMap.has(eq) && ev.horimetro != null) lastAbastMap.set(eq, Number(ev.horimetro))
+      }
+    }
+    const result = new Map<string, AbastInfo>()
+    for (const emp of emps) {
+      const key = Object.keys(COR).find(k => (emp.nome as string).toLowerCase().includes(k))
+      if (!key) continue
+      const horAtual = emp.horimetro_atual != null ? Number(emp.horimetro_atual) : null
+      const lastH = lastAbastMap.get(emp.nome as string) ?? null
+      const horasDesde = (horAtual != null && lastH != null && horAtual >= lastH)
+        ? Math.round((horAtual - lastH) * 10) / 10 : null
+      result.set(key, { horimetroAtual: horAtual, horasDesde, nomeEmp: emp.nome as string })
+    }
+    setAbastInfo(result)
+  }
 
   async function salvarLimite() {
     setSalvando(true); setMsgLimite(null)
@@ -129,10 +181,25 @@ export function TelemetriaAoVivo() {
         const mins = Math.round((Date.now() - new Date(pos.created_at).getTime()) / 60000)
         const tempo = mins < 2 ? 'agora mesmo' : `${mins} min atrás`
         const nome = pos.maquina.charAt(0).toUpperCase() + pos.maquina.slice(1)
+        const info = abastInfo.get(pos.maquina)
+        const horasDesde = info?.horasDesde ?? null
+        const horAtual = info?.horimetroAtual ?? null
+        const pulsando = horasDesde != null && horasDesde >= 18
+        const corHoras = horasDesde == null ? '#8ca5c8' : horasDesde >= 18 ? '#f85149' : horasDesde >= 12 ? '#e3b341' : '#3fb950'
+
+        const tooltipHtml = `
+          <div style="font-weight:700;color:${cor};margin-bottom:3px;">${LABEL[pos.maquina] ?? nome}</div>
+          <div style="color:#cfe0f2;">⏱ Horímetro: <b>${horAtual != null ? horAtual + 'h' : '—'}</b></div>
+          <div style="color:${corHoras};">⛽ ${horasDesde != null ? horasDesde + 'h sem abastecer' : 'abastecimento sem dados'}${pulsando ? ' ⚠️' : ''}</div>
+          <div style="color:#5f7da0;font-size:10px;margin-top:4px;">${tempo}</div>`
+
         const icon = L.divIcon({
           className: '',
-          html: `<div title="${nome}" style="width:64px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 4px rgba(0,0,0,.65));">
-            <div style="position:relative;width:64px;height:64px;border-radius:50%;background:#fff;border:5px solid ${cor};box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          html: `<div class="maq-wrap" style="width:80px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 4px rgba(0,0,0,.65));position:relative;cursor:pointer;">
+            <div class="maq-tip" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);white-space:nowrap;background:rgba(10,18,34,0.97);border:1.5px solid ${cor};border-radius:10px;padding:8px 12px;font-size:12px;color:#e6eef7;pointer-events:none;z-index:2000;min-width:160px;">
+              ${tooltipHtml}
+            </div>
+            <div class="${pulsando ? 'maq-pulsar' : ''}" style="width:64px;height:64px;border-radius:50%;background:#fff;border:5px solid ${cor};box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;">
               <img src="/telemetria/maquina.png" alt="${nome}" style="width:100%;height:100%;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
               <svg style="display:none" width="58" height="38" viewBox="0 0 80 52" stroke="#0b1220" stroke-width="1.6" stroke-linejoin="round">
                 <rect x="44" y="2" width="34" height="14" rx="1.5" fill="${cor}"/>
@@ -141,20 +208,24 @@ export function TelemetriaAoVivo() {
                 <circle cx="20" cy="42" r="7" fill="#0b1220"/><circle cx="52" cy="42" r="7" fill="#0b1220"/>
               </svg>
             </div>
-            <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid ${cor};margin-top:-2px"></div>
+            <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid ${pulsando ? '#f85149' : cor};margin-top:-2px"></div>
           </div>`,
-          iconSize: [64, 76], iconAnchor: [32, 76],
+          iconSize: [80, 78], iconAnchor: [40, 78],
         })
         const popup = `<b>${LABEL[pos.maquina] ?? pos.maquina}</b><br>${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)}<br><small>${tempo}</small>`
         const [lat, lon] = ajustarAoLimite([pos.latitude, pos.longitude], limite)
         const existing = markers.current.get(pos.maquina) as ReturnType<typeof L.marker> | undefined
-        if (existing) { existing.setLatLng([lat, lon]); existing.setPopupContent(popup) }
+        if (existing) { existing.setLatLng([lat, lon]); existing.setPopupContent(popup); existing.setIcon(icon) }
         else { const m = L.marker([lat, lon], { icon }).addTo(map); m.bindPopup(popup); markers.current.set(pos.maquina, m) }
       }
     })()
-  }, [posicoes, limite, mapaPronto])
+  }, [posicoes, abastInfo, limite, mapaPronto])
 
-  useEffect(() => { buscar(); const t = setInterval(buscar, 30000); return () => clearInterval(t) }, [])
+  useEffect(() => {
+    buscar(); buscarAbastInfo()
+    const t = setInterval(() => { buscar(); buscarAbastInfo() }, 30000)
+    return () => clearInterval(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
