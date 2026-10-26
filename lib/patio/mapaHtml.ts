@@ -212,14 +212,13 @@ let DATA={
   S('E6',9,'cheio','CHEIO','','9 CHEIO'),S('E7',16,'cheio','CHEIO','','16 CHEIO'),
   S('E8',null,'livre','LIVRE','','VAZIA')],
  'R1 E (após galpão)':[
-  S('E11',56,'maersk','AV','DC20','56 MAERSK DC20 AV'),S('E12',59,'maersk','AV','','59 MAERSK AV'),
-  S('E13',56,'maersk','AV','','56 MAERSK AV'),S('E14',41,'maersk','AV','','41 MAERSK AV'),
-  S('E15',null,'hapag','SAINDO','CG','HAPAG CG SAINDO'),S('E16',null,'login','AV','Baixa','BAIXA LOGIN AV'),
-  S('E17',59,'maersk','AV','','59 MAERSK AV'),
-  S('E18',null,'oficina','OFICINA','','OFICINA 2','Oficina 2'),S('E19',null,'oficina','OFICINA','','OFICINA 2','Oficina 2')],
+  S('E11',null,'oficina','OFICINA','','OFICINA 1','Oficina 1'),S('E12',null,'oficina','OFICINA','','OFICINA 1','Oficina 1'),
+  S('E13',14,'maersk','AV','','14 MSK AV'),S('E14',13,'hapag','AV','Baixa','BAIXA 13 HPG AV'),
+  S('E15',36,'maersk','SAINDO','E','SAIDA OK 36 MSK E'),S('E16',null,'livre','LIVRE','','VAZIA'),
+  S('E17',6,'maersk','SAINDO','AL','SAIDA OK 6 MSK AL'),S('E18',null,'livre','LIVRE','','VAZIA'),
+  S('E19',null,'oficina','OFICINA','','OFICINA 2','Oficina 2'),S('E20',null,'oficina','OFICINA','','OFICINA 2','Oficina 2')],
  'R1 E (após rua)':[
-  S('E20',null,'one','AV','Baixa','BAIXA ONE AV'),S('E21',24,'login','AV','','24 LOGIN AV OF','AV · OF'),
-  S('E22',51,'evergreen','AV','','51 EVERGREEN AV')],
+  S('E21',44,'one','AV','','44 ONE AV'),S('E22',30,'one','OK','Baixa','BAIXA 30 ONE OK'),S('E23',1,'one','AV','Baixa','BAIXA 1 ONE AV')],
  'R2 D':[
   S('D1',null,'maersk','OK','DC20 E · Baixa','BAIXA DC20 MAERSK E OK'),S('D2',37,'maersk','AV','DC20','37 MAERSK DC20 AV'),
   S('D3',37,'maersk','AV','DC20','37 MAERSK DC20 AV'),S('D4',22,'evergreen','AV','','22 EVERGREEN AV'),
