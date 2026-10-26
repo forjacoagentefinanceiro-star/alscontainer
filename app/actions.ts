@@ -66,7 +66,10 @@ async function recalcHorimetro(supabase: SB, equipamento: string) {
     for (const e of evs ?? []) if (e.horimetro != null) max = Math.max(max, Number(e.horimetro))
   }
   await supabase.from('empilhadeiras').update({ horimetro_atual: max || null }).eq('nome', equipamento)
-  if (max > 0) await verificarAlerta18h(supabase, equipamento, max)
+  if (max > 0) {
+    await verificarAlerta18h(supabase, equipamento, max)
+    await verificarSemChecklist(supabase, equipamento)
+  }
 }
 
 // dispara alerta Telegram quando a máquina ultrapassa 18h sem abastecer — dedup de 12h
@@ -123,6 +126,25 @@ async function ultimoAbastecimentoHorimetro(supabase: SB, equipamento: string): 
   if (!ids.length) return null
   const { data: evs } = await supabase.from('operacao_eventos').select('horimetro').in('checklist_id', ids).not('litros', 'is', null).order('horimetro', { ascending: false }).limit(1)
   return (evs?.[0]?.horimetro as number | null) ?? null
+}
+
+// dispara alerta Telegram quando horímetro é atualizado sem checklist aberto — dedup de 2h
+async function verificarSemChecklist(supabase: SB, equipamento: string) {
+  const { data: ck } = await supabase.from('checklists')
+    .select('id').eq('equipamento', equipamento).eq('status', 'aberta').limit(1)
+  if (ck?.length) return
+  const { data: empRow } = await supabase.from('empilhadeiras')
+    .select('setor, alerta_sem_checklist_em').eq('nome', equipamento).maybeSingle()
+  if (!empRow) return
+  const ultimoAlerta = empRow.alerta_sem_checklist_em ? new Date(empRow.alerta_sem_checklist_em as string).getTime() : 0
+  if ((Date.now() - ultimoAlerta) / 3600000 < 2) return
+  await supabase.from('empilhadeiras').update({ alerta_sem_checklist_em: new Date().toISOString() }).eq('nome', equipamento)
+  const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  await notificarTelegramSetor(
+    `⚠️ USO SEM CHECKLIST\n\nEquipamento: ${equipamento}\nHorímetro atualizado sem checklist aberto.\nHorário: ${hora}\n\nFavor verificar com o operador e abrir o checklist.`,
+    empRow?.setor as string | null,
+    supabase
+  )
 }
 
 // vizinhos (anterior/próximo com valor) na sequência da operação: inicial → eventos (por hora) → final
@@ -804,6 +826,8 @@ export async function addChecklist(payload: {
   const { parado, ...checklistPayload } = payload
   const { data: novo, error } = await supabase.from('checklists').insert({ ...checklistPayload, turno, user_id: user.id, tem_pendencia }).select('id').single()
   if (error) return { error: error.message }
+  // checklist aberto: reseta dedup para que próximo uso sem checklist dispare imediatamente
+  await supabase.from('empilhadeiras').update({ alerta_sem_checklist_em: null }).eq('nome', payload.equipamento)
   if (payload.horimetro != null) await recalcHorimetro(supabase, payload.equipamento)
 
   // avisa o admin: máquina pode ter rodado sem checklist entre as operações
