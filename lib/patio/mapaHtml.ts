@@ -212,7 +212,6 @@ let DATA={
   S('E6',9,'cheio','CHEIO','','9 CHEIO'),S('E7',16,'cheio','CHEIO','','16 CHEIO'),
   S('E8',null,'livre','LIVRE','','VAZIA')],
  'R1 E (após galpão)':[
-  S('E9',null,'oficina','OFICINA','','OFICINA 1','Oficina 1'),S('E10',null,'oficina','OFICINA','','OFICINA 1','Oficina 1'),
   S('E11',56,'maersk','AV','DC20','56 MAERSK DC20 AV'),S('E12',59,'maersk','AV','','59 MAERSK AV'),
   S('E13',56,'maersk','AV','','56 MAERSK AV'),S('E14',41,'maersk','AV','','41 MAERSK AV'),
   S('E15',null,'hapag','SAINDO','CG','HAPAG CG SAINDO'),S('E16',null,'login','AV','Baixa','BAIXA LOGIN AV'),
