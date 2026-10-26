@@ -16,6 +16,7 @@ type AbastInfo = {
   horimetroAtual: number | null
   horasDesde: number | null
   nomeEmp: string | null
+  operador: string | null
 }
 
 const COR: Record<string, string> = { kone: '#f2c230', ferrari: '#f85149', linde: '#3fb950' }
@@ -78,6 +79,13 @@ export function TelemetriaAoVivo() {
         if (eq && !lastAbastMap.has(eq) && ev.horimetro != null) lastAbastMap.set(eq, Number(ev.horimetro))
       }
     }
+    const { data: cksAbertas } = await sb.from('checklists')
+      .select('equipamento, operador').in('equipamento', nomes).eq('status', 'aberta')
+    const operadorMap = new Map<string, string>()
+    for (const ck of cksAbertas ?? []) {
+      if (!operadorMap.has(ck.equipamento as string) && ck.operador)
+        operadorMap.set(ck.equipamento as string, ck.operador as string)
+    }
     const result = new Map<string, AbastInfo>()
     for (const emp of emps) {
       const key = Object.keys(COR).find(k => (emp.nome as string).toLowerCase().includes(k))
@@ -86,7 +94,7 @@ export function TelemetriaAoVivo() {
       const lastH = lastAbastMap.get(emp.nome as string) ?? null
       const horasDesde = (horAtual != null && lastH != null && horAtual >= lastH)
         ? Math.round((horAtual - lastH) * 10) / 10 : null
-      result.set(key, { horimetroAtual: horAtual, horasDesde, nomeEmp: emp.nome as string })
+      result.set(key, { horimetroAtual: horAtual, horasDesde, nomeEmp: emp.nome as string, operador: operadorMap.get(emp.nome as string) ?? null })
     }
     setAbastInfo(result)
   }
@@ -191,6 +199,7 @@ export function TelemetriaAoVivo() {
         const info = abastInfo.get(pos.maquina)
         const horasDesde = info?.horasDesde ?? null
         const horAtual = info?.horimetroAtual ?? null
+        const operador = info?.operador ?? null
         const pulsando = !offline && horasDesde != null && horasDesde >= 18
         const corHoras = horasDesde == null ? '#8ca5c8' : horasDesde >= 18 ? '#f85149' : horasDesde >= 12 ? '#e3b341' : '#3fb950'
 
@@ -198,6 +207,7 @@ export function TelemetriaAoVivo() {
           <div style="font-weight:700;color:${offline ? '#9ca3af' : corBase};margin-bottom:3px;">${LABEL[pos.maquina] ?? nome}${offline ? ' · <span style="color:#f85149">sem sinal</span>' : ''}</div>
           <div style="color:#cfe0f2;">⏱ Horímetro: <b>${horAtual != null ? horAtual + 'h' : '—'}</b></div>
           <div style="color:${offline ? '#6b7280' : corHoras};">⛽ ${horasDesde != null ? horasDesde + 'h sem abastecer' : 'sem registro'}${pulsando ? ' ⚠️' : ''}</div>
+          <div style="color:#8ca5c8;">👤 ${operador ?? 'sem operador'}</div>
           <div style="color:${offline ? '#f85149' : '#5f7da0'};font-size:10px;margin-top:4px;">${offline ? '📡 Última posição · ' : ''}${tempo}</div>`
 
         const filtroImg = offline ? 'grayscale(100%) opacity(0.55)' : 'none'
