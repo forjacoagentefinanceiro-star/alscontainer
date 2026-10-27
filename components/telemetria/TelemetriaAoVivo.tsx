@@ -116,18 +116,23 @@ export function TelemetriaAoVivo() {
 
   async function buscar() {
     const sb = createClient()
-    const { data, error } = await sb
-      .from('telemetria_maquinas')
-      .select('maquina, latitude, longitude, created_at')
-      .not('latitude', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(500)
-    if (error) { setErro(error.message); return }
-    const visto = new Set<string>(); const novas: MaquinaPos[] = []
-    for (const r of data ?? []) {
-      if (!visto.has(r.maquina)) { visto.add(r.maquina); novas.push(r as MaquinaPos) }
-    }
-    // merge: mantém última posição conhecida mesmo se a máquina sumiu da query
+    // uma query por máquina para garantir que a última posição conhecida sempre aparece,
+    // independente de quantos registros as outras máquinas geraram desde então
+    const novas: MaquinaPos[] = []
+    let erroMsg: string | null = null
+    await Promise.all(Object.keys(COR).map(async (maquina) => {
+      const { data, error } = await sb
+        .from('telemetria_maquinas')
+        .select('maquina, latitude, longitude, created_at')
+        .eq('maquina', maquina)
+        .not('latitude', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) { erroMsg = error.message; return }
+      if (data) novas.push(data as MaquinaPos)
+    }))
+    if (erroMsg) { setErro(erroMsg); return }
     setPosicoes(prev => {
       const mapa = new Map(prev.map(p => [p.maquina, p]))
       for (const p of novas) mapa.set(p.maquina, p)
