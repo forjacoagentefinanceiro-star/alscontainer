@@ -192,6 +192,20 @@ export default function Inicio() {
       <section className="py-24" style={{ background: 'var(--bg2)' }}>
         <div className="mx-auto max-w-7xl px-5">
           <Titulo centro tag="Simples e sem enrolação">Como <span className="laranja-texto">funciona</span></Titulo>
+          <div className="mx-auto mt-10 grid max-w-4xl items-center gap-8 md:grid-cols-[.7fr_1.3fr]">
+            <Rev tipo="esq" className="mx-auto w-full max-w-[260px]">
+              <div className="rounded-[2.2rem] border-[7px] border-[#2a2f3a] bg-black p-1 shadow-2xl" style={{ boxShadow: '0 40px 100px -20px rgba(255,159,26,.3)' }}>
+                <video className="aspect-[9/16] w-full rounded-[1.7rem] object-cover" controls playsInline preload="none" poster="/site/do-patio-ao-terreno-poster.jpg">
+                  <source src="/site/do-patio-ao-terreno.mp4" type="video/mp4" />
+                </video>
+              </div>
+            </Rev>
+            <Rev tipo="dir">
+              <p className="tag">Do pátio ao seu terreno</p>
+              <p className="mt-2 text-lg text-white/80">Você escolhe a unidade, combinamos o frete, carregamos e entregamos no local que você definir. Frete sob consulta.</p>
+              <p className="mt-3 text-sm text-white/50">Animação ilustrativa feita com IA. O escritório mostrado é um projeto, ainda não executado.</p>
+            </Rev>
+          </div>
           <div className="mt-14"><ComoFunciona itens={[['Fale com a gente', 'Chame no WhatsApp ou deixe nome e telefone. Respondemos com o valor e enviamos fotos e vídeos reais da unidade que você vai negociar.'], ['Veja no pátio', 'Agende a visita em Itajaí/SC, confira o container por fora e por dentro e escolha o seu.'], ['Feche e retire', 'Combine o pagamento e a retirada, ou peça a cotação do frete para a sua cidade.']]} /></div>
         </div>
       </section>
