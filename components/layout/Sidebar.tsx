@@ -138,7 +138,6 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
   const configItems: Item[] = [
     ...(podeVer('cadastros') ? [cadastrosItem] : []),
     ...(isAdmin ? [usuariosItem] : []),
-    ...(isAdmin && podeVer('tarefas') ? gestaoTarefasItems : []),
   ]
 
   const sections: Section[] = isOperador
@@ -151,6 +150,7 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
         ...(podeVerEstoque ? [{ label: 'Estoque', items: estoqueItemsVisiveis }] : []),
         ...(temModulo(role, modulos, 'vendas') ? [{ label: 'Vendas', items: vendasItems }] : []),
         ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
+        ...(isAdmin && podeVer('tarefas') ? [{ label: 'Ger. de Tarefas', items: gestaoTarefasItems }] : []),
         ...(configItems.length ? [{ label: 'Configurações', items: configItems }] : []),
       ]
 

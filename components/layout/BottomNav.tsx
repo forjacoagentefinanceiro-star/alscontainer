@@ -52,13 +52,14 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
         ] : []),
         // Clima
         ...(podeVer('monitoramento') ? [{ href: '/monitoramento', label: 'Clima', icon: CloudRain }] : []),
-        // Configurações (Cadastros + admin)
-        ...((isAdmin || isEditor) && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
+        // Ger. de Tarefas
         ...(isAdmin ? [
-          { href: '/usuarios',       label: 'Usuários', icon: Users },
           { href: '/tarefas',        label: 'Tarefas',  icon: ListChecks },
           { href: '/tarefas/agenda', label: 'Ag. Tarefas', icon: CalendarDays },
         ] : []),
+        // Configurações (Cadastros + Usuários)
+        ...((isAdmin || isEditor) && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
+        ...(isAdmin ? [{ href: '/usuarios', label: 'Usuários', icon: Users }] : []),
       ]
 
   useEffect(() => {
