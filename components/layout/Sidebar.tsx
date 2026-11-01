@@ -135,19 +135,23 @@ export function Sidebar({ role, modulos, setor }: { role?: string; modulos?: str
     ? equipamentosItems.filter(i => i.href !== '/equipamentos')
     : equipamentosItems
 
+  const configItems: Item[] = [
+    ...(podeVer('cadastros') ? [cadastrosItem] : []),
+    ...(isAdmin ? [usuariosItem] : []),
+    ...(isAdmin && podeVer('tarefas') ? gestaoTarefasItems : []),
+  ]
+
   const sections: Section[] = isOperador
     ? [{ label: 'Equipamentos', items: [checklistItem] }]
     : [
-        ...(podeVerEstoque          ? [{ label: 'Estoque', items: estoqueItemsVisiveis }] : []),
         ...(podeVer('equipamentos') ? [{ label: 'Equipamentos', items: equipamentosItemsVisiveis }] : []),
-        ...(podeVer('cadastros')    ? [{ label: 'Cadastros', items: [cadastrosItem] }] : []),
-        ...(isAdmin && podeVer('tarefas') ? [{ label: 'Gestão de Tarefas', items: gestaoTarefasItems }] : []),
-        ...(isAdmin ? [{ label: 'Configurações', items: [usuariosItem] }] : []),
-        ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
-        ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
-        ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: isAdmin ? [patioItem, patioHistoricoItem] : [patioItem] }] : []),
-        ...(temModulo(role, modulos, 'vendas') ? [{ label: 'Vendas', items: vendasItems }] : []),
         ...(isAdmin ? [{ label: 'Telemetria', items: [telemetriaAoVivoItem, telemetriaHistoricoItem] }] : []),
+        ...(podeVer('bi') ? [{ label: 'BI', items: isAdmin ? [biItem, indicadoresTarefasItem] : [biItem] }] : []),
+        ...(temModulo(role, modulos, 'patio') ? [{ label: 'Pátio', items: isAdmin ? [patioItem, patioHistoricoItem] : [patioItem] }] : []),
+        ...(podeVerEstoque ? [{ label: 'Estoque', items: estoqueItemsVisiveis }] : []),
+        ...(temModulo(role, modulos, 'vendas') ? [{ label: 'Vendas', items: vendasItems }] : []),
+        ...(podeVer('monitoramento') ? [{ label: 'Clima', items: [monitoramentoItem] }] : []),
+        ...(configItems.length ? [{ label: 'Configurações', items: configItems }] : []),
       ]
 
   const pathname = usePathname()

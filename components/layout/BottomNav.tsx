@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
-import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain, Map as MapIcon, ClipboardList, Handshake } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Package2, Hash, Upload, FileCode2, Users, ClipboardCheck, History, Gauge, FolderPlus, ListChecks, CalendarDays, DollarSign, CloudRain, Map as MapIcon, ClipboardList, Handshake, RadioTower } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
 export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: string[] | null; setor?: string | null }) {
@@ -20,6 +20,22 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
   const items = role === 'operador'
     ? [{ href: '/checklist', label: 'Checklist', icon: ClipboardCheck }]
     : [
+        // Equipamentos
+        ...(podeVer('equipamentos') ? [
+          ...(!setorRestringe ? [{ href: '/equipamentos', label: 'Painel', icon: Gauge }] : []),
+          { href: '/checklist', label: 'Checklist', icon: ClipboardCheck },
+          { href: '/historico', label: 'Histórico', icon: History },
+        ] : []),
+        // Telemetria
+        ...(isAdmin ? [{ href: '/telemetria', label: 'Telemetria', icon: RadioTower }] : []),
+        // BI
+        ...(podeVer('bi') ? [{ href: '/bi', label: 'BI', icon: BarChart3 }] : []),
+        // Pátio
+        ...(temModulo(role, modulos, 'patio') ? [
+          { href: '/patio', label: 'Pátio', icon: MapIcon },
+          ...(isAdmin ? [{ href: '/patio/historico', label: 'Hist. Pátio', icon: ClipboardList }] : []),
+        ] : []),
+        // Estoque
         ...(!setorRestringe && podeVer('estoque') ? [
           { href: '/dashboard',             label: 'Dashboard',  icon: LayoutDashboard },
           { href: '/inventario',            label: 'Inventário', icon: Package2 },
@@ -28,25 +44,20 @@ export function BottomNav({ role, modulos, setor }: { role?: string; modulos?: s
           { href: '/importar',              label: 'Importar',   icon: Upload },
           { href: '/exportar',              label: 'Exportar',   icon: FileCode2 },
         ] : []),
-        ...(podeVer('equipamentos') ? [
-          ...(!setorRestringe ? [{ href: '/equipamentos', label: 'Painel', icon: Gauge }] : []),
-          { href: '/checklist',    label: 'Checklist', icon: ClipboardCheck },
-          { href: '/historico',    label: 'Histórico', icon: History },
-        ] : []),
-        ...((isAdmin || isEditor) && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
-        ...(podeVer('bi') ? [{ href: '/bi', label: 'BI', icon: BarChart3 }] : []),
-        ...(podeVer('monitoramento') ? [{ href: '/monitoramento', label: 'Clima', icon: CloudRain }] : []),
-        ...(temModulo(role, modulos, 'patio') ? [{ href: '/patio', label: 'Pátio', icon: MapIcon }] : []),
+        // Vendas
         ...(temModulo(role, modulos, 'vendas') ? [
-          { href: '/vendas',        label: 'Vendas', icon: Handshake },
-          { href: '/vendas/leads',  label: 'Leads',  icon: Users },
-          { href: '/vendas/agenda', label: 'Agenda Vendas', icon: CalendarDays },
+          { href: '/vendas',        label: 'Vendas',  icon: Handshake },
+          { href: '/vendas/leads',  label: 'Leads',   icon: Users },
+          { href: '/vendas/agenda', label: 'Ag. Vendas', icon: CalendarDays },
         ] : []),
-        ...(isAdmin && temModulo(role, modulos, 'patio') ? [{ href: '/patio/historico', label: 'Hist. Pátio', icon: ClipboardList }] : []),
+        // Clima
+        ...(podeVer('monitoramento') ? [{ href: '/monitoramento', label: 'Clima', icon: CloudRain }] : []),
+        // Configurações (Cadastros + admin)
+        ...((isAdmin || isEditor) && podeVer('cadastros') ? [{ href: '/cadastros', label: 'Cadastros', icon: FolderPlus }] : []),
         ...(isAdmin ? [
-          { href: '/usuarios',       label: 'Usuários',    icon: Users      },
-          { href: '/tarefas',        label: 'Indicadores', icon: ListChecks },
-          { href: '/tarefas/agenda', label: 'Agenda',      icon: CalendarDays },
+          { href: '/usuarios',       label: 'Usuários', icon: Users },
+          { href: '/tarefas',        label: 'Tarefas',  icon: ListChecks },
+          { href: '/tarefas/agenda', label: 'Ag. Tarefas', icon: CalendarDays },
         ] : []),
       ]
 
