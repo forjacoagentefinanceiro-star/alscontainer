@@ -20,7 +20,7 @@ type AbastInfo = {
 }
 
 const COR: Record<string, string> = { kone: '#f2c230', ferrari: '#f85149', linde: '#3fb950' }
-const LABEL: Record<string, string> = { kone: '🏗 Kone', ferrari: '🚜 Ferrari', linde: '🏭 Linde' }
+const LABEL: Record<string, string> = { kone: '🏗 KONE 200', ferrari: '🚜 FERRARI 336', linde: '🏭 LINDE 258' }
 
 const CSS_TELEMETRIA = `
 .maq-wrap .maq-tip { display:none; }
