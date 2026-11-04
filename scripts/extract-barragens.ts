@@ -544,7 +544,7 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
     );
     await page.waitForTimeout(1000);
 
-    // Tenta API JSON — procura item com código DC09 especificamente (DC07 também tem "murta")
+    // Tenta API JSON — DC07 Ribeirão da Murta - Portal (ponto de monitoramento)
     for (const { url, data } of apiCaptures) {
       const items = Array.isArray(data) ? data
         : (typeof data === "object" && data !== null
@@ -553,7 +553,7 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
       if (!items) continue;
       for (const item of items as Record<string, unknown>[]) {
         const nome = String(item.estacao ?? item.nome ?? item.name ?? item.descricao ?? "").toLowerCase();
-        if (!nome.includes("dc-09") && !nome.includes("dc09") && !nome.includes("lidia puel")) continue;
+        if (!nome.includes("dc-07") && !nome.includes("dc07") && !(nome.includes("murta") && nome.includes("portal"))) continue;
         const nivelRaw = item.nivel ?? item.nivel_rio ?? item.nivel_m ?? item.value;
         if (nivelRaw == null) continue;
         const nivel = String(nivelRaw).replace(".", ",");
@@ -563,14 +563,14 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
       }
     }
 
-    // Fallback DOM — busca DC09 especificamente (DC07 também contém "murta" e aparece antes)
+    // Fallback DOM — DC07 Ribeirão da Murta - Portal (ponto de monitoramento)
     const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
       const txt = document.body.innerText ?? "";
-      // Percorre todas as ocorrências de DC09 até achar uma com "Nível do Rio:" próximo
+      // Busca DC07 especificamente; percorre ocorrências até achar seção com nível de rio
       let idx = -1;
       let from = 0;
       while (from < txt.length) {
-        const rel = txt.slice(from).search(/\bdc-?09\b/i);
+        const rel = txt.slice(from).search(/\bdc-?07\b/i);
         if (rel < 0) break;
         const pos = from + rel;
         if (/n[ií]vel\s+do\s+rio/i.test(txt.slice(pos, pos + 500))) { idx = pos; break; }
