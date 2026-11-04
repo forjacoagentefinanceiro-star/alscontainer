@@ -191,7 +191,7 @@ function RioCard({ ponto }: { ponto: BarragemPonto }) {
           <div>
             <p className="text-sm font-bold" style={{ color: '#1a2a3a' }}>{ponto.nome}</p>
             {ponto.hora_leitura && (
-              <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>Leitura: {ponto.hora_leitura}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>Leitura: {fmtHora(ponto.hora_leitura)}</p>
             )}
           </div>
         </div>

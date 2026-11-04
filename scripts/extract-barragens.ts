@@ -544,7 +544,7 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
     );
     await page.waitForTimeout(1000);
 
-    // Tenta API JSON — procura item com "murta" ou "DC-09"
+    // Tenta API JSON — procura item com código DC09 especificamente (DC07 também tem "murta")
     for (const { url, data } of apiCaptures) {
       const items = Array.isArray(data) ? data
         : (typeof data === "object" && data !== null
@@ -553,7 +553,7 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
       if (!items) continue;
       for (const item of items as Record<string, unknown>[]) {
         const nome = String(item.estacao ?? item.nome ?? item.name ?? item.descricao ?? "").toLowerCase();
-        if (!nome.includes("murta") && !nome.includes("dc-09") && !nome.includes("dc09")) continue;
+        if (!nome.includes("dc-09") && !nome.includes("dc09") && !nome.includes("lidia puel")) continue;
         const nivelRaw = item.nivel ?? item.nivel_rio ?? item.nivel_m ?? item.value;
         if (nivelRaw == null) continue;
         const nivel = String(nivelRaw).replace(".", ",");
@@ -563,10 +563,19 @@ async function extrairRioMurta(browser: Browser): Promise<Ponto[]> {
       }
     }
 
-    // Fallback DOM — procura seção com "Murta" e extrai "Nível do Rio:" próximo
+    // Fallback DOM — busca DC09 especificamente (DC07 também contém "murta" e aparece antes)
     const dados = await page.evaluate((): { nivel: string | null; hora: string | null } => {
       const txt = document.body.innerText ?? "";
-      const idx = txt.search(/ribeir[aã]o da murta|dc-?09/i);
+      // Percorre todas as ocorrências de DC09 até achar uma com "Nível do Rio:" próximo
+      let idx = -1;
+      let from = 0;
+      while (from < txt.length) {
+        const rel = txt.slice(from).search(/\bdc-?09\b/i);
+        if (rel < 0) break;
+        const pos = from + rel;
+        if (/n[ií]vel\s+do\s+rio/i.test(txt.slice(pos, pos + 500))) { idx = pos; break; }
+        from = pos + 1;
+      }
       if (idx < 0) return { nivel: null, hora: null };
       const bloco = txt.slice(idx, idx + 500);
       const mN = bloco.match(/N[ií]vel\s+do\s+Rio[:\s]+(\d{1,2}[,.]\d{2})\s*m/i);
