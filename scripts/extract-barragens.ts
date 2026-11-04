@@ -18,7 +18,7 @@ const TG_TOKEN     = process.env.TELEGRAM_TOKEN ?? "";
 const TG_CHAT_FAIL = process.env.TELEGRAM_CHAT_ID ?? "";
 
 // Deltas adaptativos por nível de alerta
-const DELTA_RIO_NORMAL  = 0.40;  // 40 cm — mudança considerável (verde)
+const DELTA_RIO_NORMAL  = 0.10;  // 10 cm — mudança considerável (verde)
 const DELTA_RIO_ATENCAO = 0.05;  // 5 cm  — variação pequena (amarelo)
 // laranja/vermelho: delta 0 → qualquer diferença dispara
 
