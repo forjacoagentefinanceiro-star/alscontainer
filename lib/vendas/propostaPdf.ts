@@ -16,6 +16,7 @@ export type PropDados = {
   frete: string
   observacoes: string
   ilustrativas: boolean
+  locacao?: { dias: number; inicio: string; extras: { rotulo: string; valor: number }[] }   // proposta de locação: unit = diária
 }
 
 export const EMPRESA = {
@@ -73,7 +74,7 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
     const lh = 21, lw = (logo.w / logo.h) * lh
     doc.addImage(logo.data, 'PNG', M, y, lw, lh)
   } else { fonte(true, 22); cor(TXT); doc.text('MLA CONTAINERS', M, y + 12) }
-  fonte(true, 20); cor(TXT); doc.text('PROPOSTA DE VENDA', W - M, y + 8, { align: 'right' })
+  fonte(true, 20); cor(TXT); doc.text(d.locacao ? 'PROPOSTA DE LOCAÇÃO' : 'PROPOSTA DE VENDA', W - M, y + 8, { align: 'right' })
   fonte(true, 11); cor(LARANJA); doc.text(`Nº ${d.numero}`, W - M, y + 14.5, { align: 'right' })
   fonte(false, 9); cor(MUDO)
   doc.text(`Emitida em ${d.emissao}  ·  Válida até ${d.validade}`, W - M, y + 20, { align: 'right' })
@@ -106,7 +107,10 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
 
   // ── Itens ──
   fonte(true, 9.5); cor(LARANJA); doc.text('ITENS DA PROPOSTA', M, y); y += 2.5
-  const cx = { desc: M + 2.5, ano: M + CW - 78, qtd: M + CW - 62, unit: M + CW - 31, tot: M + CW - 2.5 }
+  const loc = d.locacao
+  const cx = loc
+    ? { desc: M + 2.5, ano: M + CW - 92, qtd: M + CW - 76, unit: M + CW - 52, dias: M + CW - 33, tot: M + CW - 2.5 }
+    : { desc: M + 2.5, ano: M + CW - 78, qtd: M + CW - 62, unit: M + CW - 31, dias: 0, tot: M + CW - 2.5 }
   const descW = cx.ano - cx.desc - 12
   const cabecalho = () => {
     doc.setFillColor(FAIXA); doc.rect(M, y, CW, 7, 'F')
@@ -115,7 +119,8 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
     doc.text('DESCRIÇÃO', cx.desc, y + 4.8)
     doc.text('ANO', cx.ano, y + 4.8, { align: 'center' })
     doc.text('QTD', cx.qtd, y + 4.8, { align: 'right' })
-    doc.text('UNITÁRIO', cx.unit, y + 4.8, { align: 'right' })
+    doc.text(loc ? 'DIÁRIA' : 'UNITÁRIO', cx.unit, y + 4.8, { align: 'right' })
+    if (loc) doc.text('DIAS', cx.dias, y + 4.8, { align: 'right' })
     doc.text('TOTAL', cx.tot, y + 4.8, { align: 'right' })
     y += 7
   }
@@ -126,7 +131,7 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
     const det = it.detalhe ? quebra(it.detalhe, descW) : []
     const h = linhas.length * 4.8 + det.length * 3.9 + 4.5
     if (y + h > H - 26) { y = novaPagina(); cabecalho() }
-    const sub = it.qtd * it.unit; total += sub
+    const sub = it.qtd * it.unit * (loc?.dias ?? 1); total += sub
     fonte(true, 10); cor(TXT); doc.text(linhas, cx.desc, y + 5.4)
     if (det.length) { fonte(false, 8); cor(MUDO); doc.text(det, cx.desc, y + 5.4 + linhas.length * 4.8 - 0.6) }
     fonte(true, 10); cor(TXT)
@@ -134,14 +139,20 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
     fonte(false, 10)
     doc.text(String(it.qtd), cx.qtd, y + 5.4, { align: 'right' })
     doc.text(brl(it.unit), cx.unit, y + 5.4, { align: 'right' })
+    if (loc) doc.text(String(loc.dias), cx.dias, y + 5.4, { align: 'right' })
     fonte(true, 10); doc.text(brl(sub), cx.tot, y + 5.4, { align: 'right' })
     doc.setDrawColor(LINHA); doc.setLineWidth(0.2); doc.line(M, y + h, M + CW, y + h)
     y += h
   })
-  if (y + 18 > H - 26) y = novaPagina()
+  if (y + 18 + (loc?.extras.length ?? 0) * 6 > H - 26) y = novaPagina()
+  for (const e of loc?.extras ?? []) {
+    y += 6; total += e.valor
+    fonte(false, 10); cor(TXT); doc.text(e.rotulo, M + 2.5, y)
+    fonte(true, 10); doc.text(brl(e.valor), cx.tot, y, { align: 'right' })
+  }
   y += 4
   doc.setDrawColor(TXT); doc.setLineWidth(0.4); doc.line(M + CW - 84, y, M + CW, y)
-  fonte(true, 10); cor(TXT); doc.text('TOTAL DA PROPOSTA', M + CW - 84, y + 7.5)
+  fonte(true, 10); cor(TXT); doc.text(loc ? `TOTAL DA LOCAÇÃO (${loc.dias} DIAS)` : 'TOTAL DA PROPOSTA', M + CW - 84, y + 7.5)
   fonte(true, 15); cor(TXT); doc.text(brl(total), M + CW, y + 7.8, { align: 'right' })
   doc.setFillColor(LARANJA); doc.rect(M + CW - 84, y + 10.5, 84, 0.9, 'F')
   y += 20
@@ -149,8 +160,9 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
   // ── Condições ──
   const blocos: [string, string][] = [
     ['VALIDADE DA PROPOSTA', `Válida até ${d.validade}.`],
+    ...(loc ? [['PRAZO DA LOCAÇÃO', `${loc.dias} dias${loc.inicio ? `, com início previsto em ${loc.inicio}` : ''}.`] as [string, string]] : []),
     ['CONDIÇÕES DE PAGAMENTO', d.pagamento],
-    ['FRETE / ENTREGA', d.frete],
+    [loc ? 'ENTREGA / RETIRADA' : 'FRETE / ENTREGA', d.frete],
   ]
   if (d.observacoes.trim()) blocos.push(['OBSERVAÇÕES', d.observacoes.trim()])
   if (d.ilustrativas) blocos.push(['IMAGENS', 'Imagens ilustrativas. O container entregue pode apresentar variações de aparência.'])

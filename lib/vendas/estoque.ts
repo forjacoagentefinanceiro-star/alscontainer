@@ -23,5 +23,18 @@ export async function getEstoque(supabase: SB): Promise<{ itens: EstoqueItem[]; 
   return { itens, erro: null }
 }
 
+/** Containers próprios livres para locação (não locados, vendidos nem à venda) + os já presentes na proposta. Aquisição só p/ admin. */
+export async function getProprios(supabase: SB, admin: boolean, extraIds: string[] = []) {
+  type Row = { id: string; numero: string; tamanho: string; ano_fabricacao: number | null; status: string | null; para_venda: boolean | null; valor_brl: number | null }
+  const cols = 'id, numero, tamanho, ano_fabricacao, status, para_venda, valor_brl'
+  const [{ data: livres }, { data: extra }] = await Promise.all([
+    supabase.from('containers').select(cols).or('status.is.null,status.eq.disponivel').order('numero').limit(1000),
+    extraIds.length ? supabase.from('containers').select(cols).in('id', extraIds) : Promise.resolve({ data: [] as Row[] }),
+  ])
+  const m = new Map<string, Row>()
+  for (const c of [...((livres ?? []) as Row[]).filter(c => !c.para_venda), ...((extra ?? []) as Row[])]) m.set(c.id, c)
+  return [...m.values()].map(c => ({ id: c.id, numero: c.numero, tamanho: c.tamanho, ano: c.ano_fabricacao, aquisicao: admin ? Number(c.valor_brl ?? 0) : null }))
+}
+
 export const rotuloContainer = (c: Pick<EstoqueItem, 'numero' | 'tamanho' | 'ano_fabricacao'>) =>
   `${c.numero} · ${c.tamanho}${c.ano_fabricacao ? ` · ${c.ano_fabricacao}` : ''}`
