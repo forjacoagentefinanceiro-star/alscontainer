@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { exigirVendas } from '@/lib/vendas/server'
 import { brl, type Lead, type Campanha } from '@/lib/vendas/config'
 import { getEstoque } from '@/lib/vendas/estoque'
@@ -43,7 +44,7 @@ export default async function VendasPage() {
 
   return (
     <div>
-      <Titulo sub="Funil de venda dos containers 40' High Cube usados" acao={<LeadForm campanhas={campanhas} estoque={estoque} />}>
+      <Titulo sub="Funil de venda dos containers 40' High Cube usados" acao={<div className="flex gap-2 items-start"><Link href="/vendas/proposta" className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Gerar proposta</Link><LeadForm campanhas={campanhas} estoque={estoque} /></div>}>
         Vendas de Containers
       </Titulo>
       <Abas ativa="/vendas" />

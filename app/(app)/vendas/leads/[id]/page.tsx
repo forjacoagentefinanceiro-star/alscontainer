@@ -38,6 +38,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <h1 className="text-xl font-bold" style={{ color: '#0d1b2e' }}>{lead.nome}</h1>
         <span className="text-xs font-bold uppercase px-2 py-1 rounded-lg text-white" style={{ background: ETAPA_COR[lead.etapa] }}>{ETAPA_LABEL[lead.etapa]}</span>
         {atual && <span className="text-sm font-mono text-slate-600">{rotuloContainer(atual)}</span>}
+        <Link href={`/vendas/proposta?lead=${lead.id}`} className="text-sm font-semibold underline" style={{ color: '#1B4F8A' }}>Gerar proposta</Link>
         {lead.motivo_perda && <span className="text-sm text-slate-500">Motivo: {lead.motivo_perda}</span>}
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
