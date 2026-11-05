@@ -14,13 +14,19 @@ export default async function PropostaPage({ searchParams }: { searchParams: Pro
 
   // Custo de aquisição (valor_brl) só vai para o navegador se for admin
   const custos: Record<string, number> = {}
+  const despesas: Record<string, number> = {}
   if (admin && itens.length) {
-    const { data } = await supabase.from('containers').select('id, valor_brl').in('id', itens.map(i => i.id))
+    const ids = itens.map(i => i.id)
+    const [{ data }, { data: lanc }] = await Promise.all([
+      supabase.from('containers').select('id, valor_brl').in('id', ids),
+      supabase.from('container_lancamentos').select('container_id, valor').eq('tipo', 'despesa').in('container_id', ids),
+    ])
     for (const c of (data ?? []) as { id: string; valor_brl: number | null }[]) custos[c.id] = Number(c.valor_brl ?? 0)
+    for (const l of (lanc ?? []) as { container_id: string; valor: number }[]) despesas[l.container_id] = (despesas[l.container_id] ?? 0) + Number(l.valor)
   }
   const estoque: ItemEstoque[] = itens.map(i => ({
     id: i.id, numero: i.numero, tamanho: i.tamanho, ano: i.ano_fabricacao, tipo: i.tipo_venda,
-    preco: i.preco_anuncio, custo: admin ? (custos[i.id] ?? 0) : null,
+    preco: i.preco_anuncio, custo: admin ? (custos[i.id] ?? 0) : null, despesas: admin ? (despesas[i.id] ?? 0) : null,
   }))
 
   let lead: Lead | null = null

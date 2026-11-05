@@ -7,7 +7,7 @@ import { card, input, btn, btnAzul, btnLeve } from './ui'
 
 export type ItemEstoque = {
   id: string; numero: string; tamanho: string; ano: number | null; tipo: string | null
-  preco: number | null; custo: number | null   // custo só vem preenchido para admin
+  preco: number | null; custo: number | null; despesas: number | null   // custo/despesas só vêm para admin
 }
 type Cliente = { nome: string; telefone: string; email: string; documento: string; cidade: string }
 
@@ -20,7 +20,7 @@ const MODELOS = [
 
 type Linha = {
   uid: string; estoqueId: string | null; descricao: string; detalhe: string
-  qtd: number; unit: number; custo: number | null   // custo unitário (aquisição)
+  qtd: number; unit: number; custo: number | null; despesas: number | null   // aquisição + despesas lançadas (unitário)
 }
 
 const num = (v: string) => { const n = Number(v.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0 }
@@ -51,19 +51,21 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
         uid: i.id, estoqueId: i.id,
         descricao: `Container ${i.tamanho} usado · nº ${i.numero}`,
         detalhe: [i.ano ? `Ano ${i.ano}` : '', 'Retirada no pátio em Itajaí/SC'].filter(Boolean).join(' · '),
-        qtd: 1, unit: i.preco ?? 0, custo: verMargem ? i.custo : null,
+        qtd: 1, unit: i.preco ?? 0, custo: verMargem ? i.custo : null, despesas: verMargem ? i.despesas : null,
       }])
   }
   function avulso(m: (typeof MODELOS)[number]) {
     setLinhas(ls => [...ls, {
       uid: `av-${Date.now()}-${ls.length}`, estoqueId: null, descricao: `${m.nome} usado`,
-      detalhe: 'Condição a combinar · Retirada no pátio em Itajaí/SC', qtd: 1, unit: m.preco, custo: verMargem ? 0 : null,
+      detalhe: 'Condição a combinar · Retirada no pátio em Itajaí/SC', qtd: 1, unit: m.preco, custo: verMargem ? 0 : null, despesas: verMargem ? 0 : null,
     }])
   }
   const mud = (uid: string, p: Partial<Linha>) => setLinhas(ls => ls.map(l => l.uid === uid ? { ...l, ...p } : l))
 
   const total = linhas.reduce((s, l) => s + l.qtd * l.unit, 0)
-  const custoTotal = linhas.reduce((s, l) => s + l.qtd * (l.custo ?? 0), 0)
+  const custoAq = linhas.reduce((s, l) => s + l.qtd * (l.custo ?? 0), 0)
+  const despTotal = linhas.reduce((s, l) => s + l.qtd * (l.despesas ?? 0), 0)
+  const custoTotal = custoAq + despTotal
   const lucro = total - custoTotal
   const margem = total > 0 ? (lucro / total) * 100 : 0
   const markup = custoTotal > 0 ? (lucro / custoTotal) * 100 : null
@@ -129,7 +131,7 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
             <h2 className="font-bold text-sm mb-3" style={{ color: '#0d1b2e' }}>3. Itens da proposta</h2>
             <div className="space-y-3">
               {linhas.map(l => {
-                const lu = l.unit - (l.custo ?? 0)
+                const lu = l.unit - (l.custo ?? 0) - (l.despesas ?? 0)
                 const mg = l.unit > 0 ? (lu / l.unit) * 100 : 0
                 return (
                   <div key={l.uid} className="border border-slate-200 rounded-xl p-3 grid gap-2 sm:grid-cols-[1fr_80px_130px_auto] items-end">
@@ -143,14 +145,14 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
                     {verMargem && (
                       <div className="sm:col-span-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-slate-50 rounded-lg px-3 py-2">
                         {l.estoqueId ? (
-                          <span>Aquisição: <b>{brl(l.custo ?? 0)}</b></span>
+                          <span>Aquisição: <b>{brl(l.custo ?? 0)}</b> + despesas: <b>{brl(l.despesas ?? 0)}</b></span>
                         ) : (
                           <label className="flex items-center gap-1">Aquisição (R$):
                             <input className="w-28 rounded-lg border border-slate-300 px-2 py-1" inputMode="decimal"
                               defaultValue={String(l.custo ?? 0).replace('.', ',')} onChange={e => mud(l.uid, { custo: num(e.target.value) })} />
                           </label>
                         )}
-                        <span>Lucro/un: <b style={{ color: lu < 0 ? '#dc2626' : '#16a34a' }}>{brl(lu)}</b></span>
+                        <span>Lucro líquido/un: <b style={{ color: lu < 0 ? '#dc2626' : '#16a34a' }}>{brl(lu)}</b></span>
                         <span>Margem: <b style={{ color: lu < 0 ? '#dc2626' : '#16a34a' }}>{pct(mg)}</b></span>
                       </div>
                     )}
@@ -180,16 +182,17 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
           <p className="text-xs text-slate-500">{linhas.reduce((s, l) => s + l.qtd, 0)} container(s)</p>
           {verMargem && linhas.length > 0 && (
             <div className="mt-4 pt-3 border-t border-slate-200 text-sm space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem (só você vê, não vai no PDF)</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem líquida (só você vê, não vai no PDF)</p>
               <div className="flex justify-between"><span>Venda</span><b>{brl(total)}</b></div>
-              <div className="flex justify-between"><span>− Aquisição</span><b>{brl(custoTotal)}</b></div>
+              <div className="flex justify-between"><span>− Aquisição</span><b>{brl(custoAq)}</b></div>
+              <div className="flex justify-between"><span>− Despesas lançadas</span><b>{brl(despTotal)}</b></div>
               <div className="flex justify-between border-t border-slate-200 pt-1 text-base">
-                <span>Lucro</span><b style={{ color: lucro < 0 ? '#dc2626' : '#16a34a' }}>{brl(lucro)}</b>
+                <span>Lucro líquido</span><b style={{ color: lucro < 0 ? '#dc2626' : '#16a34a' }}>{brl(lucro)}</b>
               </div>
-              <div className="flex justify-between"><span>Margem sobre a venda</span><b style={{ color: lucro < 0 ? '#dc2626' : '#16a34a' }}>{pct(margem)}</b></div>
+              <div className="flex justify-between"><span>Margem líquida</span><b style={{ color: lucro < 0 ? '#dc2626' : '#16a34a' }}>{pct(margem)}</b></div>
               {markup != null && <div className="flex justify-between text-slate-500"><span>Markup sobre o custo</span><b>{pct(markup)}</b></div>}
-              {lucro < 0 && <p className="text-xs text-red-600 pt-1">Atenção: venda abaixo do custo de aquisição.</p>}
-              <p className="text-[11px] text-slate-400 pt-1">Aquisição = valor de compra do container (sem despesas lançadas).</p>
+              {lucro < 0 && <p className="text-xs text-red-600 pt-1">Atenção: venda abaixo do custo total.</p>}
+              <p className="text-[11px] text-slate-400 pt-1">Custo = valor de compra + despesas lançadas no Financeiro do container.</p>
             </div>
           )}
           {erro && <p className="text-sm text-red-600 mt-3">{erro}</p>}
