@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { brl } from '@/lib/vendas/config'
-import { gerarPropostaPdf, type PropItem } from '@/lib/vendas/propostaPdf'
+import { gerarPropostaPdf, baixarBlob } from '@/lib/vendas/propostaPdf'
+import { salvarProposta } from '@/app/(app)/vendas/propostas-actions'
 import { card, input, btn, btnAzul, btnLeve } from './ui'
 
 export type ItemEstoque = {
@@ -20,7 +21,7 @@ const MODELOS = [
 
 type Linha = {
   uid: string; estoqueId: string | null; descricao: string; detalhe: string
-  qtd: number; unit: number; custo: number | null; despesas: number | null   // aquisição + despesas lançadas (unitário)
+  numero: string | null; ano: number | null; qtd: number; unit: number; custo: number | null; despesas: number | null   // aquisição + despesas lançadas (unitário)
 }
 
 const num = (v: string) => { const n = Number(v.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0 }
@@ -31,7 +32,7 @@ function L({ t, children }: { t: string; children: React.ReactNode }) {
   return <label className="block text-xs font-semibold text-slate-600">{t}<div className="mt-1 font-normal">{children}</div></label>
 }
 
-export default function PropostaForm({ estoque, cliente: c0, verMargem }: { estoque: ItemEstoque[]; cliente: Cliente; verMargem: boolean }) {
+export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId = null }: { estoque: ItemEstoque[]; cliente: Cliente; verMargem: boolean; leadId?: string | null }) {
   const [cli, setCli] = useState<Cliente>(c0)
   const [linhas, setLinhas] = useState<Linha[]>([])
   const [validade, setValidade] = useState(7)
@@ -41,6 +42,7 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
   const [ilustrativas, setIlustrativas] = useState(true)
   const [gerando, setGerando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [salva, setSalva] = useState<string | null>(null)
 
   const sel = useMemo(() => new Set(linhas.map(l => l.estoqueId).filter(Boolean)), [linhas])
 
@@ -50,14 +52,14 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
       : [...ls, {
         uid: i.id, estoqueId: i.id,
         descricao: `Container ${i.tamanho} usado · nº ${i.numero}`,
-        detalhe: [i.ano ? `Ano ${i.ano}` : '', 'Retirada no pátio em Itajaí/SC'].filter(Boolean).join(' · '),
-        qtd: 1, unit: i.preco ?? 0, custo: verMargem ? i.custo : null, despesas: verMargem ? i.despesas : null,
+        detalhe: 'Retirada no pátio em Itajaí/SC',
+        numero: i.numero, ano: i.ano, qtd: 1, unit: i.preco ?? 0, custo: verMargem ? i.custo : null, despesas: verMargem ? i.despesas : null,
       }])
   }
   function avulso(m: (typeof MODELOS)[number]) {
     setLinhas(ls => [...ls, {
       uid: `av-${Date.now()}-${ls.length}`, estoqueId: null, descricao: `${m.nome} usado`,
-      detalhe: 'Condição a combinar · Retirada no pátio em Itajaí/SC', qtd: 1, unit: m.preco, custo: verMargem ? 0 : null, despesas: verMargem ? 0 : null,
+      detalhe: 'Condição a combinar · Retirada no pátio em Itajaí/SC', numero: null, ano: null, qtd: 1, unit: m.preco, custo: verMargem ? 0 : null, despesas: verMargem ? 0 : null,
     }])
   }
   const mud = (uid: string, p: Partial<Linha>) => setLinhas(ls => ls.map(l => l.uid === uid ? { ...l, ...p } : l))
@@ -77,17 +79,23 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
     if (linhas.some(l => l.qtd < 1 || l.unit <= 0)) return setErro('Confira quantidade e valor unitário de todos os itens.')
     setGerando(true)
     try {
-      const hoje = new Date(); const val = new Date(hoje.getTime() + validade * 86400000)
-      const pad = (n: number) => String(n).padStart(2, '0')
-      const numero = `${hoje.getFullYear()}${pad(hoje.getMonth() + 1)}${pad(hoje.getDate())}-${pad(hoje.getHours())}${pad(hoje.getMinutes())}`
-      const itens: PropItem[] = linhas.map(l => ({ descricao: l.descricao, detalhe: l.detalhe, qtd: l.qtd, unit: l.unit }))
+      const val = new Date(Date.now() + validade * 86400000)
+      const iso = new Date(val.getTime() - val.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+      const itens = linhas.map(l => ({
+        container_id: l.estoqueId, numero: l.numero, ano: l.ano, descricao: l.descricao, detalhe: l.detalhe, qtd: l.qtd, unit: l.unit,
+      }))
+      const r = await salvarProposta({
+        cliente_nome: cli.nome, telefone: cli.telefone, email: cli.email, documento: cli.documento, cidade: cli.cidade,
+        lead_id: leadId, itens, validade: iso, pagamento, frete, observacoes: obs, ilustrativas,
+      })
+      if ('erro' in r) { setErro(r.erro); setGerando(false); return }
       const { blob, nome } = await gerarPropostaPdf({
-        numero, emissao: dataBr(hoje), validade: dataBr(val), cliente: cli, itens,
+        numero: r.codigo, emissao: dataBr(new Date(r.criado_em)), validade: dataBr(val), cliente: cli,
+        itens: itens.map(i => ({ descricao: i.descricao, detalhe: i.detalhe, qtd: i.qtd, unit: i.unit, numero: i.numero, ano: i.ano })),
         pagamento, frete, observacoes: obs, ilustrativas,
       })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = nome; a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      baixarBlob(blob, nome)
+      setSalva(r.codigo)
     } catch (e) { setErro(`Não foi possível gerar o PDF: ${(e as Error).message}`) }
     setGerando(false)
   }
@@ -134,16 +142,17 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
                 const lu = l.unit - (l.custo ?? 0) - (l.despesas ?? 0)
                 const mg = l.unit > 0 ? (lu / l.unit) * 100 : 0
                 return (
-                  <div key={l.uid} className="border border-slate-200 rounded-xl p-3 grid gap-2 sm:grid-cols-[1fr_80px_130px_auto] items-end">
+                  <div key={l.uid} className="border border-slate-200 rounded-xl p-3 grid gap-2 sm:grid-cols-[1fr_80px_80px_130px_auto] items-end">
                     <div className="space-y-1">
                       <input className={input} value={l.descricao} onChange={e => mud(l.uid, { descricao: e.target.value })} />
                       <input className={`${input} text-xs`} value={l.detalhe} onChange={e => mud(l.uid, { detalhe: e.target.value })} placeholder="Detalhe (ano, condição…)" />
                     </div>
+                    <L t="Ano"><input className={input} inputMode="numeric" placeholder="aaaa" value={l.ano ?? ''} disabled={!!l.estoqueId} onChange={e => mud(l.uid, { ano: Number(e.target.value.replace(/\D/g, '').slice(0, 4)) || null })} /></L>
                     <L t="Qtd"><input className={input} type="number" min={1} value={l.qtd} onChange={e => mud(l.uid, { qtd: Math.max(1, Number(e.target.value) || 1) })} /></L>
                     <L t="Valor unitário (R$)"><input className={input} inputMode="decimal" defaultValue={String(l.unit).replace('.', ',')} onChange={e => mud(l.uid, { unit: num(e.target.value) })} /></L>
                     <button type="button" className={btnLeve} onClick={() => setLinhas(ls => ls.filter(x => x.uid !== l.uid))}>Remover</button>
                     {verMargem && (
-                      <div className="sm:col-span-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-slate-50 rounded-lg px-3 py-2">
+                      <div className="sm:col-span-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-slate-50 rounded-lg px-3 py-2">
                         {l.estoqueId ? (
                           <span>Aquisição: <b>{brl(l.custo ?? 0)}</b> + despesas: <b>{brl(l.despesas ?? 0)}</b></span>
                         ) : (
@@ -196,8 +205,9 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem }: { esto
             </div>
           )}
           {erro && <p className="text-sm text-red-600 mt-3">{erro}</p>}
+          {salva && <p className="text-sm text-green-700 mt-3">Proposta <b>{salva}</b> registrada e PDF baixado. Veja em <a className="underline" href="/vendas/propostas">Propostas</a>.</p>}
           <button type="button" className={`${btn} w-full mt-4`} style={btnAzul} disabled={gerando} onClick={gerar}>
-            {gerando ? 'Gerando…' : 'Gerar PDF da proposta'}
+            {gerando ? 'Registrando…' : 'Registrar e gerar PDF'}
           </button>
         </section>
       </aside>

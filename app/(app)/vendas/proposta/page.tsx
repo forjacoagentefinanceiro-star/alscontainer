@@ -42,7 +42,7 @@ export default async function PropostaPage({ searchParams }: { searchParams: Pro
     <div>
       <Titulo sub="Monte a proposta com containers do estoque e baixe em PDF">Proposta de venda</Titulo>
       <Abas ativa="/vendas/proposta" />
-      <PropostaForm estoque={estoque} cliente={cliente} verMargem={admin} />
+      <PropostaForm estoque={estoque} cliente={cliente} verMargem={admin} leadId={lead?.id ?? null} />
     </div>
   )
 }
