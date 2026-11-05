@@ -31,6 +31,7 @@ import {
   Handshake,
   Megaphone,
   Tag,
+  FileText,
 } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
@@ -72,6 +73,7 @@ const vendasItems: Item[] = [
   { href: '/vendas/campanhas', label: 'Campanhas', icon: Megaphone    },
   { href: '/vendas/estoque',   label: 'Estoque',   icon: Tag          },
   { href: '/vendas/tipos',     label: 'Tipos e preços', icon: Tag     },
+  { href: '/vendas/proposta',  label: 'Proposta PDF', icon: FileText },
 ]
 
 const gestaoTarefasItems: Item[] = [
