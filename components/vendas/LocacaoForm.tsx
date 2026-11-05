@@ -52,6 +52,7 @@ export default function LocacaoForm({ proprios, cliente: c0, verMargem, leadId =
   const [gerando, setGerando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [salva, setSalva] = useState<string | null>(null)
+  const [regId, setRegId] = useState<string | null>(inicial?.id ?? null)   // depois de salvar, novos cliques atualizam a MESMA proposta
 
   const sel = useMemo(() => new Set(linhas.map(l => l.estoqueId).filter(Boolean)), [linhas])
   const mud = (uid: string, p: Partial<LinhaLoc>) => setLinhas(ls => ls.map(l => l.uid === uid ? { ...l, ...p } : l))
@@ -91,8 +92,9 @@ export default function LocacaoForm({ proprios, cliente: c0, verMargem, leadId =
         tipo: 'locacao' as const, dias, extras, cliente_nome: cli.nome, telefone: cli.telefone, email: cli.email, documento: cli.documento, cidade: cli.cidade,
         lead_id: inicial?.leadId ?? leadId, itens, validade, pagamento, frete, observacoes: obs, ilustrativas: false,
       }
-      const res = inicial ? await atualizarProposta(inicial.id, dados) : await salvarProposta(dados)
+      const res = regId ? await atualizarProposta(regId, dados) : await salvarProposta(dados)
       if ('erro' in res) { setErro(res.erro); setGerando(false); return }
+      setRegId(res.id)
       if (comPdf) {
         const { blob, nome } = await gerarPropostaPdf({
           numero: res.codigo, emissao: dataBr(new Date(res.criado_em)), validade: dataBr(new Date(validade + 'T12:00:00')), cliente: cli,
@@ -247,12 +249,12 @@ export default function LocacaoForm({ proprios, cliente: c0, verMargem, leadId =
             </div>
           )}
           {erro && <p className="text-sm text-red-600 mt-3">{erro}</p>}
-          {salva && <p className="text-sm text-green-700 mt-3">Proposta <b>{salva}</b> {inicial ? 'atualizada' : 'registrada'}. Veja em <a className="underline" href="/vendas/propostas">Propostas</a>.</p>}
+          {salva && <p className="text-sm text-green-700 mt-3">Proposta <b>{salva}</b> {regId && inicial ? 'atualizada' : 'registrada'}. Veja em <a className="underline" href="/vendas/propostas">Propostas</a>.</p>}
           {bloqueada && <p className="text-sm text-amber-700 mt-3">Esta locação já foi fechada e não pode mais ser alterada.</p>}
           <button type="button" className={`${btn} w-full mt-4`} style={btnAzul} disabled={gerando || bloqueada} onClick={() => gerar(true)}>
-            {gerando ? 'Salvando…' : inicial ? 'Salvar alterações e gerar PDF' : 'Registrar e gerar PDF'}
+            {gerando ? 'Salvando…' : regId ? 'Salvar alterações e gerar PDF' : 'Registrar e gerar PDF'}
           </button>
-          {inicial && <button type="button" className={`${btnLeve} w-full mt-2`} disabled={gerando || bloqueada} onClick={() => gerar(false)}>Salvar sem baixar PDF</button>}
+          {regId && <button type="button" className={`${btnLeve} w-full mt-2`} disabled={gerando || bloqueada} onClick={() => gerar(false)}>Salvar sem baixar PDF</button>}
         </section>
       </aside>
     </div>
