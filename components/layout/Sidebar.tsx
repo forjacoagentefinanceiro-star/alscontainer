@@ -31,7 +31,6 @@ import {
   Handshake,
   Megaphone,
   Tag,
-  FileText,
 } from 'lucide-react'
 import { temModulo } from '@/lib/modulos'
 
