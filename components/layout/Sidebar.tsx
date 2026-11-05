@@ -72,7 +72,7 @@ const vendasItems: Item[] = [
   { href: '/vendas/campanhas', label: 'Campanhas', icon: Megaphone    },
   { href: '/vendas/estoque',   label: 'Estoque',   icon: Tag          },
   { href: '/vendas/tipos',     label: 'Tipos e preços', icon: Tag     },
-  { href: '/vendas/proposta',  label: 'Nova proposta', icon: FileText },
+  { href: '/vendas/proposta',  label: 'Proposta de venda', icon: FileText },
   { href: '/vendas/proposta-locacao',  label: 'Proposta de locação', icon: FileText },
   { href: '/vendas/propostas', label: 'Propostas', icon: FileText },
 ]
