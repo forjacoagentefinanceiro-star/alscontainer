@@ -45,20 +45,20 @@ export default function PropostaAcoes({ p }: { p: PropostaRow }) {
   })
 
   return (
-    <div className="flex flex-col gap-1 items-start">
-      <Link href={`/vendas/propostas/${p.id}`} className={btnLeve}>{p.status === 'vendida' ? 'Abrir' : 'Abrir / editar'}</Link>
-      <button className={btnLeve} onClick={pdf}>Baixar PDF</button>
+    <div className="flex flex-wrap gap-1 justify-end max-w-[270px] [&_a]:whitespace-nowrap [&_button]:whitespace-nowrap">
+      <Link href={`/vendas/propostas/${p.id}`} className={btnLeve}>{p.status === 'vendida' ? 'Abrir' : 'Editar'}</Link>
+      <button className={btnLeve} onClick={pdf}>PDF</button>
       {p.status === 'aberta' && (
         <>
           <button className={btnLeve} disabled={pend} style={{ color: '#16a34a' }}
             onClick={() => { if (confirm(p.tipo === 'locacao' ? `Fechar a locação ${p.codigo}? Os containers próprios serão marcados como locados.` : `Converter a proposta ${p.codigo} em VENDA? Os containers do estoque serão baixados como vendidos.`)) rodar(() => converterProposta(p.id)) }}>
             {p.tipo === 'locacao' ? 'Fechar locação' : 'Converter em venda'}
           </button>
-          <button className={btnLeve} disabled={pend} onClick={() => rodar(() => marcarProposta(p.id, 'perdida'))}>Marcar perdida</button>
+          <button className={btnLeve} disabled={pend} onClick={() => rodar(() => marcarProposta(p.id, 'perdida'))}>Perdida</button>
         </>
       )}
       {p.status === 'perdida' && <button className={btnLeve} disabled={pend} onClick={() => rodar(() => marcarProposta(p.id, 'aberta'))}>Reabrir</button>}
-      {erro && <p className="text-xs text-red-600 max-w-[220px]">{erro}</p>}
+      {erro && <p className="w-full text-xs text-red-600 text-right">{erro}</p>}
     </div>
   )
 }
