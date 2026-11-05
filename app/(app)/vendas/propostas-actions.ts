@@ -6,6 +6,7 @@ import { exigirVendas } from '@/lib/vendas/server'
 export type ItemSalvo = {
   container_id: string | null; numero: string | null; ano: number | null
   descricao: string; detalhe: string; qtd: number; unit: number
+  custo?: number | null   // só em itens sem container (admin)
 }
 export type PropostaEntrada = {
   cliente_nome: string; telefone: string; email: string; documento: string; cidade: string
@@ -27,6 +28,25 @@ export async function salvarProposta(d: PropostaEntrada): Promise<R<{ id: string
     observacoes: d.observacoes || null, ilustrativas: d.ilustrativas,
   }).select('id, codigo, criado_em').single()
   if (error || !data) return { erro: error?.message ?? 'Não consegui registrar a proposta.' }
+  refresh()
+  return { ok: true, ...(data as { id: string; codigo: string; criado_em: string }) }
+}
+
+export async function atualizarProposta(id: string, d: PropostaEntrada): Promise<R<{ id: string; codigo: string; criado_em: string }>> {
+  const { supabase } = await exigirVendas()
+  if (!d.cliente_nome.trim()) return { erro: 'Informe o nome do cliente.' }
+  if (!d.itens.length) return { erro: 'Inclua ao menos um item.' }
+  const { data: at } = await supabase.from('cv_propostas').select('status').eq('id', id).single()
+  if (!at) return { erro: 'Proposta não encontrada.' }
+  if ((at as { status: string }).status === 'vendida') return { erro: 'Proposta já virou venda e não pode ser alterada.' }
+  const total = d.itens.reduce((s, i) => s + i.qtd * i.unit, 0)
+  const { data, error } = await supabase.from('cv_propostas').update({
+    cliente_nome: d.cliente_nome.trim(), telefone: d.telefone || null, email: d.email || null,
+    documento: d.documento || null, cidade: d.cidade || null,
+    itens: d.itens, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
+    observacoes: d.observacoes || null, ilustrativas: d.ilustrativas,
+  }).eq('id', id).select('id, codigo, criado_em').single()
+  if (error || !data) return { erro: error?.message ?? 'Não consegui salvar.' }
   refresh()
   return { ok: true, ...(data as { id: string; codigo: string; criado_em: string }) }
 }

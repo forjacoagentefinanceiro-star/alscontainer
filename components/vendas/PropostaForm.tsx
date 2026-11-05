@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { brl } from '@/lib/vendas/config'
 import { gerarPropostaPdf, baixarBlob } from '@/lib/vendas/propostaPdf'
-import { salvarProposta } from '@/app/(app)/vendas/propostas-actions'
+import { salvarProposta, atualizarProposta } from '@/app/(app)/vendas/propostas-actions'
 import { card, input, btn, btnAzul, btnLeve } from './ui'
 
 export type ItemEstoque = {
@@ -19,9 +19,14 @@ const MODELOS = [
   { key: '40hc', nome: 'Container 40 pés High Cube (HC)', preco: 8500 },
 ]
 
-type Linha = {
+export type Linha = {
   uid: string; estoqueId: string | null; descricao: string; detalhe: string
   numero: string | null; ano: number | null; qtd: number; unit: number; custo: number | null; despesas: number | null   // aquisição + despesas lançadas (unitário)
+}
+
+export type Inicial = {
+  id: string; codigo: string; criadoEm: string; status: string; validade: string   // aaaa-mm-dd
+  pagamento: string; frete: string; obs: string; ilustrativas: boolean; leadId: string | null; linhas: Linha[]
 }
 
 const num = (v: string) => { const n = Number(v.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0 }
@@ -32,14 +37,15 @@ function L({ t, children }: { t: string; children: React.ReactNode }) {
   return <label className="block text-xs font-semibold text-slate-600">{t}<div className="mt-1 font-normal">{children}</div></label>
 }
 
-export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId = null }: { estoque: ItemEstoque[]; cliente: Cliente; verMargem: boolean; leadId?: string | null }) {
+export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId = null, inicial }: { estoque: ItemEstoque[]; cliente: Cliente; verMargem: boolean; leadId?: string | null; inicial?: Inicial }) {
   const [cli, setCli] = useState<Cliente>(c0)
-  const [linhas, setLinhas] = useState<Linha[]>([])
-  const [validade, setValidade] = useState(7)
-  const [pagamento, setPagamento] = useState('À vista (Pix ou transferência), com 30% de sinal para reservar a unidade e o restante na retirada.')
-  const [frete, setFrete] = useState('Frete sob consulta. Retirada no pátio em Itajaí/SC sem custo.')
-  const [obs, setObs] = useState('')
-  const [ilustrativas, setIlustrativas] = useState(true)
+  const [linhas, setLinhas] = useState<Linha[]>(inicial?.linhas ?? [])
+  const [validade, setValidade] = useState(inicial?.validade ?? (() => { const d = new Date(Date.now() + 7 * 86400000); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) })())
+  const [pagamento, setPagamento] = useState(inicial?.pagamento ?? 'À vista (Pix ou transferência), com 30% de sinal para reservar a unidade e o restante na retirada.')
+  const [frete, setFrete] = useState(inicial?.frete ?? 'Frete sob consulta. Retirada no pátio em Itajaí/SC sem custo.')
+  const [obs, setObs] = useState(inicial?.obs ?? '')
+  const [ilustrativas, setIlustrativas] = useState(inicial?.ilustrativas ?? true)
+  const bloqueada = inicial?.status === 'vendida'
   const [gerando, setGerando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [salva, setSalva] = useState<string | null>(null)
@@ -72,29 +78,31 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
   const margem = total > 0 ? (lucro / total) * 100 : 0
   const markup = custoTotal > 0 ? (lucro / custoTotal) * 100 : null
 
-  async function gerar() {
-    setErro(null)
+  async function gerar(comPdf = true) {
+    setErro(null); setSalva(null)
     if (!cli.nome.trim()) return setErro('Informe o nome do cliente.')
     if (!linhas.length) return setErro('Selecione ao menos um container.')
     if (linhas.some(l => l.qtd < 1 || l.unit <= 0)) return setErro('Confira quantidade e valor unitário de todos os itens.')
     setGerando(true)
     try {
-      const val = new Date(Date.now() + validade * 86400000)
-      const iso = new Date(val.getTime() - val.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
       const itens = linhas.map(l => ({
         container_id: l.estoqueId, numero: l.numero, ano: l.ano, descricao: l.descricao, detalhe: l.detalhe, qtd: l.qtd, unit: l.unit,
+        custo: l.estoqueId ? null : (verMargem ? l.custo : null),   // custo só é guardado nos itens sem número
       }))
-      const r = await salvarProposta({
+      const dados = {
         cliente_nome: cli.nome, telefone: cli.telefone, email: cli.email, documento: cli.documento, cidade: cli.cidade,
-        lead_id: leadId, itens, validade: iso, pagamento, frete, observacoes: obs, ilustrativas,
-      })
+        lead_id: inicial?.leadId ?? leadId, itens, validade, pagamento, frete, observacoes: obs, ilustrativas,
+      }
+      const r = inicial ? await atualizarProposta(inicial.id, dados) : await salvarProposta(dados)
       if ('erro' in r) { setErro(r.erro); setGerando(false); return }
-      const { blob, nome } = await gerarPropostaPdf({
-        numero: r.codigo, emissao: dataBr(new Date(r.criado_em)), validade: dataBr(val), cliente: cli,
-        itens: itens.map(i => ({ descricao: i.descricao, detalhe: i.detalhe, qtd: i.qtd, unit: i.unit, numero: i.numero, ano: i.ano })),
-        pagamento, frete, observacoes: obs, ilustrativas,
-      })
-      baixarBlob(blob, nome)
+      if (comPdf) {
+        const { blob, nome } = await gerarPropostaPdf({
+          numero: r.codigo, emissao: dataBr(new Date(r.criado_em)), validade: dataBr(new Date(validade + 'T12:00:00')), cliente: cli,
+          itens: itens.map(i => ({ descricao: i.descricao, detalhe: i.detalhe, qtd: i.qtd, unit: i.unit, numero: i.numero, ano: i.ano })),
+          pagamento, frete, observacoes: obs, ilustrativas,
+        })
+        baixarBlob(blob, nome)
+      }
       setSalva(r.codigo)
     } catch (e) { setErro(`Não foi possível gerar o PDF: ${(e as Error).message}`) }
     setGerando(false)
@@ -175,7 +183,7 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
         <section className={`${card} p-4`}>
           <h2 className="font-bold text-sm mb-3" style={{ color: '#0d1b2e' }}>4. Condições</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <L t="Validade da proposta (dias)"><input className={input} type="number" min={1} value={validade} onChange={e => setValidade(Math.max(1, Number(e.target.value) || 1))} /></L>
+            <L t="Válida até"><input className={input} type="date" value={validade} onChange={e => setValidade(e.target.value)} /></L>
             <label className="flex items-center gap-2 text-sm self-end pb-2"><input type="checkbox" checked={ilustrativas} onChange={e => setIlustrativas(e.target.checked)} /> Incluir aviso “imagens ilustrativas”</label>
             <div className="sm:col-span-2"><L t="Condições de pagamento"><textarea className={input} rows={2} value={pagamento} onChange={e => setPagamento(e.target.value)} /></L></div>
             <div className="sm:col-span-2"><L t="Frete / entrega"><textarea className={input} rows={2} value={frete} onChange={e => setFrete(e.target.value)} /></L></div>
@@ -205,10 +213,12 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
             </div>
           )}
           {erro && <p className="text-sm text-red-600 mt-3">{erro}</p>}
-          {salva && <p className="text-sm text-green-700 mt-3">Proposta <b>{salva}</b> registrada e PDF baixado. Veja em <a className="underline" href="/vendas/propostas">Propostas</a>.</p>}
-          <button type="button" className={`${btn} w-full mt-4`} style={btnAzul} disabled={gerando} onClick={gerar}>
-            {gerando ? 'Registrando…' : 'Registrar e gerar PDF'}
+          {salva && <p className="text-sm text-green-700 mt-3">Proposta <b>{salva}</b> {inicial ? 'atualizada' : 'registrada'}. Veja em <a className="underline" href="/vendas/propostas">Propostas</a>.</p>}
+          {bloqueada && <p className="text-sm text-amber-700 mt-3">Esta proposta já virou venda e não pode mais ser alterada.</p>}
+          <button type="button" className={`${btn} w-full mt-4`} style={btnAzul} disabled={gerando || bloqueada} onClick={() => gerar(true)}>
+            {gerando ? 'Salvando…' : inicial ? 'Salvar alterações e gerar PDF' : 'Registrar e gerar PDF'}
           </button>
+          {inicial && <button type="button" className={`${btnLeve} w-full mt-2`} disabled={gerando || bloqueada} onClick={() => gerar(false)}>Salvar sem baixar PDF</button>}
         </section>
       </aside>
     </div>

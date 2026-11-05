@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { gerarPropostaPdf, baixarBlob } from '@/lib/vendas/propostaPdf'
 import { converterProposta, marcarProposta, type ItemSalvo } from '@/app/(app)/vendas/propostas-actions'
@@ -37,6 +38,7 @@ export default function PropostaAcoes({ p }: { p: PropostaRow }) {
 
   return (
     <div className="flex flex-col gap-1 items-start">
+      <Link href={`/vendas/propostas/${p.id}`} className={btnLeve}>{p.status === 'vendida' ? 'Abrir' : 'Abrir / editar'}</Link>
       <button className={btnLeve} onClick={pdf}>Baixar PDF</button>
       {p.status === 'aberta' && (
         <>

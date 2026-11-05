@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { exigirVendas } from '@/lib/vendas/server'
 import { brl, dataCurta } from '@/lib/vendas/config'
+import { getCustos, lucroDaProposta } from '@/lib/vendas/custos'
 import PropostaAcoes, { type PropostaRow } from '@/components/vendas/PropostaAcoes'
 import { Titulo, Abas, card, input, btn, btnAzul } from '@/components/vendas/ui'
 
@@ -12,13 +13,15 @@ const STATUS: Record<string, { t: string; c: string }> = {
 
 export default async function PropostasPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const { q = '', status = '' } = await searchParams
-  const { supabase } = await exigirVendas()
+  const { supabase, role } = await exigirVendas()
+  const admin = role === 'admin'
   let query = supabase.from('cv_propostas').select('*').order('criado_em', { ascending: false }).limit(300)
   if (status) query = query.eq('status', status)
   const termo = q.trim().replace(/[%,()]/g, ' ')
   if (termo) query = query.or(`codigo.ilike.%${termo}%,cliente_nome.ilike.%${termo}%,telefone.ilike.%${termo}%,documento.ilike.%${termo}%,cidade.ilike.%${termo}%`)
   const { data, error } = await query
   const rows = (data ?? []) as PropostaRow[]
+  const custos = admin ? await getCustos(supabase, [...new Set(rows.flatMap(r => r.itens.map(i => i.container_id)).filter((x): x is string => !!x))]) : {}
   const hoje = new Date().toISOString().slice(0, 10)
   const abertas = rows.filter(r => r.status === 'aberta')
   const vendidas = rows.filter(r => r.status === 'vendida')
@@ -42,18 +45,22 @@ export default async function PropostasPage({ searchParams }: { searchParams: Pr
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200">
             <th className="p-3">Nº</th><th className="p-3">Data</th><th className="p-3">Cliente</th><th className="p-3">Itens</th>
-            <th className="p-3 text-right">Total</th><th className="p-3">Validade</th><th className="p-3">Situação</th><th className="p-3">Ações</th>
+            <th className="p-3 text-right">Total</th>{admin && <th className="p-3 text-right">Lucro líq.</th>}<th className="p-3">Validade</th><th className="p-3">Situação</th><th className="p-3">Ações</th>
           </tr></thead>
           <tbody>
             {rows.map(r => {
               const venc = r.status === 'aberta' && r.validade < hoje
               return (
                 <tr key={r.id} className="border-b border-slate-100 align-top">
-                  <td className="p-3 font-mono font-semibold whitespace-nowrap">{r.codigo}</td>
+                  <td className="p-3 font-mono font-semibold whitespace-nowrap"><Link href={`/vendas/propostas/${r.id}`} className="underline" style={{ color: '#1B4F8A' }}>{r.codigo}</Link></td>
                   <td className="p-3 whitespace-nowrap">{dataCurta(r.criado_em)}</td>
                   <td className="p-3"><b>{r.cliente_nome}</b><div className="text-xs text-slate-500">{[r.telefone, r.cidade].filter(Boolean).join(' · ')}</div></td>
                   <td className="p-3 text-xs text-slate-600">{r.itens.map(i => `${i.qtd}× ${i.numero ?? i.descricao}${i.ano ? ` (${i.ano})` : ''}`).join(', ')}</td>
                   <td className="p-3 text-right font-semibold whitespace-nowrap">{brl(Number(r.total))}</td>
+                  {admin && (() => { const m = lucroDaProposta(r.itens, custos); return (
+                    <td className="p-3 text-right whitespace-nowrap font-semibold" style={{ color: m.lucro < 0 ? '#dc2626' : '#16a34a' }}>
+                      {brl(m.lucro)}<div className="text-xs font-normal">{m.margem.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</div>
+                    </td>) })()}
                   <td className="p-3 whitespace-nowrap" style={venc ? { color: '#dc2626' } : undefined}>{dataCurta(r.validade + 'T12:00:00')}{venc ? ' (vencida)' : ''}</td>
                   <td className="p-3"><span className="text-xs font-bold uppercase px-2 py-1 rounded-lg text-white" style={{ background: STATUS[r.status]?.c }}>{STATUS[r.status]?.t}</span>
                     {r.lead_id && <Link href={`/vendas/leads/${r.lead_id}`} className="block text-xs underline mt-1" style={{ color: '#1B4F8A' }}>ver lead</Link>}</td>
@@ -61,7 +68,7 @@ export default async function PropostasPage({ searchParams }: { searchParams: Pr
                 </tr>
               )
             })}
-            {rows.length === 0 && !error && <tr><td colSpan={8} className="p-6 text-center text-slate-500">Nenhuma proposta encontrada.</td></tr>}
+            {rows.length === 0 && !error && <tr><td colSpan={9} className="p-6 text-center text-slate-500">Nenhuma proposta encontrada.</td></tr>}
           </tbody>
         </table>
       </div>
