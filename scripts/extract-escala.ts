@@ -45,7 +45,12 @@ const RETRY_DELAY_MS = 20000;
 
 function isNetworkError(e: unknown): boolean {
   const msg = (e as Error).message || "";
-  return /timeout|net::|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ERR_NAME_NOT_RESOLVED/i.test(msg);
+  // erros de rede do lado do cliente
+  if (/timeout|net::|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ERR_NAME_NOT_RESOLVED/i.test(msg)) return true;
+  // erros de CDN/gateway do lado do Supabase (Cloudflare 522/524/503 retorna HTML)
+  if (/<!doctype|<html/i.test(msg)) return true;
+  if (/\b(522|524|503|502)\b.*(?:timeout|error|unavailable)/i.test(msg)) return true;
+  return false;
 }
 
 async function run(login: string, senha: string, supabase: ReturnType<typeof createClient>): Promise<void> {
