@@ -2,63 +2,170 @@
 
 import { revalidatePath } from 'next/cache'
 import { exigirVendas } from '@/lib/vendas/server'
+import { calcLocacao, type ExtrasLoc, type Modo } from '@/lib/vendas/locacao'
 
 export type ItemSalvo = {
   container_id: string | null; numero: string | null; ano: number | null
   descricao: string; detalhe: string; qtd: number; unit: number
   custo?: number | null   // só em itens sem container (admin)
+  // locação (qtd × diária × dias). Custos só para admin
+  origem?: 'proprio' | 'terceiro'; fornecedor?: string; custo_mensal?: number | null; modo?: Modo
 }
 export type PropostaEntrada = {
   cliente_nome: string; telefone: string; email: string; documento: string; cidade: string
   lead_id: string | null; itens: ItemSalvo[]; validade: string   // aaaa-mm-dd
   pagamento: string; frete: string; observacoes: string; ilustrativas: boolean
+  tipo?: 'venda' | 'locacao'; dias?: number; extras?: ExtrasLoc
 }
 type R<T = object> = ({ ok: true } & T) | { erro: string }
 const refresh = () => revalidatePath('/vendas', 'layout')
+
+const totalDe = (d: PropostaEntrada) => d.tipo === 'locacao'
+  ? calcLocacao(d.itens, d.dias ?? 1, d.extras).receita
+  : d.itens.reduce((s, i) => s + i.qtd * i.unit, 0)
+const extrasLoc = (d: PropostaEntrada) => (d.tipo === 'locacao' ? (d.extras ?? {}) : {})
+type SBc = Awaited<ReturnType<typeof exigirVendas>>['supabase']
+const brlTxt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const dig = (t: string | null | undefined) => (t ?? '').replace(/\D/g, '')
+
+/** Garante o lead da proposta no funil (reaproveita lead aberto do mesmo cliente ou cria) e registra a movimentação. */
+async function garantirLead(supabase: SBc, d: { cliente_nome: string; telefone: string | null; cidade: string | null; lead_id: string | null },
+  total: number, codigo: string, texto: string): Promise<string | null> {
+  const agora = new Date().toISOString()
+  let lid = d.lead_id
+  if (!lid) {
+    const { data: abertos } = await supabase.from('cv_leads').select('id, nome, telefone').not('etapa', 'in', '(vendido,perdido)').limit(1000)
+    const tel = dig(d.telefone), nome = d.cliente_nome.trim().toLowerCase()
+    const ach = ((abertos ?? []) as { id: string; nome: string; telefone: string | null }[])
+      .find(l => (tel.length >= 8 && dig(l.telefone).slice(-8) === tel.slice(-8)) || l.nome.trim().toLowerCase() === nome)
+    lid = ach?.id ?? null
+  }
+  if (lid) {
+    const { data: l } = await supabase.from('cv_leads').select('etapa').eq('id', lid).single()
+    const et = (l as { etapa: string } | null)?.etapa
+    const upd: Record<string, unknown> = { preco: total, atualizado_em: agora }
+    if (et && ['novo', 'conversa', 'visita'].includes(et)) upd.etapa = 'proposta'
+    await supabase.from('cv_leads').update(upd).eq('id', lid)
+  } else {
+    const { data: l } = await supabase.from('cv_leads').insert({
+      nome: d.cliente_nome.trim(), telefone: dig(d.telefone) || null, cidade: d.cidade, canal: 'outro', etapa: 'proposta',
+      preco: total, obs: `Lead criado pela proposta ${codigo}`,
+    }).select('id').single()
+    lid = (l as { id: string } | null)?.id ?? null
+  }
+  if (lid) await supabase.from('cv_atividades').insert({ lead_id: lid, tipo: 'etapa', texto: `${texto} (${brlTxt(total)})` })
+  return lid
+}
+/** Move o lead de etapa (fechamento, perda, reabertura) e registra no histórico. */
+async function moverLead(supabase: SBc, lid: string | null, etapa: 'vendido' | 'perdido' | 'proposta', texto: string, total?: number) {
+  if (!lid) return
+  const agora = new Date().toISOString(), fecha = etapa !== 'proposta'
+  await supabase.from('cv_leads').update({
+    etapa, atualizado_em: agora, fechado_em: fecha ? agora : null, motivo_perda: etapa === 'perdido' ? 'Proposta perdida' : null,
+    ...(total != null ? { preco: total } : {}),
+  }).eq('id', lid)
+  await supabase.from('cv_atividades').insert({ lead_id: lid, tipo: 'etapa', texto })
+  if (fecha) await supabase.from('cv_tarefas').update({ concluida_em: agora }).eq('lead_id', lid).is('concluida_em', null)
+}
+const COSTS: (keyof ExtrasLoc)[] = ['frete_pago', 'outros_custos', 'imposto_pct', 'comissao_pct']
 
 export async function salvarProposta(d: PropostaEntrada): Promise<R<{ id: string; codigo: string; criado_em: string }>> {
   const { supabase } = await exigirVendas()
   if (!d.cliente_nome.trim()) return { erro: 'Informe o nome do cliente.' }
   if (!d.itens.length) return { erro: 'Inclua ao menos um item.' }
-  const total = d.itens.reduce((s, i) => s + i.qtd * i.unit, 0)
+  if (d.tipo === 'locacao' && !(d.dias && d.dias >= 1)) return { erro: 'Informe o prazo da locação em dias.' }
+  const total = totalDe(d)
   const { data, error } = await supabase.from('cv_propostas').insert({
+    tipo: d.tipo ?? 'venda', dias: d.tipo === 'locacao' ? d.dias : null, extras: extrasLoc(d),
     cliente_nome: d.cliente_nome.trim(), telefone: d.telefone || null, email: d.email || null,
     documento: d.documento || null, cidade: d.cidade || null, lead_id: d.lead_id,
     itens: d.itens, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
     observacoes: d.observacoes || null, ilustrativas: d.ilustrativas,
   }).select('id, codigo, criado_em').single()
   if (error || !data) return { erro: error?.message ?? 'Não consegui registrar a proposta.' }
+  const nova = data as { id: string; codigo: string; criado_em: string }
+  const lid = await garantirLead(supabase, { ...d, telefone: d.telefone || null, cidade: d.cidade || null }, total, nova.codigo,
+    `Proposta de ${d.tipo === 'locacao' ? 'locação' : 'venda'} ${nova.codigo} gerada`)
+  if (lid && lid !== d.lead_id) await supabase.from('cv_propostas').update({ lead_id: lid }).eq('id', nova.id)
   refresh()
-  return { ok: true, ...(data as { id: string; codigo: string; criado_em: string }) }
+  return { ok: true, ...nova }
 }
 
 export async function atualizarProposta(id: string, d: PropostaEntrada): Promise<R<{ id: string; codigo: string; criado_em: string }>> {
-  const { supabase } = await exigirVendas()
+  const { supabase, role } = await exigirVendas()
   if (!d.cliente_nome.trim()) return { erro: 'Informe o nome do cliente.' }
   if (!d.itens.length) return { erro: 'Inclua ao menos um item.' }
-  const { data: at } = await supabase.from('cv_propostas').select('status').eq('id', id).single()
+  const { data: at } = await supabase.from('cv_propostas').select('status, tipo, itens, extras, lead_id').eq('id', id).single()
   if (!at) return { erro: 'Proposta não encontrada.' }
-  if ((at as { status: string }).status === 'vendida') return { erro: 'Proposta já virou venda e não pode ser alterada.' }
-  const total = d.itens.reduce((s, i) => s + i.qtd * i.unit, 0)
+  const ant = at as { status: string; tipo: string; itens: ItemSalvo[]; extras: ExtrasLoc; lead_id: string | null }
+  if (ant.status === 'vendida') return { erro: 'Proposta já fechada e não pode ser alterada.' }
+  d.tipo = ant.tipo === 'locacao' ? 'locacao' : 'venda'
+  if (d.tipo === 'locacao') {
+    if (!(d.dias && d.dias >= 1)) return { erro: 'Informe o prazo da locação em dias.' }
+    if (role !== 'admin') {   // quem não é admin não vê nem altera custos: preserva os já gravados
+      d.extras = { ...(d.extras ?? {}) }
+      for (const k of COSTS) (d.extras as Record<string, unknown>)[k] = ant.extras?.[k]
+      d.itens = d.itens.map((i, n) => {
+        const o = ant.itens.find(x => (i.container_id && x.container_id === i.container_id)) ?? (i.container_id ? undefined : ant.itens[n])
+        return { ...i, custo_mensal: o?.custo_mensal ?? null, modo: o?.modo ?? i.modo }
+      })
+    }
+  }
+  const total = totalDe(d)
   const { data, error } = await supabase.from('cv_propostas').update({
+    dias: d.tipo === 'locacao' ? d.dias : null, extras: extrasLoc(d),
     cliente_nome: d.cliente_nome.trim(), telefone: d.telefone || null, email: d.email || null,
     documento: d.documento || null, cidade: d.cidade || null,
     itens: d.itens, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
     observacoes: d.observacoes || null, ilustrativas: d.ilustrativas,
   }).eq('id', id).select('id, codigo, criado_em').single()
   if (error || !data) return { erro: error?.message ?? 'Não consegui salvar.' }
+  const cod = (data as { codigo: string }).codigo
+  const lid = await garantirLead(supabase, { ...d, telefone: d.telefone || null, cidade: d.cidade || null, lead_id: ant.lead_id }, total, cod, `Proposta ${cod} alterada`)
+  if (lid && lid !== ant.lead_id) await supabase.from('cv_propostas').update({ lead_id: lid }).eq('id', id)
   refresh()
   return { ok: true, ...(data as { id: string; codigo: string; criado_em: string }) }
 }
 
 export async function marcarProposta(id: string, status: 'aberta' | 'perdida'): Promise<R> {
   const { supabase } = await exigirVendas()
-  const { data: p } = await supabase.from('cv_propostas').select('status').eq('id', id).single()
+  const { data: p } = await supabase.from('cv_propostas').select('status, lead_id, codigo').eq('id', id).single()
   if (!p) return { erro: 'Proposta não encontrada.' }
-  if ((p as { status: string }).status === 'vendida') return { erro: 'Proposta já virou venda.' }
+  const q = p as { status: string; lead_id: string | null; codigo: string }
+  if (q.status === 'vendida') return { erro: 'Proposta já virou venda.' }
   const { error } = await supabase.from('cv_propostas').update({ status }).eq('id', id)
   if (error) return { erro: error.message }
+  await moverLead(supabase, q.lead_id, status === 'perdida' ? 'perdido' : 'proposta',
+    status === 'perdida' ? `Proposta ${q.codigo} marcada como perdida` : `Proposta ${q.codigo} reaberta`)
   refresh(); return { ok: true }
+}
+
+type PL = {
+  cliente_nome: string; telefone: string | null; cidade: string | null; lead_id: string | null; itens: ItemSalvo[]; total: number; codigo: string
+  dias: number | null; extras: ExtrasLoc
+}
+/** Fecha a locação: containers próprios ficam "locado" (início/fim/valor mensal); os de terceiros só constam na proposta. */
+async function converterLocacao(supabase: Awaited<ReturnType<typeof exigirVendas>>['supabase'], id: string, p: PL, agora: string, hoje: string): Promise<R> {
+  const dias = p.dias ?? 1
+  const inicio = p.extras?.inicio || hoje
+  const fim = new Date(new Date(inicio + 'T12:00:00').getTime() + dias * 86400000).toISOString().slice(0, 10)
+  const proprios = p.itens.filter(i => i.container_id)
+  if (proprios.length) {
+    const { data: cs } = await supabase.from('containers').select('id, numero, status').in('id', proprios.map(i => i.container_id!))
+    const ja = ((cs ?? []) as { id: string; numero: string; status: string | null }[]).filter(c => c.status === 'vendido' || c.status === 'locado')
+    if (ja.length) return { erro: `Container(es) indisponível(is): ${ja.map(c => c.numero).join(', ')}. Ajuste a proposta ou o estoque.` }
+    for (const i of proprios) {
+      const { error } = await supabase.from('containers')
+        .update({ status: 'locado', locacao_inicio: inicio, locacao_fim: fim, valor_locacao_mensal: Math.round(i.unit * 30 * 100) / 100 }).eq('id', i.container_id!)
+      if (error) return { erro: `Não consegui locar o container ${i.numero}: ${error.message}` }
+    }
+  }
+  const texto = `Locação ${p.codigo} fechada (${dias} dias, ${brlTxt(p.total)})`
+  const lid = p.lead_id ?? await garantirLead(supabase, { cliente_nome: p.cliente_nome, telefone: p.telefone, cidade: p.cidade, lead_id: null }, p.total, p.codigo, texto)
+  await moverLead(supabase, lid, 'vendido', texto, p.total)
+  const { error } = await supabase.from('cv_propostas').update({ status: 'vendida', vendida_em: agora, lead_id: lid }).eq('id', id)
+  if (error) return { erro: error.message }
+  refresh(); revalidatePath('/inventario'); return { ok: true }
 }
 
 /** Converte a proposta em venda: baixa os containers do estoque e registra a venda no funil. */
@@ -68,11 +175,12 @@ export async function converterProposta(id: string): Promise<R> {
   if (!data) return { erro: 'Proposta não encontrada.' }
   const p = data as {
     status: string; cliente_nome: string; telefone: string | null; cidade: string | null; lead_id: string | null
-    itens: ItemSalvo[]; total: number; codigo: string
+    itens: ItemSalvo[]; total: number; codigo: string; tipo: string; dias: number | null; extras: ExtrasLoc
   }
-  if (p.status === 'vendida') return { erro: 'Esta proposta já foi convertida em venda.' }
+  if (p.status === 'vendida') return { erro: 'Esta proposta já foi convertida.' }
   const agora = new Date().toISOString()
   const hoje = agora.slice(0, 10)
+  if (p.tipo === 'locacao') return converterLocacao(supabase, id, p, agora, hoje)
 
   const comEstoque = p.itens.filter(i => i.container_id)
   if (comEstoque.length) {

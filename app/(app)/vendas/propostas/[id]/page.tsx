@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { exigirVendas } from '@/lib/vendas/server'
-import { getEstoque } from '@/lib/vendas/estoque'
+import { getEstoque, getProprios } from '@/lib/vendas/estoque'
+import LocacaoForm, { type LinhaLoc } from '@/components/vendas/LocacaoForm'
+import type { ExtrasLoc } from '@/lib/vendas/locacao'
 import { getCustos } from '@/lib/vendas/custos'
 import type { ItemSalvo } from '../../propostas-actions'
 import PropostaForm, { type ItemEstoque, type Linha } from '@/components/vendas/PropostaForm'
@@ -19,6 +21,29 @@ export default async function PropostaEditarPage({ params }: { params: Promise<{
     id: string; codigo: string; cliente_nome: string; telefone: string | null; email: string | null; documento: string | null
     cidade: string | null; lead_id: string | null; itens: ItemSalvo[]; validade: string; pagamento: string | null
     frete: string | null; observacoes: string | null; ilustrativas: boolean; status: string; criado_em: string
+    tipo: string; dias: number | null; extras: ExtrasLoc
+  }
+
+  if (p.tipo === 'locacao') {
+    const proprios = await getProprios(supabase, admin, p.itens.map(i => i.container_id).filter((x): x is string => !!x))
+    const linhasL: LinhaLoc[] = p.itens.map((i, n) => ({
+      uid: i.container_id ?? `tc-${n}`, estoqueId: i.container_id, origem: i.origem ?? (i.container_id ? 'proprio' : 'terceiro'), fornecedor: i.fornecedor ?? '',
+      descricao: i.descricao, detalhe: i.detalhe, numero: i.numero, ano: i.ano, qtd: i.qtd, unit: i.unit,
+      custoMensal: admin ? (i.custo_mensal ?? 0) : null, modo: i.modo ?? (i.container_id ? 'proporcional' : 'cheio'),
+    }))
+    const ex = admin ? (p.extras ?? {}) : { inicio: p.extras?.inicio, frete_cobrado: p.extras?.frete_cobrado, taxa_cobrada: p.extras?.taxa_cobrada }
+    return (
+      <div>
+        <Link href="/vendas/propostas" className="text-sm text-slate-500 hover:underline">← Propostas</Link>
+        <Titulo sub={`Criada em ${new Date(p.criado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · situação: ${p.status === 'vendida' ? 'fechada' : p.status}`}>
+          Proposta de locação {p.codigo}
+        </Titulo>
+        <Abas ativa="/vendas/propostas" />
+        <LocacaoForm proprios={proprios} verMargem={admin}
+          cliente={{ nome: p.cliente_nome, telefone: p.telefone ?? '', email: p.email ?? '', documento: p.documento ?? '', cidade: p.cidade ?? '' }}
+          inicial={{ id: p.id, codigo: p.codigo, status: p.status, validade: p.validade, dias: p.dias ?? 1, extras: ex, pagamento: p.pagamento ?? '', frete: p.frete ?? '', obs: p.observacoes ?? '', leadId: p.lead_id, linhas: linhasL }} />
+      </div>
+    )
   }
 
   const { itens: disponiveis } = await getEstoque(supabase)
