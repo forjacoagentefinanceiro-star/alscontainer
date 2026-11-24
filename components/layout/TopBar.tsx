@@ -6,6 +6,99 @@ import { logout } from '@/app/actions'
 import { Package2 } from 'lucide-react'
 import type { BarraStatus } from '@/app/actions'
 
+type DolarData = { bid: string; pctChange: string; high: string; low: string; create_date: string }
+
+function DolarChip() {
+  const [data, setData] = useState<DolarData | null>(null)
+  const [err, setErr] = useState(false)
+  const [tooltip, setTooltip] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  async function fetch_() {
+    try {
+      const r = await fetch('https://economia.awesomeapi.com.br/last/USD-BRL', { cache: 'no-store' })
+      const j = await r.json()
+      setData(j.USDBRL)
+      setErr(false)
+    } catch {
+      setErr(true)
+    }
+  }
+
+  useEffect(() => {
+    fetch_()
+    const id = setInterval(fetch_, 5 * 60 * 1000) // atualiza a cada 5 min
+    return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    if (!tooltip) return
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setTooltip(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [tooltip])
+
+  if (err || !data) return null
+
+  const pct = parseFloat(data.pctChange)
+  const up = pct >= 0
+  const pctFmt = `${up ? '+' : ''}${pct.toFixed(2)}%`
+  const bidFmt = parseFloat(data.bid).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const horario = data.create_date ? new Date(data.create_date.replace(' ', 'T') + '-03:00').toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onMouseEnter={() => setTooltip(true)}
+        onMouseLeave={() => setTooltip(false)}
+        onClick={() => setTooltip(o => !o)}
+        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
+        style={{
+          background: up ? '#fff1f2' : '#f0fdf4',
+          border: `1px solid ${up ? '#fca5a5' : '#86efac'}`,
+          color: up ? '#b91c1c' : '#15803d',
+          whiteSpace: 'nowrap',
+        }}
+        title="Cotação USD/BRL"
+      >
+        <span style={{ fontSize: 10 }}>🇺🇸</span>
+        <span>R$ {bidFmt}</span>
+        <span style={{ fontSize: 10 }}>{up ? '▲' : '▼'}{pctFmt}</span>
+      </button>
+
+      {tooltip && (
+        <div
+          className="absolute z-50 rounded-xl shadow-2xl p-3"
+          style={{
+            right: 0, top: 'calc(100% + 8px)',
+            width: 200,
+            background: '#1a2a3a',
+            border: `1.5px solid ${up ? '#ef4444' : '#22c55e'}`,
+          }}
+          onMouseEnter={() => setTooltip(true)}
+          onMouseLeave={() => setTooltip(false)}
+        >
+          <p className="text-xs font-bold mb-2" style={{ color: '#94a3b8' }}>💵 Dólar Comercial (USD/BRL)</p>
+          <p className="text-lg font-bold" style={{ color: '#e6eef7' }}>R$ {bidFmt}</p>
+          <p className="text-xs mt-0.5 font-semibold" style={{ color: up ? '#f87171' : '#4ade80' }}>
+            {up ? '▲' : '▼'} {pctFmt} no dia
+          </p>
+          <div className="mt-2 pt-2 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: '#64748b' }}>
+            <div className="flex justify-between"><span>Máx.</span><span style={{ color: '#e6eef7' }}>R$ {parseFloat(data.high).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between mt-0.5"><span>Mín.</span><span style={{ color: '#e6eef7' }}>R$ {parseFloat(data.low).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between mt-1 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <span>Atualizado</span><span>{horario}</span>
+            </div>
+          </div>
+          <p className="text-xs mt-1" style={{ color: '#475569' }}>fonte: AwesomeAPI</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const pageTitles: Record<string, string> = {
   '/inventario': 'Inventário',
   '/gerador':    'Gerador ISO',
@@ -234,9 +327,10 @@ export function TopBar({ email, barra }: { email: string; barra?: BarraStatus | 
         </span>
       </div>
 
-      {/* Direita: email + semáforo + botão sair */}
+      {/* Direita: email + dólar + semáforo + botão sair */}
       <div className="flex items-center gap-3">
         <span className="text-xs hidden sm:block truncate max-w-40" style={{ color: '#9ca3af' }}>{email}</span>
+        <DolarChip />
         {barra?.profundidade && <BarraSemaforo barra={barra} />}
         <form action={logout}>
           <button
