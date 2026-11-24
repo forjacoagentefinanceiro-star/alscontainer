@@ -40,7 +40,13 @@ function DolarChip() {
     return () => document.removeEventListener('mousedown', h)
   }, [tooltip])
 
-  if (err || !data) return null
+  if (err) return null
+  if (!data) return (
+    <span className="text-xs rounded-full px-2 py-0.5 animate-pulse"
+      style={{ background: '#f1f5f9', color: '#94a3b8', border: '1px solid #e2e8f0' }}>
+      🇺🇸 USD…
+    </span>
+  )
 
   const pct = parseFloat(data.pctChange)
   const up = pct >= 0
