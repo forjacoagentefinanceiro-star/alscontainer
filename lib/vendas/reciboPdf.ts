@@ -101,25 +101,25 @@ export async function gerarReciboPdf(d: ReciboDados): Promise<{ blob: Blob; nome
 
   // ── Resumo financeiro ──
   fonte(true, 9); cor(AZUL); doc.text('RESUMO DO PEDIDO', M, y); y += 3
-  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 30, 1.5, 1.5, 'S')
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 38, 1.5, 1.5, 'S')
 
   const col2 = M + CW / 2
   fonte(false, 8); cor(MUDO)
-  doc.text('TOTAL DO PEDIDO', M + 4, y + 9)
-  doc.text('PAGO ATÉ ESTE RECIBO', col2 + 4, y + 9)
+  doc.text('TOTAL DO PEDIDO', M + 4, y + 8)
+  doc.text('PAGO ATE ESTE RECIBO', col2 + 4, y + 8)
   fonte(true, 12); cor(TXT)
-  doc.text(brl(d.totalPedido), M + 4, y + 18)
-  doc.text(brl(d.totalPagoApos), col2 + 4, y + 18)
+  doc.text(brl(d.totalPedido), M + 4, y + 16)
+  doc.text(brl(d.totalPagoApos), col2 + 4, y + 16)
 
-  fonte(false, 8); cor(MUDO); doc.text('SALDO DEVEDOR', M + 4, y + 25)
+  fonte(false, 8); cor(MUDO); doc.text('SALDO DEVEDOR', M + 4, y + 24)
   fonte(true, 12)
   doc.setTextColor(saldo > 0 ? '#dc2626' : '#16a34a')
-  doc.text(brl(saldo), M + 4, y + 25 + 7)
+  doc.text(brl(saldo), M + 4, y + 32)
   if (saldo === 0) {
-    fonte(true, 10); doc.setTextColor('#16a34a')
-    doc.text('✓ QUITADO', col2 + 4, y + 25 + 7)
+    fonte(true, 11); doc.setTextColor('#16a34a')
+    doc.text('QUITADO', col2 + 4, y + 32)
   }
-  y += 38
+  y += 46
 
   // ── Assinaturas ──
   y += 10
