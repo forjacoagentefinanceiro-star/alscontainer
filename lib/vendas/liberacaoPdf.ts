@@ -262,7 +262,7 @@ export async function gerarOrdemRetiradaPdf(d: OrdemRetiradaDados): Promise<{ bl
   fonte(false, 9); doc.setTextColor('#ffffff'); doc.text('CONTAINER AUTORIZADO PARA RETIRADA', M + CW / 2, y + 7, { align: 'center' })
   fonte(true, 32); doc.setTextColor('#ffffff'); doc.text(d.container.numero, M + CW / 2, y + 20, { align: 'center' })
   if (d.container.tamanho) {
-    fonte(false, 10); doc.setTextColor('rgba(255,255,255,0.75)'); doc.text(d.container.tamanho, M + CW / 2, y + 26, { align: 'center' })
+    fonte(false, 10); doc.setTextColor('#a8c8f0'); doc.text(d.container.tamanho, M + CW / 2, y + 26, { align: 'center' })
   }
   y += 36
 
