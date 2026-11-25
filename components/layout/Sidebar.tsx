@@ -75,6 +75,7 @@ const vendasItems: Item[] = [
   { href: '/vendas/proposta',  label: 'Proposta de venda', icon: FileText },
   { href: '/vendas/proposta-locacao',  label: 'Proposta de locação', icon: FileText },
   { href: '/vendas/propostas', label: 'Propostas', icon: FileText },
+  { href: '/vendas/pedidos',  label: 'Pedidos de venda', icon: ClipboardList },
 ]
 
 const gestaoTarefasItems: Item[] = [
