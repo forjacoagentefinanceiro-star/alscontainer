@@ -135,8 +135,10 @@ export default function PedidoDetalhe({ pedido, fechamentoDados }: { pedido: Ped
     setUploadingComp(null)
   }
 
-  function gerarWhatsContainer(contNumero: string, mot: { motorista_nome: string; motorista_doc: string; veiculo_placa: string; veiculo_modelo: string }): string {
-    const dataLib = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  function gerarWhatsContainer(contNumero: string, mot: { motorista_nome: string; motorista_doc: string; veiculo_placa: string; veiculo_modelo: string }, liberadoEmIso?: string): string {
+    const dataLib = liberadoEmIso
+      ? new Date(liberadoEmIso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+      : new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
     const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === contNumero)
     const contDesc = `📦 ${contNumero}${cont?.tamanho ? ` (${cont.tamanho})` : ''}`
     const msg = `*AUTORIZAÇÃO DE RETIRADA*\nPedido: ${pedido.codigo}\n\n*Cliente:* ${pedido.cliente_nome}${pedido.cidade ? `\n*Cidade:* ${pedido.cidade}` : ''}\n\n*Container:*\n${contDesc}\n\n*Motorista / Veículo:*\n👤 ${mot.motorista_nome}${mot.motorista_doc ? ` — ${mot.motorista_doc}` : ''}\n🚛 Placa: ${mot.veiculo_placa}${mot.veiculo_modelo ? ` — ${mot.veiculo_modelo}` : ''}\n\n*Data:* ${dataLib}`
@@ -354,6 +356,35 @@ export default function PedidoDetalhe({ pedido, fechamentoDados }: { pedido: Ped
 
           {erro && <p className="text-sm text-red-600 mt-3">{erro}</p>}
         </section>
+
+        {/* Fechamento Interno — só admin, quando há dados de custo */}
+        {fechamentoDados && (
+          <section className={`${card} p-4`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold" style={{ color: '#0d1b2e' }}>Fechamento Interno</h3>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Uso interno</span>
+            </div>
+            <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 mb-4">
+              {fechamentoDados.items.map((item, i) => {
+                const lucro = item.precoVenda - item.custoAquisicao - item.despesas
+                return (
+                  <div key={i} className="px-3 py-2.5 text-xs space-y-1">
+                    <p className="font-mono font-semibold text-slate-700">📦 {item.numero}{item.tamanho ? ` · ${item.tamanho}` : ''}</p>
+                    <div className="grid grid-cols-3 gap-1 text-[11px]">
+                      <span className="text-slate-500">Venda: <span className="font-semibold text-slate-800">{brl(item.precoVenda)}</span></span>
+                      <span className="text-slate-500">Custo: <span className="font-semibold text-red-600">{brl(item.custoAquisicao)}</span></span>
+                      <span className="text-slate-500">Lucro: <span className={`font-semibold ${lucro >= 0 ? 'text-green-700' : 'text-red-600'}`}>{brl(lucro)}</span></span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <button className={`${btn} w-full`} style={{ background: '#7c3aed' }}
+              disabled={gerandoFechamento} onClick={baixarFechamento}>
+              {gerandoFechamento ? 'Gerando PDF…' : '📊 Baixar Fechamento Interno'}
+            </button>
+          </section>
+        )}
       </div>
 
       {/* Sidebar */}
@@ -473,15 +504,7 @@ export default function PedidoDetalhe({ pedido, fechamentoDados }: { pedido: Ped
                   </button>
                 </>
               ) : (
-                <>
-                  <p className="text-xs text-green-700 font-semibold text-center py-2">Todos os containers liberados ✓</p>
-                  {fechamentoDados && (
-                    <button className={`${btn} w-full`} style={{ background: '#7c3aed' }}
-                      disabled={gerandoFechamento} onClick={baixarFechamento}>
-                      {gerandoFechamento ? 'Gerando…' : '📊 Fechamento Interno'}
-                    </button>
-                  )}
-                </>
+                <p className="text-xs text-green-700 font-semibold text-center py-2">Todos os containers liberados ✓</p>
               )}
             </section>
           )
@@ -498,6 +521,14 @@ export default function PedidoDetalhe({ pedido, fechamentoDados }: { pedido: Ped
                 <p className="text-[10px] font-semibold text-slate-400">📦 {m.container_numero}{m.liberado_em ? ` · ${dataCurta(m.liberado_em)}` : ''}</p>
                 <p className="text-slate-700">👤 <strong>{m.motorista_nome}</strong>{m.motorista_doc ? ` — ${m.motorista_doc}` : ''}</p>
                 <p className="text-slate-700">🚛 <strong>{m.veiculo_placa}</strong>{m.veiculo_modelo ? ` — ${m.veiculo_modelo}` : ''}</p>
+                <div className="flex flex-wrap gap-3 mt-1">
+                  <a href={gerarWhatsContainer(m.container_numero, m, m.liberado_em)} target="_blank" rel="noopener noreferrer"
+                    className="text-green-700 hover:underline font-semibold">📱 Enviar ao pátio</a>
+                  <button className="text-blue-700 hover:underline font-semibold cursor-pointer"
+                    onClick={() => baixarOrdemRetirada(m.container_numero, m, m.liberado_em ?? new Date().toISOString())}>
+                    📄 Ordem de retirada
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -505,16 +536,6 @@ export default function PedidoDetalhe({ pedido, fechamentoDados }: { pedido: Ped
               disabled={gerandoPdf} onClick={baixarPdf}>
               {gerandoPdf ? 'Gerando…' : '📄 PDF de Liberação'}
             </button>
-            <a href={gerarWhatsUrl(pedido)} target="_blank" rel="noopener noreferrer"
-              className={`${btn} w-full`} style={{ background: '#16a34a' }}>
-              📱 Enviar ao pátio (geral)
-            </a>
-            {fechamentoDados && (
-              <button className={`${btn} w-full`} style={{ background: '#7c3aed' }}
-                disabled={gerandoFechamento} onClick={baixarFechamento}>
-                {gerandoFechamento ? 'Gerando…' : '📊 Fechamento Interno'}
-              </button>
-            )}
           </section>
         )}
       </aside>

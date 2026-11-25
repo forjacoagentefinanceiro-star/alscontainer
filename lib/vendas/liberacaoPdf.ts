@@ -467,40 +467,55 @@ export async function gerarFechamentoPdf(d: FechamentoDados): Promise<{ blob: Bl
   }
 
   // ── Resumo financeiro ──
-  if (y + 70 > H - 20) { doc.addPage(); y = 20 }
-  fonte(true, 9); cor(AZUL); doc.text('RESUMO FINANCEIRO', M, y); y += 3
-  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 65, 1.5, 1.5, 'S')
-
+  // Caixa desenhada DEPOIS do conteúdo para altura dinâmica (evita overflow)
+  if (y + 60 > H - 20) { doc.addPage(); y = 20 }
+  fonte(true, 9); cor(AZUL); doc.text('RESUMO FINANCEIRO', M, y); y += 4
   const rl = M + 4, rr = M + CW - 4
+  const yBoxStart = y     // topo da caixa (salvo antes de qualquer conteúdo)
+  y += 5                  // padding interno superior
+
+  // lin: label à esq, valor à dir, linha separadora se destaque
   const lin = (label: string, valor: number, destaque?: boolean, negativo?: boolean) => {
-    fonte(false, 8.5)
-    cor(destaque ? AZUL : MUDO); doc.text(label, rl, y + 7)
+    fonte(false, destaque ? 10 : 8.5)
+    cor(destaque ? AZUL : MUDO)
+    doc.text(label, rl, y + 7)
     cor(negativo ? '#dc2626' : (destaque ? '#16a34a' : TXT))
     if (destaque) fonte(true, 10)
     doc.text(negativo ? `(${brl(Math.abs(valor))})` : brl(valor), rr, y + 7, { align: 'right' })
-    if (destaque) doc.setLineWidth(0.4), doc.setDrawColor(LINHA), doc.line(rl, y + 9, rr, y + 9)
-    y += 9
+    if (destaque) {
+      doc.setLineWidth(0.3); doc.setDrawColor(LINHA)
+      doc.line(rl, y + 11, rr, y + 11)
+    }
+    y += destaque ? 13 : 9
   }
-  y += 2
+
   lin('Total de venda (bruto)', d.totalVenda)
   if (d.descontoAplicado > 0) lin('Desconto aplicado', d.descontoAplicado, false, true)
   lin('(-) Custo de aquisição', totalCusto, false, true)
   lin('(-) Despesas', totalDespesas, false, true)
   lin('= Lucro bruto', lucroBruto, true, lucroBruto < 0)
-  if (d.fretePago > 0) lin('(-) Frete pago', d.fretePago, false, true)
-  if (d.outrosCustos > 0) lin('(-) Outros custos', d.outrosCustos, false, true)
-  if (valorImposto > 0) lin(`(-) Impostos (${d.impostoPct}%)`, valorImposto, false, true)
-  if (valorComissao > 0) lin(`(-) Comissão (${d.comissaoPct}%)`, valorComissao, false, true)
-  if (d.fretePago > 0 || d.outrosCustos > 0 || valorImposto > 0 || valorComissao > 0) {
+
+  const temExtras = d.fretePago > 0 || d.outrosCustos > 0 || valorImposto > 0 || valorComissao > 0
+  if (temExtras) {
+    if (d.fretePago > 0) lin('(-) Frete pago', d.fretePago, false, true)
+    if (d.outrosCustos > 0) lin('(-) Outros custos', d.outrosCustos, false, true)
+    if (valorImposto > 0) lin(`(-) Impostos (${d.impostoPct}%)`, valorImposto, false, true)
+    if (valorComissao > 0) lin(`(-) Comissão (${d.comissaoPct}%)`, valorComissao, false, true)
     lin('= Lucro líquido', lucroLiquido, true, lucroLiquido < 0)
-    // margem líquida
-    fonte(true, 8.5); cor('#16a34a'); doc.text(`Margem líquida: ${margemLiquida.toFixed(1)}%`, rr, y + 2, { align: 'right' })
-    y += 7
+    fonte(true, 9); cor('#16a34a')
+    doc.text(`Margem líquida: ${margemLiquida.toFixed(1)}%`, rr, y + 5, { align: 'right' })
+    y += 10
   } else {
-    fonte(true, 8.5); cor('#16a34a'); doc.text(`Margem bruta: ${margemBruta.toFixed(1)}%`, rr, y + 2, { align: 'right' })
-    y += 7
+    fonte(true, 9); cor('#16a34a')
+    doc.text(`Margem bruta: ${margemBruta.toFixed(1)}%`, rr, y + 5, { align: 'right' })
+    y += 10
   }
-  y += 6
+
+  y += 5  // padding interno inferior
+  // Desenha a borda DEPOIS do conteúdo — height = real
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3)
+  doc.roundedRect(M, yBoxStart, CW, y - yBoxStart, 1.5, 1.5, 'S')
+  y += 6  // espaço entre seções
 
   // ── Pagamentos ──
   if (d.pagamentos.length > 0) {
