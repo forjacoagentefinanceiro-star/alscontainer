@@ -15,6 +15,7 @@ export type MotoristaItem = {
   motorista_doc: string
   veiculo_placa: string
   veiculo_modelo: string
+  liberado_em?: string    // ISO — gravado ao liberar cada container
 }
 
 export type PedidoRow = {
@@ -33,6 +34,14 @@ export type PedidoRow = {
 export type DadosMotorista = {
   motoristas: MotoristaItem[]
   obs: string
+}
+
+export type DadosLiberacaoContainer = {
+  container_numero: string
+  motorista_nome: string
+  motorista_doc: string
+  veiculo_placa: string
+  veiculo_modelo: string
 }
 
 type R<T = object> = ({ ok: true } & T) | { erro: string }
@@ -115,6 +124,67 @@ export async function liberarPedido(pedidoId: string, dados: DadosMotorista): Pr
   refresh()
   revalidatePath('/vendas/propostas', 'layout')
   return { ok: true }
+}
+
+/** Libera um container por vez, gravando motorista+placa no histórico da venda */
+export async function liberarContainerPedido(
+  pedidoId: string,
+  dados: DadosLiberacaoContainer,
+): Promise<R<{ todosLiberados: boolean }>> {
+  const { supabase } = await exigirVendas()
+  const { data: p } = await supabase
+    .from('cv_pedidos')
+    .select('total, total_pago, status, containers, motoristas')
+    .eq('id', pedidoId).single()
+  if (!p) return { erro: 'Pedido não encontrado.' }
+
+  const ped = p as {
+    total: number; total_pago: number; status: string
+    containers: { numero: string; tamanho: string }[]
+    motoristas: MotoristaItem[] | null
+  }
+
+  if (ped.status === 'liberado') return { erro: 'Todos os containers já foram liberados.' }
+  if (ped.total_pago < ped.total)
+    return { erro: `Pedido não está quitado. Faltam ${(ped.total - ped.total_pago).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.` }
+  if (!dados.motorista_nome.trim()) return { erro: 'Informe o nome do motorista.' }
+  if (!dados.veiculo_placa.trim()) return { erro: 'Informe a placa do veículo.' }
+
+  const existing: MotoristaItem[] = ped.motoristas ?? []
+  if (existing.some(m => m.container_numero === dados.container_numero))
+    return { erro: `Container ${dados.container_numero} já foi liberado.` }
+
+  const novoMot: MotoristaItem = {
+    container_numero: dados.container_numero,
+    motorista_nome: dados.motorista_nome.trim(),
+    motorista_doc: dados.motorista_doc.trim(),
+    veiculo_placa: dados.veiculo_placa.trim().toUpperCase(),
+    veiculo_modelo: dados.veiculo_modelo.trim(),
+    liberado_em: new Date().toISOString(),
+  }
+
+  const novaLista = [...existing, novoMot]
+  const todosLiberados = ped.containers.every(c =>
+    novaLista.some(m => m.container_numero === c.numero)
+  )
+
+  const update: Record<string, unknown> = {
+    motoristas: novaLista,
+    motorista_nome: novaLista[0]!.motorista_nome,
+    motorista_doc: novaLista[0]!.motorista_doc || null,
+    veiculo_placa: novaLista[0]!.veiculo_placa,
+    veiculo_modelo: novaLista[0]!.veiculo_modelo || null,
+  }
+  if (todosLiberados) {
+    update.status = 'liberado'
+    update.liberado_em = new Date().toISOString()
+  }
+
+  const { error } = await supabase.from('cv_pedidos').update(update).eq('id', pedidoId)
+  if (error) return { erro: error.message }
+  refresh()
+  revalidatePath('/vendas/propostas', 'layout')
+  return { ok: true, todosLiberados }
 }
 
 /** Cria pedido manualmente para propostas já vendidas antes desta feature */
