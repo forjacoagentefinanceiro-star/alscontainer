@@ -46,6 +46,13 @@ export default async function PropostaEditarPage({ params }: { params: Promise<{
     )
   }
 
+  // Verifica se já existe Pedido de Venda para esta proposta
+  let pedidoExistente: { id: string; codigo: string } | null = null
+  if (p.status === 'vendida') {
+    const { data: ped } = await supabase.from('cv_pedidos').select('id, codigo').eq('proposta_id', p.id).maybeSingle()
+    pedidoExistente = (ped as { id: string; codigo: string } | null) ?? null
+  }
+
   const { itens: disponiveis } = await getEstoque(supabase)
   const idsProposta = p.itens.map(i => i.container_id).filter((x): x is string => !!x)
   const custos = admin ? await getCustos(supabase, [...new Set([...disponiveis.map(i => i.id), ...idsProposta])]) : {}
@@ -75,6 +82,14 @@ export default async function PropostaEditarPage({ params }: { params: Promise<{
       <Titulo sub={`Criada em ${new Date(p.criado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · situação: ${p.status}`}>
         Proposta {p.codigo}
       </Titulo>
+      {pedidoExistente && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold" style={{ background: '#d1fae5', color: '#065f46' }}>
+          ✅ Venda convertida —{' '}
+          <Link href={`/vendas/pedidos/${pedidoExistente.id}`} className="underline font-bold">
+            Ver Pedido {pedidoExistente.codigo}
+          </Link>
+        </div>
+      )}
       <Abas ativa="/vendas/propostas" />
       <PropostaForm
         estoque={estoque} verMargem={admin}

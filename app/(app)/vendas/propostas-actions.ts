@@ -187,9 +187,12 @@ export async function converterProposta(id: string): Promise<R> {
   if (p.tipo === 'locacao') return converterLocacao(supabase, id, p, agora, hoje)
 
   const comEstoque = p.itens.filter(i => i.container_id)
+  type CRow = { id: string; numero: string; status: string | null; tamanho: string }
+  let csRows: CRow[] = []
   if (comEstoque.length) {
-    const { data: cs } = await supabase.from('containers').select('id, numero, status').in('id', comEstoque.map(i => i.container_id!))
-    const ja = ((cs ?? []) as { id: string; numero: string; status: string | null }[]).filter(c => c.status === 'vendido' || c.status === 'locado')
+    const { data: cs } = await supabase.from('containers').select('id, numero, status, tamanho').in('id', comEstoque.map(i => i.container_id!))
+    csRows = (cs ?? []) as CRow[]
+    const ja = csRows.filter(c => c.status === 'vendido' || c.status === 'locado')
     if (ja.length) return { erro: `Container(es) indisponível(is): ${ja.map(c => c.numero).join(', ')}. Ajuste a proposta ou o estoque.` }
     for (const i of comEstoque) {
       const { error } = await supabase.from('containers')
@@ -217,5 +220,20 @@ export async function converterProposta(id: string): Promise<R> {
   }
   const { error } = await supabase.from('cv_propostas').update({ status: 'vendida', vendida_em: agora, lead_id: leadId }).eq('id', id)
   if (error) return { erro: error.message }
+
+  // Auto-cria Pedido de Venda
+  try {
+    const csMap: Record<string, CRow> = Object.fromEntries(csRows.map(c => [c.id, c]))
+    const containers = [
+      ...comEstoque.map(i => ({ id: i.container_id, numero: i.numero ?? '', tamanho: csMap[i.container_id!]?.tamanho ?? '' })),
+      ...p.itens.filter(i => !i.container_id).map(i => ({ id: null as null, numero: i.numero ?? '', tamanho: '' })),
+    ]
+    await supabase.from('cv_pedidos').insert({
+      proposta_id: id, proposta_codigo: p.codigo,
+      cliente_nome: p.cliente_nome, telefone: p.telefone, cidade: p.cidade,
+      containers, total: p.total,
+    })
+  } catch { /* cv_pedidos pode não existir até a migration ser aplicada no Supabase Dashboard */ }
+
   refresh(); revalidatePath('/inventario'); return { ok: true }
 }
