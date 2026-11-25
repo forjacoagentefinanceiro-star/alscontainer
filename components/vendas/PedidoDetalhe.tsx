@@ -157,6 +157,20 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
     router.refresh()
   }
 
+  async function baixarOrdemRetirada(contNumero: string, mot: { motorista_nome: string; motorista_doc: string; veiculo_placa: string; veiculo_modelo: string }, liberadoEm: string) {
+    setErro(null)
+    try {
+      const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === contNumero)
+      const { blob, nome } = await gerarOrdemRetiradaPdf({
+        pedidoCodigo: pedido.codigo, clienteNome: pedido.cliente_nome, cidade: pedido.cidade,
+        container: { numero: contNumero, tamanho: cont?.tamanho ?? '' },
+        motorista: { nome: mot.motorista_nome, doc: mot.motorista_doc, placa: mot.veiculo_placa, modelo: mot.veiculo_modelo },
+        liberadoEm,
+      })
+      baixarBlob(blob, nome)
+    } catch (e) { setErro(`Erro na ordem de retirada: ${(e as Error).message}`) }
+  }
+
   async function baixarPdf() {
     setGerandoPdf(true)
     try {
@@ -368,18 +382,10 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                       <div className="flex flex-wrap gap-3 mt-1">
                         <a href={gerarWhatsContainer(m.container_numero, m)} target="_blank" rel="noopener noreferrer"
                           className="text-green-700 hover:underline font-semibold">📱 Reenviar ao pátio</a>
-                        <button className="text-blue-700 hover:underline font-semibold" onClick={async () => {
-                          try {
-                            const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === m.container_numero)
-                            const { blob, nome } = await gerarOrdemRetiradaPdf({
-                              pedidoCodigo: pedido.codigo, clienteNome: pedido.cliente_nome, cidade: pedido.cidade,
-                              container: { numero: m.container_numero, tamanho: cont?.tamanho ?? '' },
-                              motorista: { nome: m.motorista_nome, doc: m.motorista_doc, placa: m.veiculo_placa, modelo: m.veiculo_modelo },
-                              liberadoEm: m.liberado_em ?? new Date().toISOString(),
-                            })
-                            baixarBlob(blob, nome)
-                          } catch (e) { setErro(`Erro na ordem de retirada: ${(e as Error).message}`) }
-                        }}>📄 Ordem de retirada</button>
+                        <button className="text-blue-700 hover:underline font-semibold cursor-pointer"
+                          onClick={() => baixarOrdemRetirada(m.container_numero, m, m.liberado_em ?? new Date().toISOString())}>
+                          📄 Ordem de retirada
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -433,18 +439,10 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                       <div className="flex flex-wrap gap-2">
                         <a href={ultimaLib.whatsUrl} target="_blank" rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 font-bold underline">📱 Enviar ao pátio</a>
-                        <button className="font-bold underline" onClick={async () => {
-                          try {
-                            const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === ultimaLib.contNumero)
-                            const { blob, nome } = await gerarOrdemRetiradaPdf({
-                              pedidoCodigo: pedido.codigo, clienteNome: pedido.cliente_nome, cidade: pedido.cidade,
-                              container: { numero: ultimaLib.contNumero, tamanho: cont?.tamanho ?? '' },
-                              motorista: { nome: ultimaLib.mot.motorista_nome, doc: ultimaLib.mot.motorista_doc, placa: ultimaLib.mot.veiculo_placa, modelo: ultimaLib.mot.veiculo_modelo },
-                              liberadoEm: ultimaLib.liberadoEm,
-                            })
-                            baixarBlob(blob, nome)
-                          } catch (e) { setErro(`Erro na ordem de retirada: ${(e as Error).message}`) }
-                        }}>📄 Ordem de retirada (motorista)</button>
+                        <button className="font-bold underline cursor-pointer"
+                          onClick={() => baixarOrdemRetirada(ultimaLib.contNumero, ultimaLib.mot, ultimaLib.liberadoEm)}>
+                          📄 Ordem de retirada (motorista)
+                        </button>
                       </div>
                     </div>
                   )}
