@@ -27,6 +27,7 @@ export type Linha = {
 export type Inicial = {
   id: string; codigo: string; criadoEm: string; status: string; validade: string   // aaaa-mm-dd
   pagamento: string; frete: string; obs: string; ilustrativas: boolean; leadId: string | null; linhas: Linha[]
+  desconto?: number | null
 }
 
 const num = (v: string) => { const n = Number(v.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0 }
@@ -45,6 +46,7 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
   const [frete, setFrete] = useState(inicial?.frete ?? 'Frete sob consulta. Retirada no pátio em Itajaí/SC sem custo.')
   const [obs, setObs] = useState(inicial?.obs ?? '')
   const [ilustrativas, setIlustrativas] = useState(inicial?.ilustrativas ?? true)
+  const [desconto, setDesconto] = useState<number>(typeof inicial?.desconto === 'number' ? inicial.desconto : 0)
   const bloqueada = inicial?.status === 'vendida'
   const [gerando, setGerando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -72,11 +74,12 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
   const mud = (uid: string, p: Partial<Linha>) => setLinhas(ls => ls.map(l => l.uid === uid ? { ...l, ...p } : l))
 
   const total = linhas.reduce((s, l) => s + l.qtd * l.unit, 0)
+  const totalFinal = Math.max(0, total - desconto)
   const custoAq = linhas.reduce((s, l) => s + l.qtd * (l.custo ?? 0), 0)
   const despTotal = linhas.reduce((s, l) => s + l.qtd * (l.despesas ?? 0), 0)
   const custoTotal = custoAq + despTotal
-  const lucro = total - custoTotal
-  const margem = total > 0 ? (lucro / total) * 100 : 0
+  const lucro = totalFinal - custoTotal
+  const margem = totalFinal > 0 ? (lucro / totalFinal) * 100 : 0
   const markup = custoTotal > 0 ? (lucro / custoTotal) * 100 : null
 
   async function gerar(comPdf = true) {
@@ -92,7 +95,7 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
       }))
       const dados = {
         cliente_nome: cli.nome, telefone: cli.telefone, email: cli.email, documento: cli.documento, cidade: cli.cidade,
-        lead_id: inicial?.leadId ?? leadId, itens, validade, pagamento, frete, observacoes: obs, ilustrativas,
+        lead_id: inicial?.leadId ?? leadId, itens, desconto: desconto > 0 ? desconto : 0, validade, pagamento, frete, observacoes: obs, ilustrativas,
       }
       const r = regId ? await atualizarProposta(regId, dados) : await salvarProposta(dados)
       if ('erro' in r) { setErro(r.erro); setGerando(false); return }
@@ -101,7 +104,7 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
         const { blob, nome } = await gerarPropostaPdf({
           numero: r.codigo, emissao: dataBr(new Date(r.criado_em)), validade: dataBr(new Date(validade + 'T12:00:00')), cliente: cli,
           itens: itens.map(i => ({ descricao: i.descricao, detalhe: i.detalhe, qtd: i.qtd, unit: i.unit, numero: i.numero, ano: i.ano })),
-          pagamento, frete, observacoes: obs, ilustrativas,
+          pagamento, frete, observacoes: obs, ilustrativas, desconto: desconto > 0 ? desconto : undefined,
         })
         baixarBlob(blob, nome)
       }
@@ -197,12 +200,49 @@ export default function PropostaForm({ estoque, cliente: c0, verMargem, leadId =
       <aside className="space-y-4 lg:sticky lg:top-4">
         <section className={`${card} p-4`}>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total da proposta</p>
-          <p className="text-3xl font-bold mt-1" style={{ color: '#0d1b2e' }}>{brl(total)}</p>
+          {desconto > 0 && (
+            <div className="mt-1 space-y-0.5 text-sm">
+              <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{brl(total)}</span></div>
+              <div className="flex justify-between font-medium" style={{ color: '#dc2626' }}><span>− Desconto</span><span>− {brl(desconto)}</span></div>
+            </div>
+          )}
+          <p className="text-3xl font-bold mt-1" style={{ color: '#0d1b2e' }}>{brl(totalFinal)}</p>
           <p className="text-xs text-slate-500">{linhas.reduce((s, l) => s + l.qtd, 0)} container(s)</p>
+
+          {/* Campo de desconto */}
+          <div className="mt-3 pt-3 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Desconto</p>
+              {desconto > 0 && total > 0 && (
+                <span className="text-xs font-semibold rounded-full px-2 py-0.5" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+                  {((desconto / total) * 100).toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 shrink-0">R$</span>
+              <input
+                className={input}
+                inputMode="decimal"
+                placeholder="0,00"
+                defaultValue={desconto > 0 ? String(desconto).replace('.', ',') : ''}
+                onChange={e => setDesconto(Math.min(Math.max(0, num(e.target.value)), total))}
+              />
+            </div>
+          </div>
+
           {verMargem && linhas.length > 0 && (
             <div className="mt-4 pt-3 border-t border-slate-200 text-sm space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Margem líquida (só você vê, não vai no PDF)</p>
-              <div className="flex justify-between"><span>Venda</span><b>{brl(total)}</b></div>
+              {desconto > 0 ? (
+                <>
+                  <div className="flex justify-between text-slate-500"><span>Subtotal</span><b>{brl(total)}</b></div>
+                  <div className="flex justify-between" style={{ color: '#dc2626' }}><span>− Desconto</span><b>− {brl(desconto)}</b></div>
+                  <div className="flex justify-between font-semibold"><span>Venda final</span><b>{brl(totalFinal)}</b></div>
+                </>
+              ) : (
+                <div className="flex justify-between"><span>Venda</span><b>{brl(total)}</b></div>
+              )}
               <div className="flex justify-between"><span>− Aquisição</span><b>{brl(custoAq)}</b></div>
               <div className="flex justify-between"><span>− Despesas lançadas</span><b>{brl(despTotal)}</b></div>
               <div className="flex justify-between border-t border-slate-200 pt-1 text-base">

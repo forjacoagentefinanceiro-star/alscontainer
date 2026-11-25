@@ -17,6 +17,7 @@ export type PropDados = {
   observacoes: string
   ilustrativas: boolean
   locacao?: { dias: number; inicio: string; extras: { rotulo: string; valor: number }[] }   // proposta de locação: unit = diária
+  desconto?: number    // R$ desconto sobre o subtotal; omitir se zero
 }
 
 export const EMPRESA = {
@@ -151,11 +152,28 @@ export async function gerarPropostaPdf(d: PropDados): Promise<{ blob: Blob; nome
     fonte(true, 10); doc.text(brl(e.valor), cx.tot, y, { align: 'right' })
   }
   y += 4
-  doc.setDrawColor(TXT); doc.setLineWidth(0.4); doc.line(M + CW - 84, y, M + CW, y)
-  fonte(true, 10); cor(TXT); doc.text(loc ? `TOTAL DA LOCAÇÃO (${loc.dias} DIAS)` : 'TOTAL DA PROPOSTA', M + CW - 84, y + 7.5)
-  fonte(true, 15); cor(TXT); doc.text(brl(total), M + CW, y + 7.8, { align: 'right' })
-  doc.setFillColor(LARANJA); doc.rect(M + CW - 84, y + 10.5, 84, 0.9, 'F')
-  y += 20
+  if (d.desconto && d.desconto > 0) {
+    const totalFinal = total - d.desconto
+    doc.setDrawColor(LINHA); doc.setLineWidth(0.2); doc.line(M + CW - 84, y, M + CW, y)
+    fonte(false, 9); cor(MUDO)
+    doc.text('SUBTOTAL', M + CW - 84, y + 5.5)
+    doc.text(brl(total), M + CW, y + 5.5, { align: 'right' })
+    fonte(true, 9); doc.setTextColor('#dc2626')
+    doc.text('DESCONTO', M + CW - 84, y + 11.5)
+    doc.text(`− ${brl(d.desconto)}`, M + CW, y + 11.5, { align: 'right' })
+    y += 14
+    doc.setDrawColor(TXT); doc.setLineWidth(0.4); doc.line(M + CW - 84, y, M + CW, y)
+    fonte(true, 10); cor(TXT); doc.text(loc ? `TOTAL DA LOCAÇÃO (${loc.dias} DIAS)` : 'TOTAL DA PROPOSTA', M + CW - 84, y + 7.5)
+    fonte(true, 15); cor(TXT); doc.text(brl(totalFinal), M + CW, y + 7.8, { align: 'right' })
+    doc.setFillColor(LARANJA); doc.rect(M + CW - 84, y + 10.5, 84, 0.9, 'F')
+    y += 20
+  } else {
+    doc.setDrawColor(TXT); doc.setLineWidth(0.4); doc.line(M + CW - 84, y, M + CW, y)
+    fonte(true, 10); cor(TXT); doc.text(loc ? `TOTAL DA LOCAÇÃO (${loc.dias} DIAS)` : 'TOTAL DA PROPOSTA', M + CW - 84, y + 7.5)
+    fonte(true, 15); cor(TXT); doc.text(brl(total), M + CW, y + 7.8, { align: 'right' })
+    doc.setFillColor(LARANJA); doc.rect(M + CW - 84, y + 10.5, 84, 0.9, 'F')
+    y += 20
+  }
 
   // ── Condições ──
   const blocos: [string, string][] = [

@@ -21,7 +21,7 @@ export default async function PropostaEditarPage({ params }: { params: Promise<{
     id: string; codigo: string; cliente_nome: string; telefone: string | null; email: string | null; documento: string | null
     cidade: string | null; lead_id: string | null; itens: ItemSalvo[]; validade: string; pagamento: string | null
     frete: string | null; observacoes: string | null; ilustrativas: boolean; status: string; criado_em: string
-    tipo: string; dias: number | null; extras: ExtrasLoc
+    tipo: string; dias: number | null; extras: ExtrasLoc; desconto: number | null
   }
 
   if (p.tipo === 'locacao') {
@@ -82,6 +82,7 @@ export default async function PropostaEditarPage({ params }: { params: Promise<{
         inicial={{
           id: p.id, codigo: p.codigo, criadoEm: p.criado_em, status: p.status, validade: p.validade,
           pagamento: p.pagamento ?? '', frete: p.frete ?? '', obs: p.observacoes ?? '', ilustrativas: p.ilustrativas, leadId: p.lead_id, linhas,
+          desconto: p.desconto ?? 0,
         }}
       />
     </div>

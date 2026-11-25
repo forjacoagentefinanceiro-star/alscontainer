@@ -16,13 +16,17 @@ export type PropostaEntrada = {
   lead_id: string | null; itens: ItemSalvo[]; validade: string   // aaaa-mm-dd
   pagamento: string; frete: string; observacoes: string; ilustrativas: boolean
   tipo?: 'venda' | 'locacao'; dias?: number; extras?: ExtrasLoc
+  desconto?: number | null   // R$ desconto sobre o subtotal
 }
 type R<T = object> = ({ ok: true } & T) | { erro: string }
 const refresh = () => revalidatePath('/vendas', 'layout')
 
-const totalDe = (d: PropostaEntrada) => d.tipo === 'locacao'
-  ? calcLocacao(d.itens, d.dias ?? 1, d.extras).receita
-  : d.itens.reduce((s, i) => s + i.qtd * i.unit, 0)
+const totalDe = (d: PropostaEntrada) => {
+  const subtotal = d.tipo === 'locacao'
+    ? calcLocacao(d.itens, d.dias ?? 1, d.extras).receita
+    : d.itens.reduce((s, i) => s + i.qtd * i.unit, 0)
+  return Math.max(0, subtotal - (d.desconto ?? 0))
+}
 const extrasLoc = (d: PropostaEntrada) => (d.tipo === 'locacao' ? (d.extras ?? {}) : {})
 type SBc = Awaited<ReturnType<typeof exigirVendas>>['supabase']
 const brlTxt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -79,7 +83,7 @@ export async function salvarProposta(d: PropostaEntrada): Promise<R<{ id: string
     tipo: d.tipo ?? 'venda', dias: d.tipo === 'locacao' ? d.dias : null, extras: extrasLoc(d),
     cliente_nome: d.cliente_nome.trim(), telefone: d.telefone || null, email: d.email || null,
     documento: d.documento || null, cidade: d.cidade || null, lead_id: d.lead_id,
-    itens: d.itens, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
+    itens: d.itens, desconto: d.desconto ?? 0, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
     observacoes: d.observacoes || null, ilustrativas: d.ilustrativas,
   }).select('id, codigo, criado_em').single()
   if (error || !data) return { erro: error?.message ?? 'Não consegui registrar a proposta.' }
@@ -116,7 +120,7 @@ export async function atualizarProposta(id: string, d: PropostaEntrada): Promise
     dias: d.tipo === 'locacao' ? d.dias : null, extras: extrasLoc(d),
     cliente_nome: d.cliente_nome.trim(), telefone: d.telefone || null, email: d.email || null,
     documento: d.documento || null, cidade: d.cidade || null,
-    itens: d.itens, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
+    itens: d.itens, desconto: d.desconto ?? 0, total, validade: d.validade, pagamento: d.pagamento, frete: d.frete,
     observacoes: d.observacoes || null, ilustrativas: d.ilustrativas,
   }).eq('id', id).select('id, codigo, criado_em').single()
   if (error || !data) return { erro: error?.message ?? 'Não consegui salvar.' }
