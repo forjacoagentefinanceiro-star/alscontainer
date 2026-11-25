@@ -13,7 +13,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
 
   const { data } = await supabase
     .from('cv_pedidos')
-    .select('*, pagamentos:cv_pedido_pagamentos(id, pedido_id, valor, forma, data_recebimento, obs, registrado_em)')
+    .select('*, pagamentos:cv_pedido_pagamentos(id, pedido_id, valor, forma, data_recebimento, obs, registrado_em, comprovante_url)')
     .eq('id', id)
     .order('registrado_em', { referencedTable: 'cv_pedido_pagamentos', ascending: true })
     .single()

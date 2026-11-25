@@ -4,6 +4,14 @@ import type { jsPDF as JsPDF } from 'jspdf'
 const TXT = '#111418', MUDO = '#5f6670', AZUL = '#1B4F8A', LINHA = '#d5d8dc', FAIXA = '#f3f4f6'
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+export type MotoristaLiberacao = {
+  container_numero: string
+  motorista_nome: string
+  motorista_doc: string
+  veiculo_placa: string
+  veiculo_modelo: string
+}
+
 export type LiberacaoDados = {
   codigo: string            // PD-2026-0001
   propostaCodigo: string | null
@@ -14,6 +22,8 @@ export type LiberacaoDados = {
   total: number
   liberadoEm: string | null
   obsLiberacao: string | null
+  motoristas?: MotoristaLiberacao[] | null
+  // legado (pedidos liberados antes da feature de múltiplos)
   motoristaNome?: string | null
   motoristaDoc?: string | null
   veiculoPlaca?: string | null
@@ -110,23 +120,41 @@ export async function gerarLiberacaoPdf(d: LiberacaoDados): Promise<{ blob: Blob
   })
   y += 6
 
-  // ── Motorista / Veículo ──
-  if (d.motoristaNome) {
-    fonte(true, 9); cor(AZUL); doc.text('DADOS DO MOTORISTA E VEÍCULO', M, y); y += 3
-    doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 22, 1.5, 1.5, 'S')
-    fonte(false, 7.5); cor(MUDO)
-    doc.text('NOME DO MOTORISTA', M + 4, y + 6)
-    doc.text('CPF / RG', M + CW / 2 + 2, y + 6)
-    fonte(true, 10); cor(TXT)
-    doc.text(d.motoristaNome || '—', M + 4, y + 12)
-    doc.text(d.motoristaDoc || '—', M + CW / 2 + 2, y + 12)
-    fonte(false, 7.5); cor(MUDO)
-    doc.text('PLACA DO VEÍCULO', M + 4, y + 17)
-    doc.text('MODELO / TIPO', M + CW / 2 + 2, y + 17)
-    fonte(true, 10); cor(TXT)
-    doc.text(d.veiculoPlaca || '—', M + 4, y + 22)
-    doc.text(d.veiculoModelo || '—', M + CW / 2 + 2, y + 22)
-    y += 30
+  // ── Motorista(s) / Veículo(s) ──
+  const mots: MotoristaLiberacao[] = d.motoristas?.length
+    ? d.motoristas
+    : d.motoristaNome
+      ? [{ container_numero: '', motorista_nome: d.motoristaNome, motorista_doc: d.motoristaDoc ?? '', veiculo_placa: d.veiculoPlaca ?? '', veiculo_modelo: d.veiculoModelo ?? '' }]
+      : []
+
+  if (mots.length > 0) {
+    fonte(true, 9); cor(AZUL); doc.text('MOTORISTAS E VEÍCULOS', M, y); y += 3
+    const cabH2 = 7
+    doc.setFillColor(FAIXA); doc.rect(M, y, CW, cabH2, 'F')
+    doc.setDrawColor(TXT); doc.setLineWidth(0.4); doc.line(M, y + cabH2, M + CW, y + cabH2)
+    fonte(true, 8); cor(TXT)
+    const c1 = M + 4, c2 = M + CW * 0.28, c3 = M + CW * 0.52, c4 = M + CW * 0.70
+    doc.text('CONTAINER', c1, y + 4.8)
+    doc.text('MOTORISTA', c2, y + 4.8)
+    doc.text('PLACA', c3, y + 4.8)
+    doc.text('MODELO / TIPO', c4, y + 4.8)
+    y += cabH2
+
+    mots.forEach((m, idx) => {
+      const rh = 8
+      if (y + rh > H - 40) { doc.addPage(); y = 20 }
+      if (idx % 2 === 0) { doc.setFillColor(FAIXA); doc.rect(M, y, CW, rh, 'F') }
+      fonte(false, 8.5); cor(TXT)
+      doc.text(m.container_numero || '—', c1, y + 5.5)
+      fonte(true, 8.5); doc.text(m.motorista_nome || '—', c2, y + 5.5)
+      fonte(false, 8.5)
+      doc.text(m.veiculo_placa || '—', c3, y + 5.5)
+      doc.text(m.veiculo_modelo || '—', c4, y + 5.5)
+      if (m.motorista_doc) { fonte(false, 7); cor(MUDO); doc.text(`Doc: ${m.motorista_doc}`, c2, y + 7.5) }
+      doc.setDrawColor(LINHA); doc.setLineWidth(0.2); doc.line(M, y + rh, M + CW, y + rh)
+      y += rh
+    })
+    y += 6
   }
 
   // ── Pagamento ──

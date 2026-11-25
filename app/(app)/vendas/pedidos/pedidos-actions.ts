@@ -6,7 +6,17 @@ import { exigirVendas } from '@/lib/vendas/server'
 export type PedidoPagamento = {
   id: string; pedido_id: string; valor: number; forma: string
   data_recebimento: string; obs: string | null; registrado_em: string
+  comprovante_url: string | null
 }
+
+export type MotoristaItem = {
+  container_numero: string
+  motorista_nome: string
+  motorista_doc: string
+  veiculo_placa: string
+  veiculo_modelo: string
+}
+
 export type PedidoRow = {
   id: string; codigo: string
   proposta_id: string | null; proposta_codigo: string | null
@@ -16,7 +26,13 @@ export type PedidoRow = {
   obs_liberacao: string | null; liberado_em: string | null; criado_em: string
   motorista_nome: string | null; motorista_doc: string | null
   veiculo_placa: string | null; veiculo_modelo: string | null
+  motoristas: MotoristaItem[] | null
   pagamentos?: PedidoPagamento[]
+}
+
+export type DadosMotorista = {
+  motoristas: MotoristaItem[]
+  obs: string
 }
 
 type R<T = object> = ({ ok: true } & T) | { erro: string }
@@ -59,9 +75,12 @@ export async function excluirPagamento(pagamentoId: string, pedidoId: string): P
   return { ok: true }
 }
 
-export type DadosMotorista = {
-  motorista_nome: string; motorista_doc: string
-  veiculo_placa: string; veiculo_modelo: string; obs: string
+export async function salvarComprovanteUrl(pagamentoId: string, url: string): Promise<R> {
+  const { supabase } = await exigirVendas()
+  const { error } = await supabase.from('cv_pedido_pagamentos').update({ comprovante_url: url }).eq('id', pagamentoId)
+  if (error) return { erro: error.message }
+  refresh()
+  return { ok: true }
 }
 
 export async function liberarPedido(pedidoId: string, dados: DadosMotorista): Promise<R> {
@@ -71,15 +90,26 @@ export async function liberarPedido(pedidoId: string, dados: DadosMotorista): Pr
   const ped = p as { total: number; total_pago: number; status: string }
   if (ped.status === 'liberado') return { erro: 'Pedido já foi liberado.' }
   if (ped.total_pago < ped.total) return { erro: `Pedido não está quitado. Faltam ${(ped.total - ped.total_pago).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.` }
-  if (!dados.motorista_nome.trim()) return { erro: 'Informe o nome do motorista.' }
-  if (!dados.veiculo_placa.trim()) return { erro: 'Informe a placa do veículo.' }
+
+  const motoristas = dados.motoristas.filter(m => m.motorista_nome.trim() || m.veiculo_placa.trim())
+  if (motoristas.length === 0) return { erro: 'Informe pelo menos um motorista e placa.' }
+  const semNome = motoristas.find(m => !m.motorista_nome.trim())
+  if (semNome) return { erro: `Informe o nome do motorista do container ${semNome.container_numero}.` }
+  const semPlaca = motoristas.find(m => !m.veiculo_placa.trim())
+  if (semPlaca) return { erro: `Informe a placa do veículo do container ${semPlaca.container_numero}.` }
+
+  const motorizadasNorm = motoristas.map(m => ({
+    ...m, motorista_nome: m.motorista_nome.trim(), motorista_doc: m.motorista_doc.trim(),
+    veiculo_placa: m.veiculo_placa.trim().toUpperCase(), veiculo_modelo: m.veiculo_modelo.trim(),
+  }))
+  const primeiro = motorizadasNorm[0]!
+
   const { error } = await supabase.from('cv_pedidos').update({
     status: 'liberado', liberado_em: new Date().toISOString(),
     obs_liberacao: dados.obs || null,
-    motorista_nome: dados.motorista_nome.trim(),
-    motorista_doc: dados.motorista_doc.trim() || null,
-    veiculo_placa: dados.veiculo_placa.trim().toUpperCase(),
-    veiculo_modelo: dados.veiculo_modelo.trim() || null,
+    motoristas: motorizadasNorm,
+    motorista_nome: primeiro.motorista_nome, motorista_doc: primeiro.motorista_doc || null,
+    veiculo_placa: primeiro.veiculo_placa, veiculo_modelo: primeiro.veiculo_modelo || null,
   }).eq('id', pedidoId)
   if (error) return { erro: error.message }
   refresh()
