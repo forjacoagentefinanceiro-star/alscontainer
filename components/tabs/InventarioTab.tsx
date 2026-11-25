@@ -280,11 +280,12 @@ export function InventarioTab({ initialContainers, role = 'viewer', tiposVenda =
     const matchSearch = !search ||
       c.numero.toLowerCase().includes(search.toLowerCase()) ||
       (c.fornecedor ?? '').toLowerCase().includes(search.toLowerCase())
+    const cv = c as { para_venda?: boolean; status?: string }
     const matchDestino =
       filterDestino === 'todos' ? true :
-      filterDestino === 'venda' ? c.para_venda === true :
-      filterDestino === 'aluguel' ? (c as { status?: string }).status === 'locado' :
-      /* livre */ !c.para_venda && (c as { status?: string }).status !== 'locado' && (c as { status?: string }).status !== 'vendido'
+      filterDestino === 'venda' ? cv.para_venda === true :
+      filterDestino === 'aluguel' ? cv.status === 'locado' :
+      /* livre */ !cv.para_venda && cv.status !== 'locado' && cv.status !== 'vendido'
     return matchTipo && matchSize && matchSearch && matchDestino
   })
 
