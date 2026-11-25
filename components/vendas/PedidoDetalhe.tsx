@@ -4,8 +4,8 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { brl, dataCurta, WHATS_PATIO } from '@/lib/vendas/config'
 import {
-  lancarPagamento, excluirPagamento, liberarPedido, salvarComprovanteUrl,
-  type DadosMotorista, type MotoristaItem,
+  lancarPagamento, excluirPagamento, liberarContainerPedido, salvarComprovanteUrl,
+  type DadosLiberacaoContainer, type MotoristaItem,
 } from '@/app/(app)/vendas/pedidos/pedidos-actions'
 import { gerarLiberacaoPdf, baixarBlob } from '@/lib/vendas/liberacaoPdf'
 import { gerarReciboPdf } from '@/lib/vendas/reciboPdf'
@@ -49,11 +49,6 @@ function gerarWhatsUrl(pedido: PedidoRow): string {
   return `https://wa.me/${WHATS_PATIO}?text=${encodeURIComponent(msg)}`
 }
 
-function initMotoristas(pedido: PedidoRow): MotoristaItem[] {
-  const conts = pedido.containers as { numero: string }[]
-  if (conts.length === 0) return [{ container_numero: '', motorista_nome: '', motorista_doc: '', veiculo_placa: '', veiculo_modelo: '' }]
-  return conts.map(c => ({ container_numero: c.numero, motorista_nome: '', motorista_doc: '', veiculo_placa: '', veiculo_modelo: '' }))
-}
 
 export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const router = useRouter()
@@ -65,9 +60,12 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const [addObs, setAddObs] = useState('')
   const [adicionando, setAdicionando] = useState(false)
 
-  const [motoristas, setMotoristas] = useState<MotoristaItem[]>(() => initMotoristas(pedido))
-  const [obsLib, setObsLib] = useState('')
+  const [motNome, setMotNome] = useState('')
+  const [motDoc, setMotDoc] = useState('')
+  const [vecPlaca, setVecPlaca] = useState('')
+  const [vecModelo, setVecModelo] = useState('')
   const [liberando, setLiberando] = useState(false)
+  const [ultimaLib, setUltimaLib] = useState<{ contNumero: string; whatsUrl: string } | null>(null)
   const [gerandoPdf, setGerandoPdf] = useState(false)
   const [gerandoRecibo, setGerandoRecibo] = useState<string | null>(null)
   const [uploadingComp, setUploadingComp] = useState<string | null>(null)
@@ -77,10 +75,6 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const saldo = Math.max(0, pedido.total - pedido.total_pago)
   const pct = pedido.total > 0 ? Math.min(100, (pedido.total_pago / pedido.total) * 100) : 0
   const st = STATUS[pedido.status] ?? { label: pedido.status, bg: '#f1f5f9', color: '#475569' }
-
-  function setMot(index: number, field: keyof MotoristaItem, value: string) {
-    setMotoristas(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m))
-  }
 
   async function registrarPagamento() {
     setErro(null)
@@ -138,13 +132,27 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
     setUploadingComp(null)
   }
 
-  async function liberar() {
-    if (!confirm(`Confirmar liberação do pedido ${pedido.codigo}?`)) return
+  function gerarWhatsContainer(contNumero: string, mot: { motorista_nome: string; motorista_doc: string; veiculo_placa: string; veiculo_modelo: string }): string {
+    const dataLib = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === contNumero)
+    const contDesc = `📦 ${contNumero}${cont?.tamanho ? ` (${cont.tamanho})` : ''}`
+    const msg = `*AUTORIZAÇÃO DE RETIRADA*\nPedido: ${pedido.codigo}\n\n*Cliente:* ${pedido.cliente_nome}${pedido.cidade ? `\n*Cidade:* ${pedido.cidade}` : ''}\n\n*Container:*\n${contDesc}\n\n*Motorista / Veículo:*\n👤 ${mot.motorista_nome}${mot.motorista_doc ? ` — ${mot.motorista_doc}` : ''}\n🚛 Placa: ${mot.veiculo_placa}${mot.veiculo_modelo ? ` — ${mot.veiculo_modelo}` : ''}\n\n*Data:* ${dataLib}`
+    return `https://wa.me/${WHATS_PATIO}?text=${encodeURIComponent(msg)}`
+  }
+
+  async function liberarContainer(contNumero: string) {
     setLiberando(true); setErro(null)
-    const dados: DadosMotorista = { motoristas, obs: obsLib }
-    const r = await liberarPedido(pedido.id, dados)
+    const dados: DadosLiberacaoContainer = {
+      container_numero: contNumero,
+      motorista_nome: motNome, motorista_doc: motDoc,
+      veiculo_placa: vecPlaca, veiculo_modelo: vecModelo,
+    }
+    const r = await liberarContainerPedido(pedido.id, dados)
     setLiberando(false)
     if ('erro' in r) return setErro(r.erro)
+    const whatsUrl = gerarWhatsContainer(contNumero, dados)
+    setUltimaLib({ contNumero, whatsUrl })
+    setMotNome(''); setMotDoc(''); setVecPlaca(''); setVecModelo('')
     router.refresh()
   }
 
@@ -336,88 +344,109 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
           </div>
         </section>
 
-        {/* Liberar (quando quitado) */}
-        {pedido.status === 'quitado' && (
-          <section className={`${card} p-4 space-y-3`}>
-            <p className="text-sm font-bold" style={{ color: '#0d1b2e' }}>Liberar para o pátio</p>
-            <p className="text-xs text-slate-500">Preencha os dados de cada veículo que vai retirar um container.</p>
+        {/* Liberação por container (quitado) */}
+        {pedido.status === 'quitado' && (() => {
+          const motoristasFeitos: MotoristaItem[] = pedido.motoristas ?? []
+          const conts = pedido.containers as { numero: string; tamanho: string }[]
+          const pendentes = conts.filter(c => !motoristasFeitos.some(m => m.container_numero === c.numero))
+          const proximo = pendentes[0] ?? null
 
-            {motoristas.map((m, i) => (
-              <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2">
-                <p className="text-xs font-semibold text-slate-700">
-                  📦 {m.container_numero || `Container ${i + 1}`}
-                </p>
-                <div className="grid gap-2 grid-cols-2">
-                  <label className="block col-span-2">
-                    <span className="text-xs font-semibold text-slate-600">Motorista *</span>
-                    <input className={`${input} mt-1`} placeholder="Nome completo"
-                      value={m.motorista_nome} onChange={e => setMot(i, 'motorista_nome', e.target.value)} />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">CPF / RG</span>
-                    <input className={`${input} mt-1`} placeholder="123.456.789-00"
-                      value={m.motorista_doc} onChange={e => setMot(i, 'motorista_doc', e.target.value)} />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Placa *</span>
-                    <input className={`${input} mt-1 uppercase`} placeholder="ABC-1234"
-                      value={m.veiculo_placa} onChange={e => setMot(i, 'veiculo_placa', e.target.value.toUpperCase())} />
-                  </label>
-                  <label className="block col-span-2">
-                    <span className="text-xs font-semibold text-slate-600">Modelo / tipo</span>
-                    <input className={`${input} mt-1`} placeholder="Carreta, Truck, Toco…"
-                      value={m.veiculo_modelo} onChange={e => setMot(i, 'veiculo_modelo', e.target.value)} />
-                  </label>
-                </div>
-              </div>
-            ))}
+          return (
+            <section className={`${card} p-4 space-y-3`}>
+              <p className="text-sm font-bold" style={{ color: '#0d1b2e' }}>Liberação para o pátio</p>
 
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Observação (opcional)</span>
-              <textarea className={`${input} mt-1`} rows={2}
-                placeholder="ex: retirada agendada para 27/11"
-                value={obsLib} onChange={e => setObsLib(e.target.value)} />
-            </label>
-            <button className={`${btn} w-full`} style={{ background: '#16a34a' }}
-              disabled={liberando} onClick={liberar}>
-              {liberando ? 'Liberando…' : '✅ Liberar containers'}
-            </button>
-          </section>
-        )}
-
-        {/* Pós-liberação */}
-        {pedido.status === 'liberado' && (
-          <section className={`${card} p-4 space-y-3`}>
-            <p className="text-sm font-bold text-green-700">Liberado em {dataCurta(pedido.liberado_em)}</p>
-
-            {/* Motoristas */}
-            {(() => {
-              const mots: MotoristaItem[] = pedido.motoristas?.length
-                ? pedido.motoristas
-                : pedido.motorista_nome
-                  ? [{ container_numero: '', motorista_nome: pedido.motorista_nome, motorista_doc: pedido.motorista_doc ?? '', veiculo_placa: pedido.veiculo_placa ?? '', veiculo_modelo: pedido.veiculo_modelo ?? '' }]
-                  : []
-              return mots.length > 0 ? (
-                <div className="space-y-1.5">
-                  {mots.map((m, i) => (
-                    <div key={i} className="text-xs text-slate-600 border border-slate-100 rounded-lg p-2 space-y-0.5">
-                      {m.container_numero && <p className="text-[10px] font-semibold text-slate-400">📦 {m.container_numero}</p>}
-                      <p>👤 <strong>{m.motorista_nome}</strong>{m.motorista_doc ? ` — ${m.motorista_doc}` : ''}</p>
-                      <p>🚛 <strong>{m.veiculo_placa || '—'}</strong>{m.veiculo_modelo ? ` — ${m.veiculo_modelo}` : ''}</p>
+              {/* Histórico já liberados */}
+              {motoristasFeitos.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Liberados</p>
+                  {motoristasFeitos.map((m, i) => (
+                    <div key={i} className="text-xs border border-green-200 bg-green-50 rounded-xl p-2.5 space-y-0.5">
+                      <p className="text-[10px] font-semibold text-green-700">📦 {m.container_numero} ✓ {m.liberado_em ? dataCurta(m.liberado_em) : ''}</p>
+                      <p className="text-slate-700">👤 <strong>{m.motorista_nome}</strong>{m.motorista_doc ? ` — ${m.motorista_doc}` : ''}</p>
+                      <p className="text-slate-700">🚛 <strong>{m.veiculo_placa}</strong>{m.veiculo_modelo ? ` — ${m.veiculo_modelo}` : ''}</p>
+                      <a href={gerarWhatsContainer(m.container_numero, m)} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-green-700 hover:underline font-semibold mt-1">
+                        📱 Reenviar ao pátio
+                      </a>
                     </div>
                   ))}
                 </div>
-              ) : null
-            })()}
+              )}
 
-            {pedido.obs_liberacao && <p className="text-xs text-slate-500">{pedido.obs_liberacao}</p>}
+              {/* Form do próximo */}
+              {proximo ? (
+                <>
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: '#eff6ff' }}>
+                    <span className="text-sm font-bold" style={{ color: '#1B4F8A' }}>📦 {proximo.numero}</span>
+                    {proximo.tamanho && <span className="text-xs text-slate-500">{proximo.tamanho}</span>}
+                    {pendentes.length > 1 && <span className="text-xs text-slate-400 ml-auto">+{pendentes.length - 1} após</span>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block">
+                      <span className="text-xs font-semibold text-slate-600">Motorista *</span>
+                      <input className={`${input} mt-1`} placeholder="Nome completo"
+                        value={motNome} onChange={e => setMotNome(e.target.value)} />
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">CPF / RG</span>
+                        <input className={`${input} mt-1`} placeholder="123.456.789-00"
+                          value={motDoc} onChange={e => setMotDoc(e.target.value)} />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-slate-600">Placa *</span>
+                        <input className={`${input} mt-1 uppercase`} placeholder="ABC-1234"
+                          value={vecPlaca} onChange={e => setVecPlaca(e.target.value.toUpperCase())} />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-slate-600">Modelo / tipo</span>
+                      <input className={`${input} mt-1`} placeholder="Carreta, Truck, Toco…"
+                        value={vecModelo} onChange={e => setVecModelo(e.target.value)} />
+                    </label>
+                  </div>
+
+                  {ultimaLib && (
+                    <div className="rounded-xl p-3 text-xs" style={{ background: '#d1fae5', color: '#065f46' }}>
+                      ✅ {ultimaLib.contNumero} liberado!{' '}
+                      <a href={ultimaLib.whatsUrl} target="_blank" rel="noopener noreferrer"
+                        className="font-bold underline">📱 Enviar ao pátio</a>
+                    </div>
+                  )}
+
+                  <button className={`${btn} w-full`} style={{ background: '#16a34a' }}
+                    disabled={liberando} onClick={() => liberarContainer(proximo.numero)}>
+                    {liberando ? 'Liberando…' : `✅ Liberar ${proximo.numero}`}
+                  </button>
+                </>
+              ) : (
+                <p className="text-xs text-green-700 font-semibold text-center py-2">Todos os containers liberados ✓</p>
+              )}
+            </section>
+          )
+        })()}
+
+        {/* Pós-liberação total */}
+        {pedido.status === 'liberado' && (
+          <section className={`${card} p-4 space-y-3`}>
+            <p className="text-sm font-bold text-green-700">Todos liberados em {dataCurta(pedido.liberado_em)}</p>
+
+            {/* Histórico */}
+            {(pedido.motoristas ?? []).map((m: MotoristaItem, i: number) => (
+              <div key={i} className="text-xs border border-slate-100 rounded-xl p-2.5 space-y-0.5">
+                <p className="text-[10px] font-semibold text-slate-400">📦 {m.container_numero}{m.liberado_em ? ` · ${dataCurta(m.liberado_em)}` : ''}</p>
+                <p className="text-slate-700">👤 <strong>{m.motorista_nome}</strong>{m.motorista_doc ? ` — ${m.motorista_doc}` : ''}</p>
+                <p className="text-slate-700">🚛 <strong>{m.veiculo_placa}</strong>{m.veiculo_modelo ? ` — ${m.veiculo_modelo}` : ''}</p>
+              </div>
+            ))}
+
             <button className={`${btn} w-full`} style={{ background: '#1B4F8A' }}
               disabled={gerandoPdf} onClick={baixarPdf}>
               {gerandoPdf ? 'Gerando…' : '📄 PDF de Liberação'}
             </button>
             <a href={gerarWhatsUrl(pedido)} target="_blank" rel="noopener noreferrer"
               className={`${btn} w-full`} style={{ background: '#16a34a' }}>
-              📱 Enviar ao pátio (WhatsApp)
+              📱 Enviar ao pátio (geral)
             </a>
           </section>
         )}
