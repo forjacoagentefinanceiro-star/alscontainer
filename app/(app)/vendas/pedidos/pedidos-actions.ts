@@ -42,6 +42,7 @@ export type DadosLiberacaoContainer = {
   motorista_doc: string
   veiculo_placa: string
   veiculo_modelo: string
+  data_retirada?: string   // YYYY-MM-DD; padrão = hoje
 }
 
 type R<T = object> = ({ ok: true } & T) | { erro: string }
@@ -154,13 +155,17 @@ export async function liberarContainerPedido(
   if (existing.some(m => m.container_numero === dados.container_numero))
     return { erro: `Container ${dados.container_numero} já foi liberado.` }
 
+  const liberadoEm = dados.data_retirada
+    ? new Date(dados.data_retirada + 'T12:00:00-03:00').toISOString()
+    : new Date().toISOString()
+
   const novoMot: MotoristaItem = {
     container_numero: dados.container_numero,
     motorista_nome: dados.motorista_nome.trim(),
     motorista_doc: dados.motorista_doc.trim(),
     veiculo_placa: dados.veiculo_placa.trim().toUpperCase(),
     veiculo_modelo: dados.veiculo_modelo.trim(),
-    liberado_em: new Date().toISOString(),
+    liberado_em: liberadoEm,
   }
 
   const novaLista = [...existing, novoMot]

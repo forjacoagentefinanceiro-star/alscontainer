@@ -7,7 +7,7 @@ import {
   lancarPagamento, excluirPagamento, liberarContainerPedido, salvarComprovanteUrl,
   type DadosLiberacaoContainer, type MotoristaItem,
 } from '@/app/(app)/vendas/pedidos/pedidos-actions'
-import { gerarLiberacaoPdf, gerarOrdemRetiradaPdf, baixarBlob } from '@/lib/vendas/liberacaoPdf'
+import { gerarLiberacaoPdf, gerarOrdemRetiradaPdf, gerarFechamentoPdf, baixarBlob, type FechamentoDados } from '@/lib/vendas/liberacaoPdf'
 import { gerarReciboPdf } from '@/lib/vendas/reciboPdf'
 import { createClient } from '@/lib/supabase/client'
 import { card, input, btn } from '@/components/vendas/ui'
@@ -50,7 +50,7 @@ function gerarWhatsUrl(pedido: PedidoRow): string {
 }
 
 
-export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
+export default function PedidoDetalhe({ pedido, fechamentoDados }: { pedido: PedidoRow; fechamentoDados?: FechamentoDados | null }) {
   const router = useRouter()
   const pagamentos: PedidoPagamento[] = pedido.pagamentos ?? []
 
@@ -67,7 +67,9 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const [vecModelo, setVecModelo] = useState('')
   const [liberando, setLiberando] = useState(false)
   const [ultimaLib, setUltimaLib] = useState<{ contNumero: string; whatsUrl: string; mot: DadosLiberacaoContainer; liberadoEm: string } | null>(null)
+  const [dataRetirada, setDataRetirada] = useState(new Date().toISOString().slice(0, 10))
   const [gerandoPdf, setGerandoPdf] = useState(false)
+  const [gerandoFechamento, setGerandoFechamento] = useState(false)
   const [gerandoRecibo, setGerandoRecibo] = useState<string | null>(null)
   const [uploadingComp, setUploadingComp] = useState<string | null>(null)
   const compInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -147,13 +149,16 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
       container_numero: contNumero,
       motorista_nome: motNome, motorista_doc: motDoc,
       veiculo_placa: vecPlaca, veiculo_modelo: vecModelo,
+      data_retirada: dataRetirada,
     }
     const r = await liberarContainerPedido(pedido.id, dados)
     setLiberando(false)
     if ('erro' in r) return setErro(r.erro)
+    const liberadoEm = new Date(dataRetirada + 'T12:00:00-03:00').toISOString()
     const whatsUrl = gerarWhatsContainer(contNumero, dados)
-    setUltimaLib({ contNumero, whatsUrl, mot: dados, liberadoEm: new Date().toISOString() })
+    setUltimaLib({ contNumero, whatsUrl, mot: dados, liberadoEm })
     setMotNome(''); setMotDoc(''); setVecPlaca(''); setVecModelo('')
+    setDataRetirada(new Date().toISOString().slice(0, 10))
     router.refresh()
   }
 
@@ -169,6 +174,16 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
       })
       baixarBlob(blob, nome)
     } catch (e) { setErro(`Erro na ordem de retirada: ${(e as Error).message}`) }
+  }
+
+  async function baixarFechamento() {
+    if (!fechamentoDados) return
+    setGerandoFechamento(true); setErro(null)
+    try {
+      const { blob, nome } = await gerarFechamentoPdf(fechamentoDados)
+      baixarBlob(blob, nome)
+    } catch (e) { setErro(`Erro no fechamento: ${(e as Error).message}`) }
+    setGerandoFechamento(false)
   }
 
   async function baixarPdf() {
@@ -431,6 +446,11 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                       <input className={`${input} mt-1`} placeholder="Carreta, Truck, Toco…"
                         value={vecModelo} onChange={e => setVecModelo(e.target.value)} />
                     </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-slate-600">Data de retirada</span>
+                      <input type="date" className={`${input} mt-1`}
+                        value={dataRetirada} onChange={e => setDataRetirada(e.target.value)} />
+                    </label>
                   </div>
 
                   {ultimaLib && (
@@ -453,7 +473,15 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                   </button>
                 </>
               ) : (
-                <p className="text-xs text-green-700 font-semibold text-center py-2">Todos os containers liberados ✓</p>
+                <>
+                  <p className="text-xs text-green-700 font-semibold text-center py-2">Todos os containers liberados ✓</p>
+                  {fechamentoDados && (
+                    <button className={`${btn} w-full`} style={{ background: '#7c3aed' }}
+                      disabled={gerandoFechamento} onClick={baixarFechamento}>
+                      {gerandoFechamento ? 'Gerando…' : '📊 Fechamento Interno'}
+                    </button>
+                  )}
+                </>
               )}
             </section>
           )
@@ -481,6 +509,12 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
               className={`${btn} w-full`} style={{ background: '#16a34a' }}>
               📱 Enviar ao pátio (geral)
             </a>
+            {fechamentoDados && (
+              <button className={`${btn} w-full`} style={{ background: '#7c3aed' }}
+                disabled={gerandoFechamento} onClick={baixarFechamento}>
+                {gerandoFechamento ? 'Gerando…' : '📊 Fechamento Interno'}
+              </button>
+            )}
           </section>
         )}
       </aside>

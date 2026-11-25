@@ -321,3 +321,214 @@ export async function gerarOrdemRetiradaPdf(d: OrdemRetiradaDados): Promise<{ bl
 
   return { blob: doc.output('blob'), nome: `OrdemRetirada-${d.pedidoCodigo}-${d.container.numero}.pdf` }
 }
+
+// ── Fechamento Interno (uso exclusivo admin — financeiro sigiloso) ──
+
+export type FechamentoItem = {
+  numero: string
+  tamanho: string
+  precoVenda: number
+  custoAquisicao: number
+  despesas: number
+}
+
+export type FechamentoDados = {
+  pedidoCodigo: string
+  propostaCodigo: string | null
+  clienteNome: string
+  cidade: string | null
+  criadoEm: string
+  liberadoEm: string | null
+  items: FechamentoItem[]
+  totalVenda: number
+  descontoAplicado: number
+  fretePago: number
+  outrosCustos: number
+  impostoPct: number
+  comissaoPct: number
+  pagamentos: { forma: string; valor: number; data: string }[]
+}
+
+const FORMA_LABEL_FEC: Record<string, string> = {
+  pix: 'Pix', transferencia: 'Transferência', dinheiro: 'Dinheiro',
+  cartao: 'Cartão', cheque: 'Cheque', outro: 'Outro',
+}
+
+export async function gerarFechamentoPdf(d: FechamentoDados): Promise<{ blob: Blob; nome: string }> {
+  const { jsPDF } = await import('jspdf')
+  const doc: JsPDF = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+  const W = 210, H = 297, M = 15, CW = W - 2 * M
+
+  const cor = (c: string) => doc.setTextColor(c)
+  const fonte = (bold: boolean, size: number) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size) }
+
+  const dataCriacao = new Date(d.criadoEm).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  const dataLib = d.liberadoEm
+    ? new Date(d.liberadoEm).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    : '—'
+
+  // totais calculados
+  const totalCusto = d.items.reduce((s, i) => s + i.custoAquisicao, 0)
+  const totalDespesas = d.items.reduce((s, i) => s + i.despesas, 0)
+  const totalVendaLiquido = d.totalVenda - d.descontoAplicado
+  const lucroBruto = totalVendaLiquido - totalCusto - totalDespesas
+  const margemBruta = totalVendaLiquido > 0 ? (lucroBruto / totalVendaLiquido) * 100 : 0
+  const valorImposto = d.impostoPct > 0 ? (totalVendaLiquido * d.impostoPct) / 100 : 0
+  const valorComissao = d.comissaoPct > 0 ? (totalVendaLiquido * d.comissaoPct) / 100 : 0
+  const lucroLiquido = lucroBruto - d.fretePago - d.outrosCustos - valorImposto - valorComissao
+  const margemLiquida = totalVendaLiquido > 0 ? (lucroLiquido / totalVendaLiquido) * 100 : 0
+
+  // ── Cabeçalho ──
+  let y = 13
+  const logo = await carregarLogoMLA()
+  if (logo) {
+    const lh = 18, lw = (logo.w / logo.h) * lh
+    doc.addImage(logo.data, 'PNG', M, y, lw, lh)
+  } else {
+    fonte(true, 15); cor(AZUL); doc.text('MLA CONTAINERS', M, y + 10)
+  }
+  fonte(true, 18); cor(TXT); doc.text('FECHAMENTO INTERNO', W - M, y + 8, { align: 'right' })
+  // badge CONFIDENCIAL
+  doc.setFillColor('#fef2f2'); doc.setDrawColor('#fca5a5'); doc.setLineWidth(0.3)
+  const badgeW = 36, badgeH = 7, badgeX = W - M - badgeW
+  doc.roundedRect(badgeX, y + 11, badgeW, badgeH, 1.5, 1.5, 'FD')
+  fonte(true, 7); doc.setTextColor('#dc2626'); doc.text('CONFIDENCIAL', W - M - badgeW / 2, y + 16.2, { align: 'center' })
+
+  y += 28
+  doc.setFillColor(AZUL); doc.rect(M, y, CW, 1.2, 'F')
+  y += 8
+
+  // ── Info pedido ──
+  doc.setFillColor(FAIXA); doc.roundedRect(M, y, CW, 20, 1.5, 1.5, 'F')
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 20, 1.5, 1.5, 'S')
+  const c1 = M + 4, c2 = M + CW * 0.28, c3 = M + CW * 0.56, c4 = M + CW * 0.78
+  fonte(false, 7); cor(MUDO)
+  doc.text('PEDIDO', c1, y + 6); doc.text('PROPOSTA', c2, y + 6)
+  doc.text('CRIADO EM', c3, y + 6); doc.text('LIBERADO EM', c4, y + 6)
+  fonte(true, 9); cor(TXT)
+  doc.text(d.pedidoCodigo, c1, y + 14)
+  doc.text(d.propostaCodigo ?? '—', c2, y + 14)
+  doc.text(dataCriacao, c3, y + 14)
+  doc.text(dataLib, c4, y + 14)
+  y += 26
+
+  fonte(false, 7); cor(MUDO); doc.text('CLIENTE', c1, y); doc.text('CIDADE', c3, y)
+  fonte(true, 10); cor(TXT); doc.text(d.clienteNome, c1, y + 7); doc.text(d.cidade ?? '—', c3, y + 7)
+  y += 16
+
+  // ── Tabela de containers ──
+  if (d.items.length > 0) {
+    fonte(true, 9); cor(AZUL); doc.text('CONTAINERS E MARGENS', M, y); y += 3
+    const cabH = 7
+    doc.setFillColor('#1B4F8A'); doc.rect(M, y, CW, cabH, 'F')
+    fonte(true, 7.5); doc.setTextColor('#ffffff')
+    const tc1 = M + 4, tc2 = M + CW * 0.32, tc3 = M + CW * 0.49, tc4 = M + CW * 0.63, tc5 = M + CW * 0.77, tc6 = M + CW - 2
+    doc.text('CONTAINER', tc1, y + 4.8)
+    doc.text('VENDA', tc2, y + 4.8)
+    doc.text('CUSTO', tc3, y + 4.8)
+    doc.text('DESPESAS', tc4, y + 4.8)
+    doc.text('LUCRO BRUTO', tc5, y + 4.8)
+    doc.text('MARGEM', tc6, y + 4.8, { align: 'right' })
+    y += cabH
+
+    d.items.forEach((item, idx) => {
+      const rh = 9
+      if (y + rh > H - 60) { doc.addPage(); y = 20 }
+      if (idx % 2 === 0) { doc.setFillColor(FAIXA); doc.rect(M, y, CW, rh, 'F') }
+      const lBruto = item.precoVenda - item.custoAquisicao - item.despesas
+      const lMarg = item.precoVenda > 0 ? (lBruto / item.precoVenda) * 100 : 0
+      fonte(false, 8.5); cor(TXT)
+      fonte(true, 8.5); doc.text(item.numero, tc1, y + 6)
+      fonte(false, 8.5)
+      if (item.tamanho) { cor(MUDO); doc.text(item.tamanho, tc1, y + 8.5); fonte(false, 7) }
+      cor(TXT)
+      doc.text(brl(item.precoVenda), tc2, y + 6)
+      cor('#dc2626'); doc.text(brl(item.custoAquisicao), tc3, y + 6)
+      cor(MUDO); doc.text(brl(item.despesas), tc4, y + 6)
+      cor(lBruto >= 0 ? '#16a34a' : '#dc2626'); fonte(true, 8.5); doc.text(brl(lBruto), tc5, y + 6)
+      doc.text(`${lMarg.toFixed(1)}%`, tc6, y + 6, { align: 'right' })
+      doc.setDrawColor(LINHA); doc.setLineWidth(0.2); doc.line(M, y + rh, M + CW, y + rh)
+      y += rh
+    })
+
+    // linha de totais
+    const totH = 9
+    doc.setFillColor(FAIXA); doc.rect(M, y, CW, totH, 'F')
+    doc.setDrawColor(TXT); doc.setLineWidth(0.5); doc.line(M, y, M + CW, y)
+    fonte(true, 8.5); cor(AZUL)
+    doc.text('TOTAL', tc1, y + 6)
+    cor(TXT); doc.text(brl(d.totalVenda), tc2, y + 6)
+    cor('#dc2626'); doc.text(brl(totalCusto), tc3, y + 6)
+    cor(MUDO); doc.text(brl(totalDespesas), tc4, y + 6)
+    cor(lucroBruto >= 0 ? '#16a34a' : '#dc2626'); fonte(true, 8.5)
+    doc.text(brl(lucroBruto), tc5, y + 6)
+    doc.text(`${margemBruta.toFixed(1)}%`, tc6, y + 6, { align: 'right' })
+    y += totH + 8
+  }
+
+  // ── Resumo financeiro ──
+  if (y + 70 > H - 20) { doc.addPage(); y = 20 }
+  fonte(true, 9); cor(AZUL); doc.text('RESUMO FINANCEIRO', M, y); y += 3
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 65, 1.5, 1.5, 'S')
+
+  const rl = M + 4, rr = M + CW - 4
+  const lin = (label: string, valor: number, destaque?: boolean, negativo?: boolean) => {
+    fonte(false, 8.5)
+    cor(destaque ? AZUL : MUDO); doc.text(label, rl, y + 7)
+    cor(negativo ? '#dc2626' : (destaque ? '#16a34a' : TXT))
+    if (destaque) fonte(true, 10)
+    doc.text(negativo ? `(${brl(Math.abs(valor))})` : brl(valor), rr, y + 7, { align: 'right' })
+    if (destaque) doc.setLineWidth(0.4), doc.setDrawColor(LINHA), doc.line(rl, y + 9, rr, y + 9)
+    y += 9
+  }
+  y += 2
+  lin('Total de venda (bruto)', d.totalVenda)
+  if (d.descontoAplicado > 0) lin('Desconto aplicado', d.descontoAplicado, false, true)
+  lin('(-) Custo de aquisição', totalCusto, false, true)
+  lin('(-) Despesas', totalDespesas, false, true)
+  lin('= Lucro bruto', lucroBruto, true, lucroBruto < 0)
+  if (d.fretePago > 0) lin('(-) Frete pago', d.fretePago, false, true)
+  if (d.outrosCustos > 0) lin('(-) Outros custos', d.outrosCustos, false, true)
+  if (valorImposto > 0) lin(`(-) Impostos (${d.impostoPct}%)`, valorImposto, false, true)
+  if (valorComissao > 0) lin(`(-) Comissão (${d.comissaoPct}%)`, valorComissao, false, true)
+  if (d.fretePago > 0 || d.outrosCustos > 0 || valorImposto > 0 || valorComissao > 0) {
+    lin('= Lucro líquido', lucroLiquido, true, lucroLiquido < 0)
+    // margem líquida
+    fonte(true, 8.5); cor('#16a34a'); doc.text(`Margem líquida: ${margemLiquida.toFixed(1)}%`, rr, y + 2, { align: 'right' })
+    y += 7
+  } else {
+    fonte(true, 8.5); cor('#16a34a'); doc.text(`Margem bruta: ${margemBruta.toFixed(1)}%`, rr, y + 2, { align: 'right' })
+    y += 7
+  }
+  y += 6
+
+  // ── Pagamentos ──
+  if (d.pagamentos.length > 0) {
+    if (y + 20 > H - 20) { doc.addPage(); y = 20 }
+    fonte(true, 9); cor(AZUL); doc.text('PAGAMENTOS RECEBIDOS', M, y); y += 3
+    doc.setDrawColor(LINHA); doc.setLineWidth(0.3)
+    doc.roundedRect(M, y, CW, d.pagamentos.length * 9 + 6, 1.5, 1.5, 'S')
+    y += 2
+    d.pagamentos.forEach((pg, idx) => {
+      if (idx % 2 === 0) { doc.setFillColor(FAIXA); doc.rect(M, y, CW, 9, 'F') }
+      const dataFmt = new Date(pg.data + 'T12:00:00').toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+      fonte(false, 8.5); cor(TXT)
+      doc.text(FORMA_LABEL_FEC[pg.forma] ?? pg.forma, M + 4, y + 6)
+      fonte(false, 8); cor(MUDO); doc.text(dataFmt, M + CW / 3, y + 6)
+      fonte(true, 9); cor('#16a34a'); doc.text(brl(pg.valor), M + CW - 4, y + 6, { align: 'right' })
+      y += 9
+    })
+    y += 6
+  }
+
+  // ── Rodapé ──
+  if (y + 15 > H - 10) { doc.addPage(); y = 20 }
+  y = Math.max(y, H - 25)
+  doc.setFillColor(AZUL); doc.rect(M, y, CW, 0.9, 'F')
+  y += 6
+  fonte(false, 7.5); cor(MUDO)
+  doc.text('Documento interno. Uso exclusivo da administração MLA Containers.', M, y)
+  doc.text(new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }), W - M, y, { align: 'right' })
+
+  return { blob: doc.output('blob'), nome: `Fechamento-${d.pedidoCodigo}.pdf` }
+}
