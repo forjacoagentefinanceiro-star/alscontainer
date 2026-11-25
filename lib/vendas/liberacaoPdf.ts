@@ -203,3 +203,121 @@ export async function gerarLiberacaoPdf(d: LiberacaoDados): Promise<{ blob: Blob
   const nomeArq = `Liberacao-${d.codigo}.pdf`
   return { blob: doc.output('blob'), nome: nomeArq }
 }
+
+// ── Ordem de Retirada (1 folha por container, motorista apresenta no gate) ──
+
+export type OrdemRetiradaDados = {
+  pedidoCodigo: string
+  clienteNome: string
+  cidade: string | null
+  container: { numero: string; tamanho: string }
+  motorista: { nome: string; doc: string; placa: string; modelo: string }
+  liberadoEm: string   // ISO timestamp
+}
+
+async function carregarLogoMLA(): Promise<{ data: string; w: number; h: number } | null> {
+  try {
+    const blob = await (await fetch('/containers/mla-logo.png')).blob()
+    const data: string = await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob)
+    })
+    const im: HTMLImageElement = await new Promise((res, rej) => {
+      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = data
+    })
+    const esc = Math.min(1, 400 / im.naturalWidth)
+    const cv = document.createElement('canvas')
+    cv.width = Math.round(im.naturalWidth * esc); cv.height = Math.round(im.naturalHeight * esc)
+    cv.getContext('2d')!.drawImage(im, 0, 0, cv.width, cv.height)
+    return { data: cv.toDataURL('image/png'), w: cv.width, h: cv.height }
+  } catch { return null }
+}
+
+export async function gerarOrdemRetiradaPdf(d: OrdemRetiradaDados): Promise<{ blob: Blob; nome: string }> {
+  const { jsPDF } = await import('jspdf')
+  const doc: JsPDF = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+  const W = 210, M = 15, CW = W - 2 * M
+
+  const cor = (c: string) => doc.setTextColor(c)
+  const fonte = (bold: boolean, size: number) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size) }
+
+  const dataLib = new Date(d.liberadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const logo = await carregarLogoMLA()
+
+  // ── Cabeçalho ──
+  let y = 13
+  if (logo) {
+    const lh = 18, lw = (logo.w / logo.h) * lh
+    doc.addImage(logo.data, 'PNG', M, y, lw, lh)
+  } else {
+    fonte(true, 15); cor(AZUL); doc.text('MLA CONTAINERS', M, y + 10)
+  }
+  fonte(true, 20); cor(TXT); doc.text('ORDEM DE RETIRADA', W - M, y + 8, { align: 'right' })
+  fonte(false, 8.5); cor(MUDO); doc.text(`Ref: ${d.pedidoCodigo}  ·  ${dataLib}`, W - M, y + 15, { align: 'right' })
+  y += 28
+  doc.setFillColor(AZUL); doc.rect(M, y, CW, 1.2, 'F')
+  y += 10
+
+  // ── Container (destaque) ──
+  doc.setFillColor(AZUL); doc.roundedRect(M, y, CW, 28, 2, 2, 'F')
+  fonte(false, 9); doc.setTextColor('#ffffff'); doc.text('CONTAINER AUTORIZADO PARA RETIRADA', M + CW / 2, y + 7, { align: 'center' })
+  fonte(true, 32); doc.setTextColor('#ffffff'); doc.text(d.container.numero, M + CW / 2, y + 20, { align: 'center' })
+  if (d.container.tamanho) {
+    fonte(false, 10); doc.setTextColor('rgba(255,255,255,0.75)'); doc.text(d.container.tamanho, M + CW / 2, y + 26, { align: 'center' })
+  }
+  y += 36
+
+  // ── Cliente ──
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 18, 1.5, 1.5, 'S')
+  fonte(false, 8); cor(MUDO); doc.text('CLIENTE / COMPRADOR', M + 4, y + 7)
+  fonte(true, 11); cor(TXT); doc.text(d.clienteNome, M + 4, y + 14)
+  if (d.cidade) { fonte(false, 8.5); cor(MUDO); doc.text(d.cidade, W - M - 4, y + 14, { align: 'right' }) }
+  y += 25
+
+  // ── Motorista ──
+  fonte(true, 9); cor(AZUL); doc.text('DADOS DO MOTORISTA E VEÍCULO', M, y); y += 3
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 36, 1.5, 1.5, 'S')
+
+  const col2 = M + CW / 2
+  fonte(false, 8); cor(MUDO)
+  doc.text('NOME DO MOTORISTA', M + 4, y + 8)
+  doc.text('CPF / RG', col2 + 4, y + 8)
+  fonte(true, 11); cor(TXT)
+  doc.text(d.motorista.nome || '—', M + 4, y + 16)
+  doc.text(d.motorista.doc || '—', col2 + 4, y + 16)
+
+  fonte(false, 8); cor(MUDO)
+  doc.text('PLACA DO VEÍCULO', M + 4, y + 24)
+  doc.text('MODELO / TIPO', col2 + 4, y + 24)
+  fonte(true, 11); cor(TXT)
+  doc.text(d.motorista.placa || '—', M + 4, y + 32)
+  doc.text(d.motorista.modelo || '—', col2 + 4, y + 32)
+  y += 43
+
+  // ── Declaração ──
+  doc.setFillColor(FAIXA); doc.roundedRect(M, y, CW, 18, 1.5, 1.5, 'F')
+  doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 18, 1.5, 1.5, 'S')
+  fonte(false, 8.5); cor(TXT)
+  const decl = doc.splitTextToSize(
+    'Este documento autoriza o motorista identificado acima a retirar o container especificado. Deve ser apresentado no gate da ALS Logística juntamente com documento de identidade.',
+    CW - 10
+  )
+  doc.text(decl, M + 5, y + 7)
+  y += 25
+
+  // ── Assinaturas ──
+  y += 10
+  doc.setFillColor(AZUL); doc.rect(M, y, CW, 0.9, 'F')
+  y += 10
+  doc.setDrawColor(TXT); doc.setLineWidth(0.3)
+  const assSep = CW / 3
+  doc.line(M, y, M + assSep - 5, y)
+  doc.line(M + assSep + 5, y, M + 2 * assSep - 5, y)
+  doc.line(M + 2 * assSep + 5, y, W - M, y)
+  fonte(false, 8); cor(MUDO)
+  doc.text('MLA Containers — Emissor', M, y + 4.5)
+  doc.text('Motorista — Ciente', M + assSep + 5, y + 4.5)
+  doc.text('Gate ALS — Conferido', M + 2 * assSep + 5, y + 4.5)
+  fonte(false, 7.5); doc.text(dataLib, M, y + 8.5)
+
+  return { blob: doc.output('blob'), nome: `OrdemRetirada-${d.pedidoCodigo}-${d.container.numero}.pdf` }
+}

@@ -7,7 +7,7 @@ import {
   lancarPagamento, excluirPagamento, liberarContainerPedido, salvarComprovanteUrl,
   type DadosLiberacaoContainer, type MotoristaItem,
 } from '@/app/(app)/vendas/pedidos/pedidos-actions'
-import { gerarLiberacaoPdf, baixarBlob } from '@/lib/vendas/liberacaoPdf'
+import { gerarLiberacaoPdf, gerarOrdemRetiradaPdf, baixarBlob } from '@/lib/vendas/liberacaoPdf'
 import { gerarReciboPdf } from '@/lib/vendas/reciboPdf'
 import { createClient } from '@/lib/supabase/client'
 import { card, input, btn } from '@/components/vendas/ui'
@@ -66,7 +66,7 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const [vecPlaca, setVecPlaca] = useState('')
   const [vecModelo, setVecModelo] = useState('')
   const [liberando, setLiberando] = useState(false)
-  const [ultimaLib, setUltimaLib] = useState<{ contNumero: string; whatsUrl: string } | null>(null)
+  const [ultimaLib, setUltimaLib] = useState<{ contNumero: string; whatsUrl: string; mot: DadosLiberacaoContainer; liberadoEm: string } | null>(null)
   const [gerandoPdf, setGerandoPdf] = useState(false)
   const [gerandoRecibo, setGerandoRecibo] = useState<string | null>(null)
   const [uploadingComp, setUploadingComp] = useState<string | null>(null)
@@ -152,7 +152,7 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
     setLiberando(false)
     if ('erro' in r) return setErro(r.erro)
     const whatsUrl = gerarWhatsContainer(contNumero, dados)
-    setUltimaLib({ contNumero, whatsUrl })
+    setUltimaLib({ contNumero, whatsUrl, mot: dados, liberadoEm: new Date().toISOString() })
     setMotNome(''); setMotDoc(''); setVecPlaca(''); setVecModelo('')
     router.refresh()
   }
@@ -365,10 +365,20 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                       <p className="text-[10px] font-semibold text-green-700">📦 {m.container_numero} ✓ {m.liberado_em ? dataCurta(m.liberado_em) : ''}</p>
                       <p className="text-slate-700">👤 <strong>{m.motorista_nome}</strong>{m.motorista_doc ? ` — ${m.motorista_doc}` : ''}</p>
                       <p className="text-slate-700">🚛 <strong>{m.veiculo_placa}</strong>{m.veiculo_modelo ? ` — ${m.veiculo_modelo}` : ''}</p>
-                      <a href={gerarWhatsContainer(m.container_numero, m)} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-green-700 hover:underline font-semibold mt-1">
-                        📱 Reenviar ao pátio
-                      </a>
+                      <div className="flex flex-wrap gap-3 mt-1">
+                        <a href={gerarWhatsContainer(m.container_numero, m)} target="_blank" rel="noopener noreferrer"
+                          className="text-green-700 hover:underline font-semibold">📱 Reenviar ao pátio</a>
+                        <button className="text-blue-700 hover:underline font-semibold" onClick={async () => {
+                          const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === m.container_numero)
+                          const { blob, nome } = await gerarOrdemRetiradaPdf({
+                            pedidoCodigo: pedido.codigo, clienteNome: pedido.cliente_nome, cidade: pedido.cidade,
+                            container: { numero: m.container_numero, tamanho: cont?.tamanho ?? '' },
+                            motorista: { nome: m.motorista_nome, doc: m.motorista_doc, placa: m.veiculo_placa, modelo: m.veiculo_modelo },
+                            liberadoEm: m.liberado_em ?? new Date().toISOString(),
+                          })
+                          baixarBlob(blob, nome)
+                        }}>📄 Ordem de retirada</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -416,10 +426,22 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                   </div>
 
                   {ultimaLib && (
-                    <div className="rounded-xl p-3 text-xs" style={{ background: '#d1fae5', color: '#065f46' }}>
-                      ✅ {ultimaLib.contNumero} liberado!{' '}
-                      <a href={ultimaLib.whatsUrl} target="_blank" rel="noopener noreferrer"
-                        className="font-bold underline">📱 Enviar ao pátio</a>
+                    <div className="rounded-xl p-3 text-xs space-y-2" style={{ background: '#d1fae5', color: '#065f46' }}>
+                      <p className="font-semibold">✅ {ultimaLib.contNumero} liberado!</p>
+                      <div className="flex flex-wrap gap-2">
+                        <a href={ultimaLib.whatsUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-bold underline">📱 Enviar ao pátio</a>
+                        <button className="font-bold underline" onClick={async () => {
+                          const cont = (pedido.containers as { numero: string; tamanho: string }[]).find(c => c.numero === ultimaLib.contNumero)
+                          const { blob, nome } = await gerarOrdemRetiradaPdf({
+                            pedidoCodigo: pedido.codigo, clienteNome: pedido.cliente_nome, cidade: pedido.cidade,
+                            container: { numero: ultimaLib.contNumero, tamanho: cont?.tamanho ?? '' },
+                            motorista: { nome: ultimaLib.mot.motorista_nome, doc: ultimaLib.mot.motorista_doc, placa: ultimaLib.mot.veiculo_placa, modelo: ultimaLib.mot.veiculo_modelo },
+                            liberadoEm: ultimaLib.liberadoEm,
+                          })
+                          baixarBlob(blob, nome)
+                        }}>📄 Ordem de retirada (motorista)</button>
+                      </div>
                     </div>
                   )}
 
