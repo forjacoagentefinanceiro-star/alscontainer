@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { brl, dataCurta, WHATS_PATIO } from '@/lib/vendas/config'
-import { lancarPagamento, excluirPagamento, liberarPedido } from '@/app/(app)/vendas/pedidos/pedidos-actions'
+import { lancarPagamento, excluirPagamento, liberarPedido, type DadosMotorista } from '@/app/(app)/vendas/pedidos/pedidos-actions'
 import { gerarLiberacaoPdf, baixarBlob } from '@/lib/vendas/liberacaoPdf'
 import { card, input, btn } from '@/components/vendas/ui'
 import type { PedidoRow, PedidoPagamento } from '@/app/(app)/vendas/pedidos/pedidos-actions'
@@ -27,7 +27,10 @@ function gerarWhatsUrl(pedido: PedidoRow): string {
   const dataLib = pedido.liberado_em
     ? new Date(pedido.liberado_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
     : ''
-  const msg = `*AUTORIZAÇÃO DE RETIRADA*\nPedido: ${pedido.codigo}\n\n*Cliente:* ${pedido.cliente_nome}${pedido.cidade ? `\n*Cidade:* ${pedido.cidade}` : ''}\n\n*Containers liberados:*\n${conts}\n\n*Total:* ${brl(pedido.total)}\n*Status:* ✅ Quitado\n\n*Data de liberação:* ${dataLib}${pedido.obs_liberacao ? `\n\n*Obs:* ${pedido.obs_liberacao}` : ''}`
+  const motorista = pedido.motorista_nome
+    ? `\n\n*MOTORISTA / VEÍCULO:*\n👤 ${pedido.motorista_nome}${pedido.motorista_doc ? ` — Doc: ${pedido.motorista_doc}` : ''}\n🚛 Placa: ${pedido.veiculo_placa ?? '—'}${pedido.veiculo_modelo ? ` — ${pedido.veiculo_modelo}` : ''}`
+    : ''
+  const msg = `*AUTORIZAÇÃO DE RETIRADA*\nPedido: ${pedido.codigo}\n\n*Cliente:* ${pedido.cliente_nome}${pedido.cidade ? `\n*Cidade:* ${pedido.cidade}` : ''}\n\n*Containers liberados:*\n${conts}${motorista}\n\n*Total:* ${brl(pedido.total)} ✅ Quitado\n\n*Data de liberação:* ${dataLib}${pedido.obs_liberacao ? `\n\n*Obs:* ${pedido.obs_liberacao}` : ''}`
   return `https://wa.me/${WHATS_PATIO}?text=${encodeURIComponent(msg)}`
 }
 
@@ -40,6 +43,10 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const [addData, setAddData] = useState(new Date().toISOString().slice(0, 10))
   const [addObs, setAddObs] = useState('')
   const [adicionando, setAdicionando] = useState(false)
+  const [motNome, setMotNome] = useState('')
+  const [motDoc, setMotDoc] = useState('')
+  const [vecPlaca, setVecPlaca] = useState('')
+  const [vecModelo, setVecModelo] = useState('')
   const [obsLib, setObsLib] = useState('')
   const [liberando, setLiberando] = useState(false)
   const [gerandoPdf, setGerandoPdf] = useState(false)
@@ -71,7 +78,11 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   async function liberar() {
     if (!confirm(`Confirmar liberação do pedido ${pedido.codigo}? O pátio receberá a autorização de retirada.`)) return
     setLiberando(true); setErro(null)
-    const r = await liberarPedido(pedido.id, obsLib)
+    const dados: DadosMotorista = {
+      motorista_nome: motNome, motorista_doc: motDoc,
+      veiculo_placa: vecPlaca, veiculo_modelo: vecModelo, obs: obsLib,
+    }
+    const r = await liberarPedido(pedido.id, dados)
     setLiberando(false)
     if ('erro' in r) return setErro(r.erro)
     router.refresh()
@@ -85,6 +96,8 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
         clienteNome: pedido.cliente_nome, telefone: pedido.telefone, cidade: pedido.cidade,
         containers: pedido.containers, total: pedido.total,
         liberadoEm: pedido.liberado_em, obsLiberacao: pedido.obs_liberacao,
+        motoristaNome: pedido.motorista_nome, motoristaDoc: pedido.motorista_doc,
+        veiculoPlaca: pedido.veiculo_placa, veiculoModelo: pedido.veiculo_modelo,
       })
       baixarBlob(blob, nome)
     } catch (e) { setErro(`Erro ao gerar PDF: ${(e as Error).message}`) }
@@ -227,6 +240,32 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
         {pedido.status === 'quitado' && (
           <section className={`${card} p-4 space-y-3`}>
             <p className="text-sm font-bold" style={{ color: '#0d1b2e' }}>Liberar para o pátio</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Motorista</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">Nome *</span>
+                <input className={`${input} mt-1`} placeholder="Nome completo"
+                  value={motNome} onChange={e => setMotNome(e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">CPF / RG</span>
+                <input className={`${input} mt-1`} placeholder="ex: 123.456.789-00"
+                  value={motDoc} onChange={e => setMotDoc(e.target.value)} />
+              </label>
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Veículo</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">Placa *</span>
+                <input className={`${input} mt-1 uppercase`} placeholder="ex: ABC-1234"
+                  value={vecPlaca} onChange={e => setVecPlaca(e.target.value.toUpperCase())} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">Modelo / tipo</span>
+                <input className={`${input} mt-1`} placeholder="ex: Carreta, Truck, Toco"
+                  value={vecModelo} onChange={e => setVecModelo(e.target.value)} />
+              </label>
+            </div>
             <label className="block">
               <span className="text-xs font-semibold text-slate-600">Observação (opcional)</span>
               <textarea className={`${input} mt-1`} rows={2}
@@ -244,6 +283,12 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
         {pedido.status === 'liberado' && (
           <section className={`${card} p-4 space-y-3`}>
             <p className="text-sm font-bold text-green-700">Liberado em {dataCurta(pedido.liberado_em)}</p>
+            {pedido.motorista_nome && (
+              <div className="text-xs text-slate-600 space-y-0.5">
+                <p>👤 <strong>{pedido.motorista_nome}</strong>{pedido.motorista_doc ? ` — ${pedido.motorista_doc}` : ''}</p>
+                <p>🚛 <strong>{pedido.veiculo_placa ?? '—'}</strong>{pedido.veiculo_modelo ? ` — ${pedido.veiculo_modelo}` : ''}</p>
+              </div>
+            )}
             {pedido.obs_liberacao && <p className="text-xs text-slate-500">{pedido.obs_liberacao}</p>}
             <button className={`${btn} w-full`} style={{ background: '#1B4F8A' }}
               disabled={gerandoPdf} onClick={baixarPdf}>

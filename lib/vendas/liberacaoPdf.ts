@@ -14,6 +14,10 @@ export type LiberacaoDados = {
   total: number
   liberadoEm: string | null
   obsLiberacao: string | null
+  motoristaNome?: string | null
+  motoristaDoc?: string | null
+  veiculoPlaca?: string | null
+  veiculoModelo?: string | null
 }
 
 async function carregarLogo(): Promise<{ data: string; w: number; h: number } | null> {
@@ -105,6 +109,25 @@ export async function gerarLiberacaoPdf(d: LiberacaoDados): Promise<{ blob: Blob
     y += lh
   })
   y += 6
+
+  // ── Motorista / Veículo ──
+  if (d.motoristaNome) {
+    fonte(true, 9); cor(AZUL); doc.text('DADOS DO MOTORISTA E VEÍCULO', M, y); y += 3
+    doc.setDrawColor(LINHA); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, 22, 1.5, 1.5, 'S')
+    fonte(false, 7.5); cor(MUDO)
+    doc.text('NOME DO MOTORISTA', M + 4, y + 6)
+    doc.text('CPF / RG', M + CW / 2 + 2, y + 6)
+    fonte(true, 10); cor(TXT)
+    doc.text(d.motoristaNome || '—', M + 4, y + 12)
+    doc.text(d.motoristaDoc || '—', M + CW / 2 + 2, y + 12)
+    fonte(false, 7.5); cor(MUDO)
+    doc.text('PLACA DO VEÍCULO', M + 4, y + 17)
+    doc.text('MODELO / TIPO', M + CW / 2 + 2, y + 17)
+    fonte(true, 10); cor(TXT)
+    doc.text(d.veiculoPlaca || '—', M + 4, y + 22)
+    doc.text(d.veiculoModelo || '—', M + CW / 2 + 2, y + 22)
+    y += 30
+  }
 
   // ── Pagamento ──
   fonte(true, 9); cor(AZUL); doc.text('SITUAÇÃO DO PAGAMENTO', M, y); y += 3

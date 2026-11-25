@@ -14,6 +14,8 @@ export type PedidoRow = {
   containers: { id: string | null; numero: string; tamanho: string }[]
   total: number; total_pago: number; status: string
   obs_liberacao: string | null; liberado_em: string | null; criado_em: string
+  motorista_nome: string | null; motorista_doc: string | null
+  veiculo_placa: string | null; veiculo_modelo: string | null
   pagamentos?: PedidoPagamento[]
 }
 
@@ -57,15 +59,27 @@ export async function excluirPagamento(pagamentoId: string, pedidoId: string): P
   return { ok: true }
 }
 
-export async function liberarPedido(pedidoId: string, obs: string): Promise<R> {
+export type DadosMotorista = {
+  motorista_nome: string; motorista_doc: string
+  veiculo_placa: string; veiculo_modelo: string; obs: string
+}
+
+export async function liberarPedido(pedidoId: string, dados: DadosMotorista): Promise<R> {
   const { supabase } = await exigirVendas()
   const { data: p } = await supabase.from('cv_pedidos').select('total, total_pago, status').eq('id', pedidoId).single()
   if (!p) return { erro: 'Pedido não encontrado.' }
   const ped = p as { total: number; total_pago: number; status: string }
   if (ped.status === 'liberado') return { erro: 'Pedido já foi liberado.' }
   if (ped.total_pago < ped.total) return { erro: `Pedido não está quitado. Faltam ${(ped.total - ped.total_pago).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.` }
+  if (!dados.motorista_nome.trim()) return { erro: 'Informe o nome do motorista.' }
+  if (!dados.veiculo_placa.trim()) return { erro: 'Informe a placa do veículo.' }
   const { error } = await supabase.from('cv_pedidos').update({
-    status: 'liberado', liberado_em: new Date().toISOString(), obs_liberacao: obs || null,
+    status: 'liberado', liberado_em: new Date().toISOString(),
+    obs_liberacao: dados.obs || null,
+    motorista_nome: dados.motorista_nome.trim(),
+    motorista_doc: dados.motorista_doc.trim() || null,
+    veiculo_placa: dados.veiculo_placa.trim().toUpperCase(),
+    veiculo_modelo: dados.veiculo_modelo.trim() || null,
   }).eq('id', pedidoId)
   if (error) return { erro: error.message }
   refresh()
