@@ -91,7 +91,7 @@ export function diasDesde(iso: string, agora = Date.now()) {
 // [CIDADE] e o número vêm da tela; ajuste o texto aqui para mudar o padrão.
 export const CIDADE_PATIO = 'Itajaí/SC'
 /** Número do pátio/terminal para receber a autorização de retirada via WhatsApp (somente dígitos com código do país) */
-export const WHATS_PATIO = '5547XXXXXXXXX'   // ← substitua pelo número real do pátio
+export const WHATS_PATIO = '554791701400'   // Fernanda — operadora do pátio
 
 export type ModeloMsg = { key: string; titulo: string; texto: (l: Lead, preco?: string) => string }
 export const MODELOS: ModeloMsg[] = [
