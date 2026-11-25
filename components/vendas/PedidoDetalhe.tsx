@@ -60,6 +60,7 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
   const [addObs, setAddObs] = useState('')
   const [adicionando, setAdicionando] = useState(false)
 
+  const [contSel, setContSel] = useState('')
   const [motNome, setMotNome] = useState('')
   const [motDoc, setMotDoc] = useState('')
   const [vecPlaca, setVecPlaca] = useState('')
@@ -349,7 +350,7 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
           const motoristasFeitos: MotoristaItem[] = pedido.motoristas ?? []
           const conts = pedido.containers as { numero: string; tamanho: string }[]
           const pendentes = conts.filter(c => !motoristasFeitos.some(m => m.container_numero === c.numero))
-          const proximo = pendentes[0] ?? null
+          const contAtual = pendentes.find(c => c.numero === contSel) ?? pendentes[0] ?? null
 
           return (
             <section className={`${card} p-4 space-y-3`}>
@@ -373,14 +374,22 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                 </div>
               )}
 
-              {/* Form do próximo */}
-              {proximo ? (
+              {/* Form do container selecionado */}
+              {contAtual ? (
                 <>
-                  <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: '#eff6ff' }}>
-                    <span className="text-sm font-bold" style={{ color: '#1B4F8A' }}>📦 {proximo.numero}</span>
-                    {proximo.tamanho && <span className="text-xs text-slate-500">{proximo.tamanho}</span>}
-                    {pendentes.length > 1 && <span className="text-xs text-slate-400 ml-auto">+{pendentes.length - 1} após</span>}
-                  </div>
+                  {/* Seletor */}
+                  <label className="block">
+                    <span className="text-xs font-semibold text-slate-600">Container</span>
+                    <select className={`${input} mt-1`}
+                      value={contSel || contAtual.numero}
+                      onChange={e => setContSel(e.target.value)}>
+                      {pendentes.map(c => (
+                        <option key={c.numero} value={c.numero}>
+                          📦 {c.numero}{c.tamanho ? ` — ${c.tamanho}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="space-y-2">
                     <label className="block">
                       <span className="text-xs font-semibold text-slate-600">Motorista *</span>
@@ -415,8 +424,8 @@ export default function PedidoDetalhe({ pedido }: { pedido: PedidoRow }) {
                   )}
 
                   <button className={`${btn} w-full`} style={{ background: '#16a34a' }}
-                    disabled={liberando} onClick={() => liberarContainer(proximo.numero)}>
-                    {liberando ? 'Liberando…' : `✅ Liberar ${proximo.numero}`}
+                    disabled={liberando} onClick={() => { liberarContainer(contAtual.numero); setContSel('') }}>
+                    {liberando ? 'Liberando…' : `✅ Liberar ${contAtual.numero}`}
                   </button>
                 </>
               ) : (
