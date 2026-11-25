@@ -24,7 +24,7 @@ const FORMA_LABEL: Record<string, string> = {
 
 async function carregarLogo(): Promise<{ data: string; w: number; h: number } | null> {
   try {
-    const blob = await (await fetch('/logo.png')).blob()
+    const blob = await (await fetch('/containers/mla-logo.png')).blob()
     const data: string = await new Promise((res, rej) => {
       const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob)
     })
@@ -57,7 +57,7 @@ export async function gerarReciboPdf(d: ReciboDados): Promise<{ blob: Blob; nome
     const lh = 18, lw = (logo.w / logo.h) * lh
     doc.addImage(logo.data, 'PNG', M, y, lw, lh)
   } else {
-    fonte(true, 16); cor(AZUL); doc.text('ALS LOGÍSTICA', M, y + 10)
+    fonte(true, 16); cor(AZUL); doc.text('MLA CONTAINERS', M, y + 10)
   }
   fonte(true, 20); cor(TXT); doc.text('RECIBO DE PAGAMENTO', W - M, y + 8, { align: 'right' })
   fonte(true, 10); cor(AZUL); doc.text(`Nº ${d.numero}`, W - M, y + 15, { align: 'right' })
@@ -128,7 +128,7 @@ export async function gerarReciboPdf(d: ReciboDados): Promise<{ blob: Blob; nome
   doc.setDrawColor(TXT); doc.setLineWidth(0.3)
   doc.line(M, y, M + 80, y); doc.line(W - M - 80, y, W - M, y)
   fonte(false, 8); cor(MUDO)
-  doc.text('ALS Logística', M, y + 4.5)
+  doc.text('MLA Containers', M, y + 4.5)
   doc.text(`Cliente: ${d.clienteNome}`, W - M - 80, y + 4.5)
   fonte(false, 7.5); doc.text(`Itajaí/SC, ${dataFmt}`, M, y + 8.5)
 
