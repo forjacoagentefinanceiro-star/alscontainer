@@ -93,6 +93,7 @@ export function InventarioTab({ initialContainers, role = 'viewer', tiposVenda =
   const [search, setSearch] = useState('')
   const [filterTipo, setFilterTipo] = useState<'todos' | 'nacional' | 'importado'>('todos')
   const [filterSize, setFilterSize] = useState('todos')
+  const [filterDestino, setFilterDestino] = useState<'todos' | 'venda' | 'aluguel' | 'livre'>('todos')
 
   const iso = form.numero.replace(/\s/g, '').length >= 11
     ? validateISO(form.numero.toUpperCase().replace(/\s/g, ''))
@@ -279,7 +280,12 @@ export function InventarioTab({ initialContainers, role = 'viewer', tiposVenda =
     const matchSearch = !search ||
       c.numero.toLowerCase().includes(search.toLowerCase()) ||
       (c.fornecedor ?? '').toLowerCase().includes(search.toLowerCase())
-    return matchTipo && matchSize && matchSearch
+    const matchDestino =
+      filterDestino === 'todos' ? true :
+      filterDestino === 'venda' ? c.para_venda === true :
+      filterDestino === 'aluguel' ? (c as { status?: string }).status === 'locado' :
+      /* livre */ !c.para_venda && (c as { status?: string }).status !== 'locado' && (c as { status?: string }).status !== 'vendido'
+    return matchTipo && matchSize && matchSearch && matchDestino
   })
 
   const totalBRL = containers.reduce((s, c) => s + (c.valor_brl ?? 0), 0)
@@ -316,6 +322,26 @@ export function InventarioTab({ initialContainers, role = 'viewer', tiposVenda =
           className="w-full md:flex-1 md:min-w-40 rounded border px-3 py-2 text-sm outline-none focus:border-blue-500"
           style={{ borderColor: '#d1d5db', background: '#fff', color: '#374151' }}
         />
+        {/* Filtro de destino */}
+        <div className="flex gap-1.5 flex-wrap">
+          {([
+            { key: 'todos', label: 'Todos', icon: '📦' },
+            { key: 'venda', label: 'À venda', icon: '🏷️' },
+            { key: 'aluguel', label: 'Alugados', icon: '🔑' },
+            { key: 'livre', label: 'Livres', icon: '⬜' },
+          ] as const).map(({ key, label, icon }) => (
+            <button
+              key={key}
+              onClick={() => setFilterDestino(key)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={filterDestino === key
+                ? { background: '#1B4F8A', color: '#fff', border: '1.5px solid #1B4F8A' }
+                : { background: '#f8fafc', color: '#6b7280', border: '1.5px solid #e5e7eb' }}
+            >
+              {icon} {label}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-2">
           <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as typeof filterTipo)}
             className="flex-1 rounded border px-2 py-2 text-sm outline-none"
